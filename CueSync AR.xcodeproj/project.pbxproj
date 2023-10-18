@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A01214008A17959CF8EC26E7 /* Pods_CueSync_ARTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58D95BDC5A37A9284750556E /* Pods_CueSync_ARTests.framework */; };
 		B543404B2ADF032D00593A44 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B543404A2ADF032D00593A44 /* AppDelegate.swift */; };
 		B543404D2ADF032D00593A44 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B543404C2ADF032D00593A44 /* ContentView.swift */; };
 		B543404F2ADF033000593A44 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B543404E2ADF033000593A44 /* Assets.xcassets */; };
@@ -14,6 +15,9 @@
 		B543405C2ADF033000593A44 /* CueSync_ARTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B543405B2ADF033000593A44 /* CueSync_ARTests.swift */; };
 		B54340662ADF033000593A44 /* CueSync_ARUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B54340652ADF033000593A44 /* CueSync_ARUITests.swift */; };
 		B54340682ADF033000593A44 /* CueSync_ARUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B54340672ADF033000593A44 /* CueSync_ARUITestsLaunchTests.swift */; };
+		B54340752ADF1A5900593A44 /* BallDetect.swift in Sources */ = {isa = PBXBuildFile; fileRef = B54340742ADF1A5900593A44 /* BallDetect.swift */; };
+		B96DE00CF3E818F65F29C591 /* Pods_CueSync_AR_CueSync_ARUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 44FD015A50B9CBEB1B9D3CDD /* Pods_CueSync_AR_CueSync_ARUITests.framework */; };
+		D41570516DDF9E55AD002704 /* Pods_CueSync_AR.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 87759A855F5F565F553BABB0 /* Pods_CueSync_AR.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,6 +38,14 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		2A53861BC48F58F5274A7BAF /* Pods-CueSync AR-CueSync ARUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CueSync AR-CueSync ARUITests.debug.xcconfig"; path = "Target Support Files/Pods-CueSync AR-CueSync ARUITests/Pods-CueSync AR-CueSync ARUITests.debug.xcconfig"; sourceTree = "<group>"; };
+		44FD015A50B9CBEB1B9D3CDD /* Pods_CueSync_AR_CueSync_ARUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_CueSync_AR_CueSync_ARUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		58D95BDC5A37A9284750556E /* Pods_CueSync_ARTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_CueSync_ARTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		722D9BEB4F56C85EBB410FCD /* Pods-CueSync ARTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CueSync ARTests.release.xcconfig"; path = "Target Support Files/Pods-CueSync ARTests/Pods-CueSync ARTests.release.xcconfig"; sourceTree = "<group>"; };
+		87759A855F5F565F553BABB0 /* Pods_CueSync_AR.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_CueSync_AR.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		932B5160B3AA387F1729B16C /* Pods-CueSync AR.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CueSync AR.debug.xcconfig"; path = "Target Support Files/Pods-CueSync AR/Pods-CueSync AR.debug.xcconfig"; sourceTree = "<group>"; };
+		A23AC5480EE570E3C00F3B80 /* Pods-CueSync AR-CueSync ARUITests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CueSync AR-CueSync ARUITests.release.xcconfig"; path = "Target Support Files/Pods-CueSync AR-CueSync ARUITests/Pods-CueSync AR-CueSync ARUITests.release.xcconfig"; sourceTree = "<group>"; };
+		A71891D5B5B176B96F6FA647 /* Pods-CueSync ARTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CueSync ARTests.debug.xcconfig"; path = "Target Support Files/Pods-CueSync ARTests/Pods-CueSync ARTests.debug.xcconfig"; sourceTree = "<group>"; };
 		B54340472ADF032D00593A44 /* CueSync AR.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "CueSync AR.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B543404A2ADF032D00593A44 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		B543404C2ADF032D00593A44 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -44,6 +56,9 @@
 		B54340612ADF033000593A44 /* CueSync ARUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "CueSync ARUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B54340652ADF033000593A44 /* CueSync_ARUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueSync_ARUITests.swift; sourceTree = "<group>"; };
 		B54340672ADF033000593A44 /* CueSync_ARUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueSync_ARUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		B54340742ADF1A5900593A44 /* BallDetect.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BallDetect.swift; sourceTree = "<group>"; };
+		B5C7D4132AE06A9200CED56F /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		C7E9222A657DFBBA007FEB9A /* Pods-CueSync AR.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CueSync AR.release.xcconfig"; path = "Target Support Files/Pods-CueSync AR/Pods-CueSync AR.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -51,6 +66,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D41570516DDF9E55AD002704 /* Pods_CueSync_AR.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -58,6 +74,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A01214008A17959CF8EC26E7 /* Pods_CueSync_ARTests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,19 +82,46 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B96DE00CF3E818F65F29C591 /* Pods_CueSync_AR_CueSync_ARUITests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2D8D8E1B928F35742800A079 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				87759A855F5F565F553BABB0 /* Pods_CueSync_AR.framework */,
+				44FD015A50B9CBEB1B9D3CDD /* Pods_CueSync_AR_CueSync_ARUITests.framework */,
+				58D95BDC5A37A9284750556E /* Pods_CueSync_ARTests.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		47BDB51F23B461BADEE07DEE /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				932B5160B3AA387F1729B16C /* Pods-CueSync AR.debug.xcconfig */,
+				C7E9222A657DFBBA007FEB9A /* Pods-CueSync AR.release.xcconfig */,
+				2A53861BC48F58F5274A7BAF /* Pods-CueSync AR-CueSync ARUITests.debug.xcconfig */,
+				A23AC5480EE570E3C00F3B80 /* Pods-CueSync AR-CueSync ARUITests.release.xcconfig */,
+				A71891D5B5B176B96F6FA647 /* Pods-CueSync ARTests.debug.xcconfig */,
+				722D9BEB4F56C85EBB410FCD /* Pods-CueSync ARTests.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		B543403E2ADF032D00593A44 = {
 			isa = PBXGroup;
 			children = (
+				B5C7D4132AE06A9200CED56F /* README.md */,
 				B54340492ADF032D00593A44 /* CueSync AR */,
 				B543405A2ADF033000593A44 /* CueSync ARTests */,
 				B54340642ADF033000593A44 /* CueSync ARUITests */,
 				B54340482ADF032D00593A44 /* Products */,
+				47BDB51F23B461BADEE07DEE /* Pods */,
+				2D8D8E1B928F35742800A079 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -98,6 +142,7 @@
 				B543404C2ADF032D00593A44 /* ContentView.swift */,
 				B543404E2ADF033000593A44 /* Assets.xcassets */,
 				B54340502ADF033000593A44 /* Preview Content */,
+				B54340742ADF1A5900593A44 /* BallDetect.swift */,
 			);
 			path = "CueSync AR";
 			sourceTree = "<group>";
@@ -134,9 +179,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = B543406B2ADF033000593A44 /* Build configuration list for PBXNativeTarget "CueSync AR" */;
 			buildPhases = (
+				B43B174E205345A49917FA11 /* [CP] Check Pods Manifest.lock */,
 				B54340432ADF032D00593A44 /* Sources */,
 				B54340442ADF032D00593A44 /* Frameworks */,
 				B54340452ADF032D00593A44 /* Resources */,
+				0503EBE73A22CB9283410EC3 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -151,6 +198,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = B543406E2ADF033000593A44 /* Build configuration list for PBXNativeTarget "CueSync ARTests" */;
 			buildPhases = (
+				0CE7C6A21EE3A6B68C0BBF8D /* [CP] Check Pods Manifest.lock */,
 				B54340532ADF033000593A44 /* Sources */,
 				B54340542ADF033000593A44 /* Frameworks */,
 				B54340552ADF033000593A44 /* Resources */,
@@ -169,9 +217,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = B54340712ADF033000593A44 /* Build configuration list for PBXNativeTarget "CueSync ARUITests" */;
 			buildPhases = (
+				B48F37CF327ED33B27B9BC82 /* [CP] Check Pods Manifest.lock */,
 				B543405D2ADF033000593A44 /* Sources */,
 				B543405E2ADF033000593A44 /* Frameworks */,
 				B543405F2ADF033000593A44 /* Resources */,
+				E69A106E7C7CB04C2711348F /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -252,11 +302,115 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		0503EBE73A22CB9283410EC3 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-CueSync AR/Pods-CueSync AR-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-CueSync AR/Pods-CueSync AR-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CueSync AR/Pods-CueSync AR-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		0CE7C6A21EE3A6B68C0BBF8D /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-CueSync ARTests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B43B174E205345A49917FA11 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-CueSync AR-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B48F37CF327ED33B27B9BC82 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-CueSync AR-CueSync ARUITests-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		E69A106E7C7CB04C2711348F /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-CueSync AR-CueSync ARUITests/Pods-CueSync AR-CueSync ARUITests-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-CueSync AR-CueSync ARUITests/Pods-CueSync AR-CueSync ARUITests-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CueSync AR-CueSync ARUITests/Pods-CueSync AR-CueSync ARUITests-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		B54340432ADF032D00593A44 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B54340752ADF1A5900593A44 /* BallDetect.swift in Sources */,
 				B543404D2ADF032D00593A44 /* ContentView.swift in Sources */,
 				B543404B2ADF032D00593A44 /* AppDelegate.swift in Sources */,
 			);
@@ -416,6 +570,7 @@
 		};
 		B543406C2ADF033000593A44 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 932B5160B3AA387F1729B16C /* Pods-CueSync AR.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -447,6 +602,7 @@
 		};
 		B543406D2ADF033000593A44 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C7E9222A657DFBBA007FEB9A /* Pods-CueSync AR.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -478,6 +634,7 @@
 		};
 		B543406F2ADF033000593A44 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A71891D5B5B176B96F6FA647 /* Pods-CueSync ARTests.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -498,6 +655,7 @@
 		};
 		B54340702ADF033000593A44 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 722D9BEB4F56C85EBB410FCD /* Pods-CueSync ARTests.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -518,6 +676,7 @@
 		};
 		B54340722ADF033000593A44 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2A53861BC48F58F5274A7BAF /* Pods-CueSync AR-CueSync ARUITests.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -536,6 +695,7 @@
 		};
 		B54340732ADF033000593A44 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A23AC5480EE570E3C00F3B80 /* Pods-CueSync AR-CueSync ARUITests.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;

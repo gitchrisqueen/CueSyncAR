@@ -1,0 +1,1002 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0F5868186ECB21F5E30609623E7D1721 /* Pods-CueSync AR-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = AB92E7E9F7B78B71E1BCDA63B950D824 /* Pods-CueSync AR-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		10A0C851BE77055F2984DF665496498F /* Pods-CueSync ARTests-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = 302C47422DB4EC62AEE4FCD82EDD8979 /* Pods-CueSync ARTests-dummy.m */; };
+		11D499EB41E541D7CD504E2829E28A76 /* Roboflow.h in Headers */ = {isa = PBXBuildFile; fileRef = DEDD08FC04D27C42C3EA4AEE37F10038 /* Roboflow.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		271CC78C177F3B58E437C2B9B923AEA4 /* Roboflow-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = 7B1D91FDB137BE4B15244374590E1223 /* Roboflow-dummy.m */; };
+		40358D86CF7E9A16C26BA8E6A72CBD77 /* Roboflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81246C0050AEA1C184AC86B595BF6B5 /* Roboflow.swift */; };
+		423CFAEAE722DA713DFB80D7553ADAC2 /* UploadResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28C1C0A775C118706FBBA6D21AF57C1 /* UploadResult.swift */; };
+		5F99D6E05D503EE05FD0598F550FD9BB /* RFObjectDetectionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E719EBFCC1ED7F76F8E69B3ABD76DCB2 /* RFObjectDetectionModel.swift */; };
+		62FF1DF67B804BFEC08F12BA647B5D0B /* Pods-CueSync ARTests-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = 871C9AA70FF734EDCECD038C276CE075 /* Pods-CueSync ARTests-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		64C3E58F9FE71E40379F9D32F63F3699 /* Pods-CueSync AR-CueSync ARUITests-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = 50A4AA60A94B7C934647A88F897BBA9F /* Pods-CueSync AR-CueSync ARUITests-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		673C04B244B86B92465242A24383BCAB /* String+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE98894945682689D3519A5AA8ADF3B1 /* String+Extension.swift */; };
+		80FB284F4FB4A9768E15C60B893EFCE8 /* Roboflow-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = FE4EE9298B9EE744103122209FE1849F /* Roboflow-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		85AF8FF9B67EEAF0E794D0543C6C65AE /* yolov5s.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7105F97D9CBD531EA6E8A3C2B09319BE /* yolov5s.swift */; };
+		983024B327E92DD49463E7B74D3A12FB /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 73010CC983E3809BECEE5348DA1BB8C6 /* Foundation.framework */; };
+		9E79BD2C1FDAD880AA367319B1060657 /* Pods-CueSync AR-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = C213ED21CF51CD616B4B7518C77260F7 /* Pods-CueSync AR-dummy.m */; };
+		A8705BA9411C66177FBCA5020046CAB1 /* ThresholdProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38032E3EA16544172076C96E3E542AF4 /* ThresholdProvider.swift */; };
+		BB88408BE9851D43AF4E2BA35253947E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 73010CC983E3809BECEE5348DA1BB8C6 /* Foundation.framework */; };
+		C6919AEDAE23F06D70173A8812E8A0C0 /* UIImage+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BF4A71738EA6D4376C02766B91BF6B5 /* UIImage+Extension.swift */; };
+		D7BF0170E63D0080D087EE7D83DE6CA6 /* Pods-CueSync AR-CueSync ARUITests-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = ECF253EC711C9B3B7DDF260B2D337E56 /* Pods-CueSync AR-CueSync ARUITests-dummy.m */; };
+		E72E8173769E3AA1A653AE2E70204DAF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 73010CC983E3809BECEE5348DA1BB8C6 /* Foundation.framework */; };
+		EBC7FEE5BEFFB5388140081D14C3F388 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 73010CC983E3809BECEE5348DA1BB8C6 /* Foundation.framework */; };
+		F6F92BA1AC8FC3D7A09521541F0CB82C /* RFObjectDetectionPrediction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9112B3EBDE9E3D6AD6AF876FEAD6AFAC /* RFObjectDetectionPrediction.swift */; };
+		FDDB1584154201E25FA01733F2DA4AF5 /* Roboflow.docc in Sources */ = {isa = PBXBuildFile; fileRef = 987AB5CC6774C5AC497EC6D068BADAD0 /* Roboflow.docc */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AC94F7D5B690371AE1CDBECAA446A931 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BFDFE7DC352907FC980B868725387E98 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C53D3D26ACF7A980A2376F43B05F7D7C;
+			remoteInfo = Roboflow;
+		};
+		B3DDE0825BB48AA4E50F312AD4E3F1CE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BFDFE7DC352907FC980B868725387E98 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3592FA914C00CBB498996C75CABE309E;
+			remoteInfo = "Pods-CueSync AR";
+		};
+		FC7FD5CDD24B4CB03DFEB5743E1BFE71 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BFDFE7DC352907FC980B868725387E98 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C53D3D26ACF7A980A2376F43B05F7D7C;
+			remoteInfo = Roboflow;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		068CFF454BBF62F869917353CEA025CD /* Pods-CueSync AR-CueSync ARUITests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-CueSync AR-CueSync ARUITests.release.xcconfig"; sourceTree = "<group>"; };
+		0B94878426C1EB1E0E956405E9112EC2 /* Pods-CueSync ARTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-CueSync ARTests.debug.xcconfig"; sourceTree = "<group>"; };
+		302C47422DB4EC62AEE4FCD82EDD8979 /* Pods-CueSync ARTests-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "Pods-CueSync ARTests-dummy.m"; sourceTree = "<group>"; };
+		38032E3EA16544172076C96E3E542AF4 /* ThresholdProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ThresholdProvider.swift; path = Sources/Roboflow/Classes/ThresholdProvider.swift; sourceTree = "<group>"; };
+		3976E74CC3940DB1B884565030E0C033 /* Pods-CueSync AR-CueSync ARUITests-frameworks.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; path = "Pods-CueSync AR-CueSync ARUITests-frameworks.sh"; sourceTree = "<group>"; };
+		3BF4A71738EA6D4376C02766B91BF6B5 /* UIImage+Extension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "UIImage+Extension.swift"; path = "Sources/Roboflow/Classes/Extensions/UIImage+Extension.swift"; sourceTree = "<group>"; };
+		4492143771D32C33EFE217FBD718D506 /* Pods-CueSync ARTests-acknowledgements.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-CueSync ARTests-acknowledgements.plist"; sourceTree = "<group>"; };
+		463331BA797F385B9715E0EEE759EA5C /* Roboflow-prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Roboflow-prefix.pch"; sourceTree = "<group>"; };
+		469685D9D05228FC53F98A0A01C1B7FA /* Pods-CueSync ARTests.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = "Pods-CueSync ARTests.modulemap"; sourceTree = "<group>"; };
+		478C9C52C59EFD7F4DBD20ADEFC97657 /* Pods-CueSync AR-CueSync ARUITests-acknowledgements.markdown */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = "Pods-CueSync AR-CueSync ARUITests-acknowledgements.markdown"; sourceTree = "<group>"; };
+		48CDAC2F9FDFD23ECB3D0544FD8A2784 /* Pods-CueSync AR-CueSync ARUITests-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-CueSync AR-CueSync ARUITests-Info.plist"; sourceTree = "<group>"; };
+		50A4AA60A94B7C934647A88F897BBA9F /* Pods-CueSync AR-CueSync ARUITests-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Pods-CueSync AR-CueSync ARUITests-umbrella.h"; sourceTree = "<group>"; };
+		57B3A726C734B7A05FD6515796EEA6B8 /* Pods-CueSync AR-acknowledgements.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-CueSync AR-acknowledgements.plist"; sourceTree = "<group>"; };
+		585B639C32B08F06A2BA92736C4F074F /* Roboflow.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Roboflow.debug.xcconfig; sourceTree = "<group>"; };
+		5C66FEE8FB93C2A6D0A3BD79EA91D18A /* Pods-CueSync AR-frameworks.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; path = "Pods-CueSync AR-frameworks.sh"; sourceTree = "<group>"; };
+		657E15F65AFE5849F2173B3B2FDBF593 /* Pods-CueSync AR.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = "Pods-CueSync AR.modulemap"; sourceTree = "<group>"; };
+		7105F97D9CBD531EA6E8A3C2B09319BE /* yolov5s.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = yolov5s.swift; path = Sources/Roboflow/Classes/yolov5s.swift; sourceTree = "<group>"; };
+		73010CC983E3809BECEE5348DA1BB8C6 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		7B1D91FDB137BE4B15244374590E1223 /* Roboflow-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "Roboflow-dummy.m"; sourceTree = "<group>"; };
+		7F32FEAB0FBDE9461576059E5E57C48F /* Pods-CueSync ARTests-acknowledgements.markdown */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = "Pods-CueSync ARTests-acknowledgements.markdown"; sourceTree = "<group>"; };
+		871C9AA70FF734EDCECD038C276CE075 /* Pods-CueSync ARTests-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Pods-CueSync ARTests-umbrella.h"; sourceTree = "<group>"; };
+		8F1C96F5D1083DBB3108AEA3B9BFF843 /* Pods-CueSync AR.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-CueSync AR.release.xcconfig"; sourceTree = "<group>"; };
+		9112B3EBDE9E3D6AD6AF876FEAD6AFAC /* RFObjectDetectionPrediction.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RFObjectDetectionPrediction.swift; path = Sources/Roboflow/Classes/RFObjectDetectionPrediction.swift; sourceTree = "<group>"; };
+		955C656007ABFFB137DA94E98C53D8CB /* Pods-CueSync AR-CueSync ARUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-CueSync AR-CueSync ARUITests.debug.xcconfig"; sourceTree = "<group>"; };
+		987AB5CC6774C5AC497EC6D068BADAD0 /* Roboflow.docc */ = {isa = PBXFileReference; includeInIndex = 1; name = Roboflow.docc; path = Sources/Roboflow/Classes/Roboflow.docc; sourceTree = "<group>"; };
+		9D940727FF8FB9C785EB98E56350EF41 /* Podfile */ = {isa = PBXFileReference; explicitFileType = text.script.ruby; includeInIndex = 1; indentWidth = 2; lastKnownFileType = text; name = Podfile; path = ../Podfile; sourceTree = SOURCE_ROOT; tabWidth = 2; xcLanguageSpecificationIdentifier = xcode.lang.ruby; };
+		9F55BDD1C0CF376732449C7B8C40ABC6 /* Pods-CueSync AR-CueSync ARUITests-acknowledgements.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-CueSync AR-CueSync ARUITests-acknowledgements.plist"; sourceTree = "<group>"; };
+		A28C1C0A775C118706FBBA6D21AF57C1 /* UploadResult.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UploadResult.swift; path = Sources/Roboflow/Classes/UploadResult.swift; sourceTree = "<group>"; };
+		A88C65D2B11E69D72AA5D6FE238C94A7 /* Pods-CueSync ARTests-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-CueSync ARTests-Info.plist"; sourceTree = "<group>"; };
+		AB92E7E9F7B78B71E1BCDA63B950D824 /* Pods-CueSync AR-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Pods-CueSync AR-umbrella.h"; sourceTree = "<group>"; };
+		AE98894945682689D3519A5AA8ADF3B1 /* String+Extension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "String+Extension.swift"; path = "Sources/Roboflow/Classes/Extensions/String+Extension.swift"; sourceTree = "<group>"; };
+		B2F73A96E4220637773F389E9C5A76B0 /* Pods-CueSync AR */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = "Pods-CueSync AR"; path = Pods_CueSync_AR.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		B5849B9866C123BF3BA8664BF24BF3C6 /* Roboflow.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Roboflow.release.xcconfig; sourceTree = "<group>"; };
+		BAFAB0599E1C9FE1B83771554230DA63 /* Pods-CueSync AR.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-CueSync AR.debug.xcconfig"; sourceTree = "<group>"; };
+		C213ED21CF51CD616B4B7518C77260F7 /* Pods-CueSync AR-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "Pods-CueSync AR-dummy.m"; sourceTree = "<group>"; };
+		CF1AA7E7426FDAF3702A1EE69179C637 /* Pods-CueSync AR-CueSync ARUITests */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = "Pods-CueSync AR-CueSync ARUITests"; path = Pods_CueSync_AR_CueSync_ARUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		CFC519315418C7F829A9560A84203BA3 /* Roboflow.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = Roboflow.modulemap; sourceTree = "<group>"; };
+		D1CC1A57D9E0221910BC6130686D0C71 /* Pods-CueSync AR-CueSync ARUITests.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = "Pods-CueSync AR-CueSync ARUITests.modulemap"; sourceTree = "<group>"; };
+		D977C5571AEC92ACD87A046E41443BBA /* Pods-CueSync AR-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-CueSync AR-Info.plist"; sourceTree = "<group>"; };
+		DBF8B7AA9D8C5C031E39F6F3F13B3CC1 /* Roboflow-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Roboflow-Info.plist"; sourceTree = "<group>"; };
+		DEDD08FC04D27C42C3EA4AEE37F10038 /* Roboflow.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Roboflow.h; path = Sources/Roboflow/Classes/Roboflow.h; sourceTree = "<group>"; };
+		E11073B9572A9E75A2FCA7A9BCAD22DF /* Pods-CueSync AR-acknowledgements.markdown */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = "Pods-CueSync AR-acknowledgements.markdown"; sourceTree = "<group>"; };
+		E1B687063472BCE3013118C537E79839 /* Pods-CueSync ARTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-CueSync ARTests.release.xcconfig"; sourceTree = "<group>"; };
+		E719EBFCC1ED7F76F8E69B3ABD76DCB2 /* RFObjectDetectionModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RFObjectDetectionModel.swift; path = Sources/Roboflow/Classes/RFObjectDetectionModel.swift; sourceTree = "<group>"; };
+		E81246C0050AEA1C184AC86B595BF6B5 /* Roboflow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Roboflow.swift; path = Sources/Roboflow/Classes/Roboflow.swift; sourceTree = "<group>"; };
+		EC087DB7BDC6B6114AA35CDC9900D69E /* Roboflow */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = Roboflow; path = Roboflow.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		ECF253EC711C9B3B7DDF260B2D337E56 /* Pods-CueSync AR-CueSync ARUITests-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "Pods-CueSync AR-CueSync ARUITests-dummy.m"; sourceTree = "<group>"; };
+		F3ADEAEF422D1629DAA102C3262DB9ED /* Pods-CueSync ARTests */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = "Pods-CueSync ARTests"; path = Pods_CueSync_ARTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE4EE9298B9EE744103122209FE1849F /* Roboflow-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Roboflow-umbrella.h"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		5507D6F1B7516E74ADFA4D28BD107A12 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E72E8173769E3AA1A653AE2E70204DAF /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		79F6BF042CF74AB48607C8BBF92AC613 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB88408BE9851D43AF4E2BA35253947E /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E7649B1D583C48986202A504FDBDA8BD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				983024B327E92DD49463E7B74D3A12FB /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E94479F7AC81EFCC0520574122B170A6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBC7FEE5BEFFB5388140081D14C3F388 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		00AF24CBA453367A592BE72DAB5E9DFD /* Roboflow */ = {
+			isa = PBXGroup;
+			children = (
+				E719EBFCC1ED7F76F8E69B3ABD76DCB2 /* RFObjectDetectionModel.swift */,
+				9112B3EBDE9E3D6AD6AF876FEAD6AFAC /* RFObjectDetectionPrediction.swift */,
+				987AB5CC6774C5AC497EC6D068BADAD0 /* Roboflow.docc */,
+				DEDD08FC04D27C42C3EA4AEE37F10038 /* Roboflow.h */,
+				E81246C0050AEA1C184AC86B595BF6B5 /* Roboflow.swift */,
+				AE98894945682689D3519A5AA8ADF3B1 /* String+Extension.swift */,
+				38032E3EA16544172076C96E3E542AF4 /* ThresholdProvider.swift */,
+				3BF4A71738EA6D4376C02766B91BF6B5 /* UIImage+Extension.swift */,
+				A28C1C0A775C118706FBBA6D21AF57C1 /* UploadResult.swift */,
+				7105F97D9CBD531EA6E8A3C2B09319BE /* yolov5s.swift */,
+				BEFBEFEAA2DAF8134D51B001257DD73E /* Support Files */,
+			);
+			name = Roboflow;
+			path = Roboflow;
+			sourceTree = "<group>";
+		};
+		23ABC5E0FB3AE19336AF37F34F415DBB /* Pods-CueSync AR-CueSync ARUITests */ = {
+			isa = PBXGroup;
+			children = (
+				D1CC1A57D9E0221910BC6130686D0C71 /* Pods-CueSync AR-CueSync ARUITests.modulemap */,
+				478C9C52C59EFD7F4DBD20ADEFC97657 /* Pods-CueSync AR-CueSync ARUITests-acknowledgements.markdown */,
+				9F55BDD1C0CF376732449C7B8C40ABC6 /* Pods-CueSync AR-CueSync ARUITests-acknowledgements.plist */,
+				ECF253EC711C9B3B7DDF260B2D337E56 /* Pods-CueSync AR-CueSync ARUITests-dummy.m */,
+				3976E74CC3940DB1B884565030E0C033 /* Pods-CueSync AR-CueSync ARUITests-frameworks.sh */,
+				48CDAC2F9FDFD23ECB3D0544FD8A2784 /* Pods-CueSync AR-CueSync ARUITests-Info.plist */,
+				50A4AA60A94B7C934647A88F897BBA9F /* Pods-CueSync AR-CueSync ARUITests-umbrella.h */,
+				955C656007ABFFB137DA94E98C53D8CB /* Pods-CueSync AR-CueSync ARUITests.debug.xcconfig */,
+				068CFF454BBF62F869917353CEA025CD /* Pods-CueSync AR-CueSync ARUITests.release.xcconfig */,
+			);
+			name = "Pods-CueSync AR-CueSync ARUITests";
+			path = "Target Support Files/Pods-CueSync AR-CueSync ARUITests";
+			sourceTree = "<group>";
+		};
+		2C9F159B21C02E736C7D857F559ADDC7 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B2F73A96E4220637773F389E9C5A76B0 /* Pods-CueSync AR */,
+				CF1AA7E7426FDAF3702A1EE69179C637 /* Pods-CueSync AR-CueSync ARUITests */,
+				F3ADEAEF422D1629DAA102C3262DB9ED /* Pods-CueSync ARTests */,
+				EC087DB7BDC6B6114AA35CDC9900D69E /* Roboflow */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		578452D2E740E91742655AC8F1636D1F /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				73010CC983E3809BECEE5348DA1BB8C6 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		883BA6F0F2D23273F02A2115952B118F /* Pods-CueSync ARTests */ = {
+			isa = PBXGroup;
+			children = (
+				469685D9D05228FC53F98A0A01C1B7FA /* Pods-CueSync ARTests.modulemap */,
+				7F32FEAB0FBDE9461576059E5E57C48F /* Pods-CueSync ARTests-acknowledgements.markdown */,
+				4492143771D32C33EFE217FBD718D506 /* Pods-CueSync ARTests-acknowledgements.plist */,
+				302C47422DB4EC62AEE4FCD82EDD8979 /* Pods-CueSync ARTests-dummy.m */,
+				A88C65D2B11E69D72AA5D6FE238C94A7 /* Pods-CueSync ARTests-Info.plist */,
+				871C9AA70FF734EDCECD038C276CE075 /* Pods-CueSync ARTests-umbrella.h */,
+				0B94878426C1EB1E0E956405E9112EC2 /* Pods-CueSync ARTests.debug.xcconfig */,
+				E1B687063472BCE3013118C537E79839 /* Pods-CueSync ARTests.release.xcconfig */,
+			);
+			name = "Pods-CueSync ARTests";
+			path = "Target Support Files/Pods-CueSync ARTests";
+			sourceTree = "<group>";
+		};
+		A9C7B23A8ECE8384CBF6BC12CF003532 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				00AF24CBA453367A592BE72DAB5E9DFD /* Roboflow */,
+			);
+			name = Pods;
+			sourceTree = "<group>";
+		};
+		B96BF1147E6097731E6FDE92A3606A78 /* Pods-CueSync AR */ = {
+			isa = PBXGroup;
+			children = (
+				657E15F65AFE5849F2173B3B2FDBF593 /* Pods-CueSync AR.modulemap */,
+				E11073B9572A9E75A2FCA7A9BCAD22DF /* Pods-CueSync AR-acknowledgements.markdown */,
+				57B3A726C734B7A05FD6515796EEA6B8 /* Pods-CueSync AR-acknowledgements.plist */,
+				C213ED21CF51CD616B4B7518C77260F7 /* Pods-CueSync AR-dummy.m */,
+				5C66FEE8FB93C2A6D0A3BD79EA91D18A /* Pods-CueSync AR-frameworks.sh */,
+				D977C5571AEC92ACD87A046E41443BBA /* Pods-CueSync AR-Info.plist */,
+				AB92E7E9F7B78B71E1BCDA63B950D824 /* Pods-CueSync AR-umbrella.h */,
+				BAFAB0599E1C9FE1B83771554230DA63 /* Pods-CueSync AR.debug.xcconfig */,
+				8F1C96F5D1083DBB3108AEA3B9BFF843 /* Pods-CueSync AR.release.xcconfig */,
+			);
+			name = "Pods-CueSync AR";
+			path = "Target Support Files/Pods-CueSync AR";
+			sourceTree = "<group>";
+		};
+		BEFBEFEAA2DAF8134D51B001257DD73E /* Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				CFC519315418C7F829A9560A84203BA3 /* Roboflow.modulemap */,
+				7B1D91FDB137BE4B15244374590E1223 /* Roboflow-dummy.m */,
+				DBF8B7AA9D8C5C031E39F6F3F13B3CC1 /* Roboflow-Info.plist */,
+				463331BA797F385B9715E0EEE759EA5C /* Roboflow-prefix.pch */,
+				FE4EE9298B9EE744103122209FE1849F /* Roboflow-umbrella.h */,
+				585B639C32B08F06A2BA92736C4F074F /* Roboflow.debug.xcconfig */,
+				B5849B9866C123BF3BA8664BF24BF3C6 /* Roboflow.release.xcconfig */,
+			);
+			name = "Support Files";
+			path = "../Target Support Files/Roboflow";
+			sourceTree = "<group>";
+		};
+		CF1408CF629C7361332E53B88F7BD30C = {
+			isa = PBXGroup;
+			children = (
+				9D940727FF8FB9C785EB98E56350EF41 /* Podfile */,
+				D210D550F4EA176C3123ED886F8F87F5 /* Frameworks */,
+				A9C7B23A8ECE8384CBF6BC12CF003532 /* Pods */,
+				2C9F159B21C02E736C7D857F559ADDC7 /* Products */,
+				F1ABCD00748FB0FED01E4AA5A78FFA76 /* Targets Support Files */,
+			);
+			sourceTree = "<group>";
+		};
+		D210D550F4EA176C3123ED886F8F87F5 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				578452D2E740E91742655AC8F1636D1F /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F1ABCD00748FB0FED01E4AA5A78FFA76 /* Targets Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				B96BF1147E6097731E6FDE92A3606A78 /* Pods-CueSync AR */,
+				23ABC5E0FB3AE19336AF37F34F415DBB /* Pods-CueSync AR-CueSync ARUITests */,
+				883BA6F0F2D23273F02A2115952B118F /* Pods-CueSync ARTests */,
+			);
+			name = "Targets Support Files";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		417E9E8680D337D257F862A44479C4E7 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				11D499EB41E541D7CD504E2829E28A76 /* Roboflow.h in Headers */,
+				80FB284F4FB4A9768E15C60B893EFCE8 /* Roboflow-umbrella.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4A4DBDCB7ED5953F8D9EBD6615C22B3A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0F5868186ECB21F5E30609623E7D1721 /* Pods-CueSync AR-umbrella.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5A3CD1958CD7F4D2561C0B6CB61F6D76 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				64C3E58F9FE71E40379F9D32F63F3699 /* Pods-CueSync AR-CueSync ARUITests-umbrella.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CD8591D7F5F0CE587658015AA4147DD8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				62FF1DF67B804BFEC08F12BA647B5D0B /* Pods-CueSync ARTests-umbrella.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		3592FA914C00CBB498996C75CABE309E /* Pods-CueSync AR */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA6EF1F596F772D10AA6F81492039758 /* Build configuration list for PBXNativeTarget "Pods-CueSync AR" */;
+			buildPhases = (
+				4A4DBDCB7ED5953F8D9EBD6615C22B3A /* Headers */,
+				013BC823C49CF1AE478A053DFEBF76EB /* Sources */,
+				5507D6F1B7516E74ADFA4D28BD107A12 /* Frameworks */,
+				A940DD0DBE8D646952F3D12DAED587EF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7A9D2AF94BF58582DF943482CFBBAD05 /* PBXTargetDependency */,
+			);
+			name = "Pods-CueSync AR";
+			productName = Pods_CueSync_AR;
+			productReference = B2F73A96E4220637773F389E9C5A76B0 /* Pods-CueSync AR */;
+			productType = "com.apple.product-type.framework";
+		};
+		78A93931840C1D38968EE140AE4AEFA5 /* Pods-CueSync ARTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 291EAF895EEBA8AB7C480ABD5EAC2E64 /* Build configuration list for PBXNativeTarget "Pods-CueSync ARTests" */;
+			buildPhases = (
+				CD8591D7F5F0CE587658015AA4147DD8 /* Headers */,
+				DD768CD173FF167F91BDE915D65F93F4 /* Sources */,
+				E7649B1D583C48986202A504FDBDA8BD /* Frameworks */,
+				633B5E9A13C1E610D0D749FF6D6B4684 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BD4B7373E3067F40BC1CC678A18F5C1B /* PBXTargetDependency */,
+			);
+			name = "Pods-CueSync ARTests";
+			productName = Pods_CueSync_ARTests;
+			productReference = F3ADEAEF422D1629DAA102C3262DB9ED /* Pods-CueSync ARTests */;
+			productType = "com.apple.product-type.framework";
+		};
+		C53D3D26ACF7A980A2376F43B05F7D7C /* Roboflow */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E2BF1F2990F3363B51295EBF30A04E20 /* Build configuration list for PBXNativeTarget "Roboflow" */;
+			buildPhases = (
+				417E9E8680D337D257F862A44479C4E7 /* Headers */,
+				C58B15EB63886553BCBB7B824A932C7F /* Sources */,
+				E94479F7AC81EFCC0520574122B170A6 /* Frameworks */,
+				26742249BB9E4EA68F19AC1649FD3DDB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Roboflow;
+			productName = Roboflow;
+			productReference = EC087DB7BDC6B6114AA35CDC9900D69E /* Roboflow */;
+			productType = "com.apple.product-type.framework";
+		};
+		F0DA61284EDE773ED6018DD67CFC78DD /* Pods-CueSync AR-CueSync ARUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2049C7339B6D84E3E40B3B0F3F1184D1 /* Build configuration list for PBXNativeTarget "Pods-CueSync AR-CueSync ARUITests" */;
+			buildPhases = (
+				5A3CD1958CD7F4D2561C0B6CB61F6D76 /* Headers */,
+				8B62F25C38F673981DED606D86C14EB1 /* Sources */,
+				79F6BF042CF74AB48607C8BBF92AC613 /* Frameworks */,
+				54AAA74707F80CAB8180F1315669799E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E40442992B7AFEDBF5D79A1CA86477BB /* PBXTargetDependency */,
+			);
+			name = "Pods-CueSync AR-CueSync ARUITests";
+			productName = Pods_CueSync_AR_CueSync_ARUITests;
+			productReference = CF1AA7E7426FDAF3702A1EE69179C637 /* Pods-CueSync AR-CueSync ARUITests */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BFDFE7DC352907FC980B868725387E98 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = 4821239608C13582E20E6DA73FD5F1F9 /* Build configuration list for PBXProject "Pods" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = CF1408CF629C7361332E53B88F7BD30C;
+			productRefGroup = 2C9F159B21C02E736C7D857F559ADDC7 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3592FA914C00CBB498996C75CABE309E /* Pods-CueSync AR */,
+				F0DA61284EDE773ED6018DD67CFC78DD /* Pods-CueSync AR-CueSync ARUITests */,
+				78A93931840C1D38968EE140AE4AEFA5 /* Pods-CueSync ARTests */,
+				C53D3D26ACF7A980A2376F43B05F7D7C /* Roboflow */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		26742249BB9E4EA68F19AC1649FD3DDB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		54AAA74707F80CAB8180F1315669799E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		633B5E9A13C1E610D0D749FF6D6B4684 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A940DD0DBE8D646952F3D12DAED587EF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		013BC823C49CF1AE478A053DFEBF76EB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9E79BD2C1FDAD880AA367319B1060657 /* Pods-CueSync AR-dummy.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8B62F25C38F673981DED606D86C14EB1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D7BF0170E63D0080D087EE7D83DE6CA6 /* Pods-CueSync AR-CueSync ARUITests-dummy.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C58B15EB63886553BCBB7B824A932C7F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5F99D6E05D503EE05FD0598F550FD9BB /* RFObjectDetectionModel.swift in Sources */,
+				F6F92BA1AC8FC3D7A09521541F0CB82C /* RFObjectDetectionPrediction.swift in Sources */,
+				FDDB1584154201E25FA01733F2DA4AF5 /* Roboflow.docc in Sources */,
+				40358D86CF7E9A16C26BA8E6A72CBD77 /* Roboflow.swift in Sources */,
+				271CC78C177F3B58E437C2B9B923AEA4 /* Roboflow-dummy.m in Sources */,
+				673C04B244B86B92465242A24383BCAB /* String+Extension.swift in Sources */,
+				A8705BA9411C66177FBCA5020046CAB1 /* ThresholdProvider.swift in Sources */,
+				C6919AEDAE23F06D70173A8812E8A0C0 /* UIImage+Extension.swift in Sources */,
+				423CFAEAE722DA713DFB80D7553ADAC2 /* UploadResult.swift in Sources */,
+				85AF8FF9B67EEAF0E794D0543C6C65AE /* yolov5s.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DD768CD173FF167F91BDE915D65F93F4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10A0C851BE77055F2984DF665496498F /* Pods-CueSync ARTests-dummy.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7A9D2AF94BF58582DF943482CFBBAD05 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Roboflow;
+			target = C53D3D26ACF7A980A2376F43B05F7D7C /* Roboflow */;
+			targetProxy = FC7FD5CDD24B4CB03DFEB5743E1BFE71 /* PBXContainerItemProxy */;
+		};
+		BD4B7373E3067F40BC1CC678A18F5C1B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "Pods-CueSync AR";
+			target = 3592FA914C00CBB498996C75CABE309E /* Pods-CueSync AR */;
+			targetProxy = B3DDE0825BB48AA4E50F312AD4E3F1CE /* PBXContainerItemProxy */;
+		};
+		E40442992B7AFEDBF5D79A1CA86477BB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Roboflow;
+			target = C53D3D26ACF7A980A2376F43B05F7D7C /* Roboflow */;
+			targetProxy = AC94F7D5B690371AE1CDBECAA446A931 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		3A3B7B129A6A8D0FF3D8804A433C5A22 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BAFAB0599E1C9FE1B83771554230DA63 /* Pods-CueSync AR.debug.xcconfig */;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INFOPLIST_FILE = "Target Support Files/Pods-CueSync AR/Pods-CueSync AR-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/Pods-CueSync AR/Pods-CueSync AR.modulemap";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cocoapods.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		5621C4444EE5154773E0A2EBC8AEA1E7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 068CFF454BBF62F869917353CEA025CD /* Pods-CueSync AR-CueSync ARUITests.release.xcconfig */;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INFOPLIST_FILE = "Target Support Files/Pods-CueSync AR-CueSync ARUITests/Pods-CueSync AR-CueSync ARUITests-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/Pods-CueSync AR-CueSync ARUITests/Pods-CueSync AR-CueSync ARUITests.modulemap";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cocoapods.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		596462ABAF85B482484F6AA1059E93F1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0B94878426C1EB1E0E956405E9112EC2 /* Pods-CueSync ARTests.debug.xcconfig */;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INFOPLIST_FILE = "Target Support Files/Pods-CueSync ARTests/Pods-CueSync ARTests-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/Pods-CueSync ARTests/Pods-CueSync ARTests.modulemap";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cocoapods.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		7E23B4F145EF690995D448D5FEC9BD69 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = E1B687063472BCE3013118C537E79839 /* Pods-CueSync ARTests.release.xcconfig */;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INFOPLIST_FILE = "Target Support Files/Pods-CueSync ARTests/Pods-CueSync ARTests-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/Pods-CueSync ARTests/Pods-CueSync ARTests.modulemap";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cocoapods.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		92486E5E72E54FAF60E1A7D022C21B10 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_RELEASE=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Release;
+		};
+		934ED2B84836A780113D1F63484628B2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_DEBUG=1",
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Debug;
+		};
+		95DA64BEA3D3F660D7DC09EC12D267BC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = B5849B9866C123BF3BA8664BF24BF3C6 /* Roboflow.release.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GCC_PREFIX_HEADER = "Target Support Files/Roboflow/Roboflow-prefix.pch";
+				INFOPLIST_FILE = "Target Support Files/Roboflow/Roboflow-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MODULEMAP_FILE = "Target Support Files/Roboflow/Roboflow.modulemap";
+				PRODUCT_MODULE_NAME = Roboflow;
+				PRODUCT_NAME = Roboflow;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
+				SWIFT_VERSION = 5.3;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		EAEF904A4600B4A7CC6E3665C7913E78 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 585B639C32B08F06A2BA92736C4F074F /* Roboflow.debug.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GCC_PREFIX_HEADER = "Target Support Files/Roboflow/Roboflow-prefix.pch";
+				INFOPLIST_FILE = "Target Support Files/Roboflow/Roboflow-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MODULEMAP_FILE = "Target Support Files/Roboflow/Roboflow.modulemap";
+				PRODUCT_MODULE_NAME = Roboflow;
+				PRODUCT_NAME = Roboflow;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ";
+				SWIFT_VERSION = 5.3;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		F487CE0B2918C7C48FDD2A7C76DDCEF6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8F1C96F5D1083DBB3108AEA3B9BFF843 /* Pods-CueSync AR.release.xcconfig */;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INFOPLIST_FILE = "Target Support Files/Pods-CueSync AR/Pods-CueSync AR-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/Pods-CueSync AR/Pods-CueSync AR.modulemap";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cocoapods.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		F4D5C17EBDF58358D73FBEE8B559713C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 955C656007ABFFB137DA94E98C53D8CB /* Pods-CueSync AR-CueSync ARUITests.debug.xcconfig */;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INFOPLIST_FILE = "Target Support Files/Pods-CueSync AR-CueSync ARUITests/Pods-CueSync AR-CueSync ARUITests-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/Pods-CueSync AR-CueSync ARUITests/Pods-CueSync AR-CueSync ARUITests.modulemap";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cocoapods.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2049C7339B6D84E3E40B3B0F3F1184D1 /* Build configuration list for PBXNativeTarget "Pods-CueSync AR-CueSync ARUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F4D5C17EBDF58358D73FBEE8B559713C /* Debug */,
+				5621C4444EE5154773E0A2EBC8AEA1E7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		291EAF895EEBA8AB7C480ABD5EAC2E64 /* Build configuration list for PBXNativeTarget "Pods-CueSync ARTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				596462ABAF85B482484F6AA1059E93F1 /* Debug */,
+				7E23B4F145EF690995D448D5FEC9BD69 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4821239608C13582E20E6DA73FD5F1F9 /* Build configuration list for PBXProject "Pods" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				934ED2B84836A780113D1F63484628B2 /* Debug */,
+				92486E5E72E54FAF60E1A7D022C21B10 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BA6EF1F596F772D10AA6F81492039758 /* Build configuration list for PBXNativeTarget "Pods-CueSync AR" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3A3B7B129A6A8D0FF3D8804A433C5A22 /* Debug */,
+				F487CE0B2918C7C48FDD2A7C76DDCEF6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E2BF1F2990F3363B51295EBF30A04E20 /* Build configuration list for PBXNativeTarget "Roboflow" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EAEF904A4600B4A7CC6E3665C7913E78 /* Debug */,
+				95DA64BEA3D3F660D7DC09EC12D267BC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = BFDFE7DC352907FC980B868725387E98 /* Project object */;
+}
