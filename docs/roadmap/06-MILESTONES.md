@@ -59,10 +59,10 @@ Goal: real balls become `TableState`.
 
 Goal: the MVP core loop on a phone.
 
-- [ ] **M3-01** `ARSessionCoordinator` + `PlaneRaycasting` impl + frame stream with latest-wins backpressure. *(deps: M2-03)*
-- [ ] **M3-02** Calibration flow UI per 05-UX-DESIGN (plane → rectangle → corner handles → lock; persistence via world anchors). *(deps: M3-01, M1-04, M1-05)*
-- [ ] **M3-03** `AimEngine` (device pose → `AimRay`) + unit tests on transform fixtures. *(deps: M1-01)*
-- [ ] **M3-04** `OverlayRenderer`: trajectory tubes, ghost ball, pocket glow, occlusion + entity-graph unit tests + overlay snapshots. *(deps: M1-02, M3-01)*
+- [x] **M3-01** `ARSessionCoordinator` + ARKit `PlaneRaycasting` impl + frame stream with latest-wins backpressure. *(needs-device-run: tracking/raycast quality, M3-06)* *(deps: M2-03)*
+- [ ] **M3-02** Calibration flow UI per 05-UX-DESIGN. *`CalibrationController` state machine landed with tests (plane → corners → adjust → lock, error handling, plane-loss rules); SwiftUI flow + world-anchor persistence open.* *(deps: M3-01, M1-04, M1-05)*
+- [x] **M3-03** `AimEngine` (device pose → `AimRay`: look-point model with forward-projection fallback) + unit tests on transform fixtures. *(deps: M1-01)*
+- [x] **M3-04** Overlay rendering: pure `OverlayLayout` (strip placement/styling, ghost, pocket glow — tested) + RealityKit `OverlayRenderer`. *(needs-device-run: visual latency/occlusion; occlusion + snapshots tracked in M3-06/M4-03)* *(deps: M1-02, M3-01)*
 - [ ] **M3-05** `SessionModel` composition root wiring pipeline→solver→renderer; HUD assembly; degraded-tracking states. *(deps: M3-01…04)*
 - [ ] **M3-06** Device checklist run #1 at a real table; file issues; iterate. *(deps: M3-05; **device session**)*
 
@@ -72,8 +72,8 @@ Goal: the MVP core loop on a phone.
 
 ## M4 — TV Mode & Polish (2 agents)
 
-- [ ] **M4-01** `DisplayKit` scene routing (connect/mirror/Table View/hot-plug) + state-machine tests. *(deps: M1-06)*
-- [ ] **M4-02** Broadcast-quality Table View styling for 1080p/4K + snapshots. *(deps: M4-01)*
+- [x] **M4-01** `DisplayKit` routing: `ExternalDisplayRouter` state machine (prompt/preference/hot-plug rules) + tests, plus `ExternalTableView` scene content. *UIWindowScene wiring lands with M3-05 app integration; hot-plug device check in M5.* *(deps: M1-06)*
+- [ ] **M4-02** Broadcast-quality Table View styling for 1080p/4K + snapshots. *Base scene landed (ExternalTableView); styling pass + snapshots open.* *(deps: M4-01)*
 - [ ] **M4-03** UI test suite (fixture mode launch smoke) + snapshot suite (CueSyncUI components + TableSceneView, light/dark × Dynamic Type) + accessibility pass (VoiceOver labels, Reduce Motion/Transparency). *(deps: M3-05)*
 - [ ] **M4-04** Settings screen (table size override, provider selection, debug HUD) + persistence tests. *(deps: M3-05)*
 

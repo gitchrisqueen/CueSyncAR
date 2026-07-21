@@ -8,10 +8,11 @@ let package = Package(
         .library(name: "DisplayKit", targets: ["DisplayKit"])
     ],
     dependencies: [
-        .package(path: "../CueSyncCore")
+        .package(path: "../CueSyncCore"),
+        .package(path: "../CueSyncUI")
     ],
     targets: [
-        .target(name: "DisplayKit", dependencies: ["CueSyncCore"]),
+        .target(name: "DisplayKit", dependencies: ["CueSyncCore", "CueSyncUI"]),
         .testTarget(name: "DisplayKitTests", dependencies: ["DisplayKit"])
     ]
 )

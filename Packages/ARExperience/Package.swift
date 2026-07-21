@@ -8,10 +8,13 @@ let package = Package(
         .library(name: "ARExperience", targets: ["ARExperience"])
     ],
     dependencies: [
-        .package(path: "../CueSyncCore")
+        .package(path: "../CueSyncCore"),
+        .package(path: "../TableSpace"),
+        .package(path: "../PerceptionKit")
     ],
     targets: [
-        .target(name: "ARExperience", dependencies: ["CueSyncCore"]),
+        .target(name: "ARExperience",
+                dependencies: ["CueSyncCore", "TableSpace", "PerceptionKit"]),
         .testTarget(name: "ARExperienceTests", dependencies: ["ARExperience"])
     ]
 )
