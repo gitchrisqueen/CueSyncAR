@@ -17,10 +17,11 @@ import Foundation
 
 /// Vision reports boxes in normalized coordinates with a BOTTOM-left origin;
 /// core uses top-left. Pure helper so the flip is testable everywhere.
+/// (Fully qualified: Vision ships its own `NormalizedRect` on iOS 18+.)
 public enum VisionBoxMapping {
     public static func topLeftRect(fromVisionX x: Double, y: Double,
-                                   width: Double, height: Double) -> NormalizedRect {
-        NormalizedRect(x: x, y: 1 - y - height, width: width, height: height)
+                                   width: Double, height: Double) -> CueSyncCore.NormalizedRect {
+        CueSyncCore.NormalizedRect(x: x, y: 1 - y - height, width: width, height: height)
     }
 }
 
@@ -72,7 +73,7 @@ public final class CoreMLDetectionProvider: DetectionProviding, @unchecked Senda
                                             orientation: .up)
         try handler.perform([request])
         let observations = request.results as? [VNRecognizedObjectObservation] ?? []
-        return observations.compactMap { observation in
+        return observations.compactMap { observation -> Detection2D? in
             guard let label = observation.labels.first else { return nil }
             let box = observation.boundingBox
             return Detection2D(
