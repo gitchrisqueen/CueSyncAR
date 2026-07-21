@@ -52,7 +52,10 @@ struct RootView: View {
             arSurface
                 .ignoresSafeArea()
 
-            if model.selectedModel != nil {
+            // 2D box overlay only while NOT live tracking — once the table
+            // is locked and the pipeline runs, balls render as spatial
+            // overlays on the cloth instead.
+            if model.selectedModel != nil, !model.isLiveTracking {
                 DetectionPreviewOverlay(detections: model.latestDetections,
                                         rotation: boxRotation)
                     .ignoresSafeArea()
@@ -104,6 +107,10 @@ struct RootView: View {
     }
 
     private var hudStatus: HUDStatus {
+        // Live tracking: the pipeline's stabilized ball count.
+        if model.isLiveTracking {
+            return .tracking(ballCount: model.tableState?.balls.count ?? 0)
+        }
         // The calibration flow owns the capsule while it's on screen.
         if model.calibrationVisible, !model.calibration.isLocked {
             switch model.calibration.state {
@@ -125,7 +132,10 @@ struct RootView: View {
 
     private var bottomBar: some View {
         HUDBar {
-            calibrateButton
+            cameraFlipButton
+            if !model.usingFrontCamera {
+                calibrateButton
+            }
             modelPicker
             if model.selectedModel != nil {
                 Text("\(model.previewStats.latencyMilliseconds) ms")
@@ -141,6 +151,22 @@ struct RootView: View {
                 .accessibilityLabel("Nudge detection box rotation")
             }
         }
+    }
+
+    /// Toggle between the AR back camera and the plain front-camera
+    /// detection preview (AR/calibration are back-camera-only by ARKit
+    /// design; the button explains via accessibility label).
+    private var cameraFlipButton: some View {
+        Button {
+            model.usingFrontCamera.toggle()
+        } label: {
+            Label("Flip camera", systemImage: "arrow.triangle.2.circlepath.camera")
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel(model.usingFrontCamera
+                            ? "Switch to back camera (AR)"
+                            : "Switch to front camera (preview only)")
+        .accessibilityIdentifier("camera-flip-button")
     }
 
     /// Enters (or re-enters) the calibration flow; shows the locked table
@@ -206,7 +232,11 @@ struct RootView: View {
         #if targetEnvironment(simulator)
         SimulatorPlaceholderView()
         #else
-        ARCameraView()
+        if model.usingFrontCamera {
+            FrontCameraPreviewView()
+        } else {
+            ARCameraView()
+        }
         #endif
     }
 }
@@ -285,6 +315,9 @@ struct ARCameraView: View {
     /// camera clients. The churn exhausted Metal drawable allocation and
     /// kept the real session interrupted (black feed, Fig errors).
     @State private var coordinator: ARSessionCoordinator?
+    /// RealityKit renderer for M3-05 spatial overlays (paths, ghost ball,
+    /// pocket glow). Created lazily once live tracking begins.
+    @State private var overlayRenderer: OverlayRenderer?
 
     var body: some View {
         ZStack {
@@ -342,7 +375,32 @@ struct ARCameraView: View {
                         saved.worldCalibration(anchorTransform: anchorTransform))
                 }
             }
-            if model.wantsPreviewFrame, let frame = await coordinator.nextFrame() {
+            if model.calibration.isLocked {
+                // M3-05 live loop: frames → pipeline → TableState; device
+                // pose → aim → solver; layout → RealityKit overlays.
+                model.startLiveTrackingIfReady()
+                if model.isLiveTracking {
+                    if let frame = await coordinator.nextFrame() {
+                        model.ingestTrackingFrame(frame)
+                    }
+                    if let cameraTransform = coordinator.currentCameraTransform {
+                        model.updateAim(cameraTransform: cameraTransform)
+                    }
+                    if overlayRenderer == nil {
+                        overlayRenderer = OverlayRenderer(arView: coordinator.arView)
+                    }
+                    if let state = model.tableState,
+                       let prediction = model.shotPrediction,
+                       let calibration = model.tableCalibration {
+                        overlayRenderer?.render(OverlayLayout.compose(
+                            state: state, prediction: prediction,
+                            calibration: calibration))
+                    } else {
+                        overlayRenderer?.clear()
+                    }
+                }
+            } else if model.wantsPreviewFrame,
+                      let frame = await coordinator.nextFrame() {
                 model.ingestPreviewFrame(frame)
             }
             try? await Task.sleep(for: .milliseconds(150))

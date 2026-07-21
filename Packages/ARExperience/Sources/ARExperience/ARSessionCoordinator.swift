@@ -209,16 +209,36 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
             continuation.resume(returning: nil)
             return
         }
+        // Intrinsics travel with the frame so consumers (pipeline raycasts)
+        // can unproject image points without touching ARKit.
+        let k = frame.camera.intrinsics
+        let resolution = frame.camera.imageResolution
+        let intrinsics = CameraIntrinsics(
+            focalX: Double(k.columns.0.x), focalY: Double(k.columns.1.y),
+            principalX: Double(k.columns.2.x), principalY: Double(k.columns.2.y),
+            imageWidth: Double(resolution.width), imageHeight: Double(resolution.height))
         let captured = CapturedFrame(
             timestamp: frame.timestamp,
             cameraTransform: transform,
-            image: PixelBufferImage(pixelBuffer: copiedBuffer))
+            image: PixelBufferImage(pixelBuffer: copiedBuffer),
+            intrinsics: intrinsics)
         continuation.resume(returning: captured)
     }
 
+    /// The camera's current pose (camera-to-world), for aim derivation at
+    /// UI cadence without pulling a full frame.
+    public var currentCameraTransform: Transform3D? {
+        guard let transform = arView.session.currentFrame?.camera.transform else {
+            return nil
+        }
+        return Self.transform3D(from: transform)
+    }
+
     /// Byte-for-byte copy of a pixel buffer into freshly allocated storage.
-    /// Handles planar (ARKit's bi-planar YUV) and packed formats.
-    private nonisolated static func copyPixelBuffer(_ source: CVPixelBuffer) -> CVPixelBuffer? {
+    /// Handles planar (ARKit's bi-planar YUV) and packed formats. Public so
+    /// non-AR capture paths (front-camera preview) can decouple their
+    /// buffers from the capture pool the same way.
+    public nonisolated static func copyPixelBuffer(_ source: CVPixelBuffer) -> CVPixelBuffer? {
         var created: CVPixelBuffer?
         let attributes = [kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary] as CFDictionary
         CVPixelBufferCreate(kCFAllocatorDefault,

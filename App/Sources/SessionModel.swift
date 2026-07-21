@@ -57,6 +57,7 @@ final class SessionModel {
     var tableCalibration: TableCalibration? { calibration.calibration }
 
     func beginCalibration() {
+        stopLiveTracking() // recalibration invalidates the pipeline's plane
         pendingCorners = []
         calibration.handle(.resetRequested)
         calibrationVisible = true
@@ -114,6 +115,79 @@ final class SessionModel {
     func restoreCalibration(_ restored: TableCalibration) {
         calibration.handle(.restored(restored))
     }
+
+    // MARK: Live tracking (M3-05: pipeline → solver → overlay)
+
+    /// Latest coherent table state from the perception pipeline.
+    private(set) var tableState: TableState?
+    /// Latest shot prediction for the current aim; nil when no stable aim.
+    private(set) var shotPrediction: ShotPrediction?
+    @ObservationIgnored private var pipeline: PerceptionPipeline?
+    @ObservationIgnored private var statesTask: Task<Void, Never>?
+    @ObservationIgnored private let aimEngine = AimEngine()
+    @ObservationIgnored private let solver: any TrajectorySolving = AnalyticSolver()
+    @ObservationIgnored private var lastTrackingIngestAt: Date = .distantPast
+
+    var isLiveTracking: Bool { pipeline != nil }
+
+    /// Build the perception pipeline once a calibration is locked and a
+    /// detection provider is selected. Balls detected from then on are
+    /// projected onto the locked table plane (intrinsics unprojection —
+    /// no per-point ARKit raycasts) and tracked into TableState.
+    func startLiveTrackingIfReady() {
+        guard pipeline == nil, let calibration = tableCalibration,
+              let provider else { return }
+        let newPipeline = PerceptionPipeline(
+            detector: provider,
+            calibration: calibration,
+            raycaster: PlaneGeometryRaycaster(calibration: calibration))
+        pipeline = newPipeline
+        statesTask = Task { [weak self] in
+            for await state in await newPipeline.states {
+                await MainActor.run { self?.tableState = state }
+            }
+        }
+    }
+
+    func stopLiveTracking() {
+        statesTask?.cancel()
+        statesTask = nil
+        pipeline = nil
+        tableState = nil
+        shotPrediction = nil
+    }
+
+    /// Feed a frame to the pipeline, throttled to the hosted-API-friendly
+    /// preview cadence. No motion gate here: during live tracking the BALLS
+    /// move while the phone may be still — scene changes matter.
+    func ingestTrackingFrame(_ frame: CapturedFrame) {
+        guard let pipeline,
+              Date().timeIntervalSince(lastTrackingIngestAt) >= previewInterval else { return }
+        lastTrackingIngestAt = Date()
+        Task { await pipeline.ingest(frame) }
+    }
+
+    /// Recompute the aim ray + shot prediction from the current device pose
+    /// (called at UI cadence — solver is sub-millisecond).
+    func updateAim(cameraTransform: Transform3D) {
+        guard let calibration = tableCalibration,
+              let state = tableState,
+              let cue = state.cueBall,
+              let aim = aimEngine.aimRay(cameraTransform: cameraTransform,
+                                         cueBall: cue.position,
+                                         calibration: calibration) else {
+            shotPrediction = nil
+            return
+        }
+        shotPrediction = solver.predict(state: state, aim: aim, options: .default)
+    }
+
+    // MARK: Camera selection
+
+    /// Detection-preview-only front camera mode (M2-01 evaluation). AR,
+    /// calibration, and live tracking are back-camera features — ARKit
+    /// world tracking cannot run on the front camera.
+    var usingFrontCamera = false
 
     // MARK: Detection preview state
 
@@ -192,8 +266,12 @@ final class SessionModel {
               Date().timeIntervalSince(lastDetectionAt) >= previewInterval else { return }
         // Motion gate: full cadence while the camera moves; slow heartbeat
         // when it's still. Uses the frame's own monotonic capture timestamp.
-        guard motionGate.shouldRunDetection(pose: frame.cameraTransform,
-                                            timestamp: frame.timestamp) else { return }
+        // Poseless sources (front camera / plain AVCapture send .identity)
+        // bypass the gate — there's no motion signal to gate on.
+        if frame.cameraTransform != .identity {
+            guard motionGate.shouldRunDetection(pose: frame.cameraTransform,
+                                                timestamp: frame.timestamp) else { return }
+        }
         lastDetectionAt = Date()
         let jpeg: Data
         do {
