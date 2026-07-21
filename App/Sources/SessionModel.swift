@@ -14,6 +14,7 @@ import CueSyncCore
 import DetectionRoboflow
 import Foundation
 import Observation
+import PerceptionKit
 
 @MainActor
 @Observable
@@ -54,6 +55,9 @@ final class SessionModel {
     /// ARKit pixel buffer inside the frame is released immediately (see
     /// `ingestPreviewFrame`).
     @ObservationIgnored private var frameEncoder: (any FrameJPEGEncoding)?
+    /// Skips detection passes while the camera is still: full cadence while
+    /// moving, ~2 s heartbeat once settled (battery / API quota / thermals).
+    @ObservationIgnored private var motionGate = MotionGate()
     /// Seconds between hosted-API calls (keep the free tier happy).
     private let previewInterval: TimeInterval = 0.5
 
@@ -80,6 +84,9 @@ final class SessionModel {
             frameEncoder = nil
             return
         }
+        // Fresh gate per model so a newly picked candidate detects
+        // immediately even if the phone is resting on the rail.
+        motionGate = MotionGate()
         let encoder = makeEncoder()
         frameEncoder = encoder
         provider = RoboflowRemoteProvider(
@@ -108,6 +115,10 @@ final class SessionModel {
     func ingestPreviewFrame(_ frame: CapturedFrame) {
         guard let provider, let frameEncoder, detectTask == nil,
               Date().timeIntervalSince(lastDetectionAt) >= previewInterval else { return }
+        // Motion gate: full cadence while the camera moves; slow heartbeat
+        // when it's still. Uses the frame's own monotonic capture timestamp.
+        guard motionGate.shouldRunDetection(pose: frame.cameraTransform,
+                                            timestamp: frame.timestamp) else { return }
         lastDetectionAt = Date()
         let jpeg: Data
         do {
