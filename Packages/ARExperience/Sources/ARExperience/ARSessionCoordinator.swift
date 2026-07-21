@@ -2,19 +2,22 @@
 //  ARSessionCoordinator.swift
 //  ARExperience
 //
-//  Tasks M3-01/M3-04 (device layer): owns the ARSession, hands out camera
+//  Tasks M3-01/M3-04 (device layer): owns the ARView, hands out camera
 //  frames on demand, implements PlaneRaycasting via ARKit raycast queries,
 //  and renders OverlayLayout as RealityKit entities. Compiles only where
 //  ARKit exists; all decision logic lives in the pure types (AimEngine,
 //  CalibrationController, OverlayLayout) so this file stays a thin,
 //  mechanical shell.
 //
-//  Frame delivery is PULL-based (nextFrame()), not a push stream: ARKit's
-//  camera buffer pool is small, and retaining pixel buffers — even one
-//  sitting in a stream buffer — stalls capture (black screen, Fig capture
-//  errors, Metal drawable allocation failures). With the pull model a
-//  buffer is only referenced while a consumer is actively using it; every
-//  other frame is dropped inside the delegate callback untouched.
+//  Two hard-won rules encoded here (device-debugged):
+//  1. NEVER set ARSession.delegate — RealityKit needs the delegate frame
+//     callbacks to render the camera background; stealing them shows a
+//     black feed while capture keeps working. Frames are read on demand
+//     from session.currentFrame instead (which also means zero pixel-buffer
+//     retention — holding ARKit buffers starves the small capture pool).
+//  2. Let automaticallyConfigureSession run the session; manual
+//     configuration raced it. Plane detection is layered on explicitly
+//     when the calibration flow needs it.
 //
 //  Device verification per playbook rule 6: tracking quality, raycast
 //  accuracy, and overlay latency are device-checklist items (M3-06) —
@@ -31,27 +34,16 @@ import ARKit
 import RealityKit
 
 @MainActor
-public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
+public final class ARSessionCoordinator {
     public let arView: ARView
-    private let pendingRequest = FrameRequestBox()
-    /// Human-readable session health (errors, interruptions, tracking
-    /// limits) for the HUD. Nil when everything is nominal.
-    public private(set) var sessionEvent: String?
 
-    public override init() {
-        // RealityKit owns session configuration (automaticallyConfigureSession
-        // defaults to true): its auto-config path is what reliably wires the
-        // camera background. Taking it over manually rendered black.
+    public init() {
         arView = ARView(frame: .zero)
         arView.environment.background = .cameraFeed()
-        super.init()
-        arView.session.delegate = self
     }
 
     /// Enable horizontal plane detection on top of RealityKit's automatic
-    /// configuration — required by the calibration flow's raycasts. Safe to
-    /// call once the view is on screen; it reconfigures without restarting
-    /// the camera.
+    /// configuration — required by the calibration flow's raycasts (M3-02).
     public func enablePlaneDetection() {
         let configuration = ARWorldTrackingConfiguration()
         configuration.planeDetection = [.horizontal]
@@ -60,95 +52,37 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
     }
 
     public func pause() {
-        pendingRequest.take()?.resume(returning: nil)
         arView.session.pause()
     }
 
-    /// Await the next camera frame. Returns nil if the awaiting task is
-    /// cancelled or the session pauses first. One outstanding request at a
-    /// time — callers are expected to be a single polling loop.
-    public func nextFrame() async -> CapturedFrame? {
-        await withTaskCancellationHandler {
-            await withCheckedContinuation { continuation in
-                if let stale = pendingRequest.swap(continuation) {
-                    stale.resume(returning: nil)
-                }
-            }
-        } onCancel: {
-            self.pendingRequest.take()?.resume(returning: nil)
+    /// Snapshot the current camera frame, or nil when the session hasn't
+    /// produced one yet. The returned CapturedFrame references the frame's
+    /// pixel buffer — consume it promptly and drop it.
+    public func currentFrame() -> CapturedFrame? {
+        guard let frame = arView.session.currentFrame else { return nil }
+        let c = frame.camera.transform.columns
+        let columns = [c.0, c.1, c.2, c.3].map { v in
+            SIMD4<Double>(Double(v.x), Double(v.y), Double(v.z), Double(v.w))
         }
-    }
-
-    // MARK: - ARSessionDelegate
-
-    public nonisolated func session(_ session: ARSession, didUpdate frame: ARFrame) {
-        // No pending request → drop the frame without touching its buffers.
-        guard let continuation = pendingRequest.take() else { return }
-        let transform = Transform3D(columns: (0..<4).map { column in
-            let c = frame.camera.transform.columns
-            let v = [c.0, c.1, c.2, c.3][column]
-            return SIMD4<Double>(Double(v.x), Double(v.y), Double(v.z), Double(v.w))
-        })
-        let captured = CapturedFrame(
+        return CapturedFrame(
             timestamp: frame.timestamp,
-            cameraTransform: transform,
+            cameraTransform: Transform3D(columns: columns),
             image: PixelBufferImage(pixelBuffer: frame.capturedImage))
-        continuation.resume(returning: captured)
     }
 
-    public nonisolated func session(_ session: ARSession, didFailWithError error: Error) {
-        report("AR session failed: \(error.localizedDescription)")
-    }
-
-    public nonisolated func sessionWasInterrupted(_ session: ARSession) {
-        report("AR session interrupted")
-    }
-
-    public nonisolated func sessionInterruptionEnded(_ session: ARSession) {
-        report(nil)
-    }
-
-    public nonisolated func session(_ session: ARSession,
-                                    cameraDidChangeTrackingState camera: ARCamera) {
-        switch camera.trackingState {
+    /// Human-readable session health for the HUD; nil when nominal.
+    public func sessionHealth() -> String? {
+        guard let frame = arView.session.currentFrame else {
+            return "Waiting for camera…"
+        }
+        switch frame.camera.trackingState {
         case .normal:
-            report(nil)
+            return nil
         case .notAvailable:
-            report("Tracking unavailable")
+            return "Tracking unavailable"
         case .limited(let reason):
-            report("Tracking limited: \(String(describing: reason))")
+            return "Tracking limited: \(String(describing: reason))"
         }
-    }
-
-    private nonisolated func report(_ message: String?) {
-        Task { @MainActor in
-            self.sessionEvent = message
-        }
-    }
-}
-
-/// Lock-protected hand-off slot for the single outstanding frame request.
-/// Accessed from the main actor (request side) and ARKit's session queue
-/// (fulfillment side).
-private final class FrameRequestBox: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<CapturedFrame?, Never>?
-
-    func swap(_ new: CheckedContinuation<CapturedFrame?, Never>)
-    -> CheckedContinuation<CapturedFrame?, Never>? {
-        lock.lock()
-        defer { lock.unlock() }
-        let old = continuation
-        continuation = new
-        return old
-    }
-
-    func take() -> CheckedContinuation<CapturedFrame?, Never>? {
-        lock.lock()
-        defer { lock.unlock() }
-        let taken = continuation
-        continuation = nil
-        return taken
     }
 }
 

@@ -208,10 +208,11 @@ struct ARCameraView: View {
                 }
                 model.cameraDenied = false
                 // RealityKit auto-configures and runs the session itself;
-                // no manual start (manual config rendered a black feed).
+                // we only sample currentFrame on demand (see coordinator
+                // header for the black-feed rules learned on device).
                 while !Task.isCancelled {
-                    model.sessionEvent = coordinator.sessionEvent
-                    if model.wantsPreviewFrame, let frame = await coordinator.nextFrame() {
+                    model.sessionEvent = coordinator.sessionHealth()
+                    if model.wantsPreviewFrame, let frame = coordinator.currentFrame() {
                         model.ingestPreviewFrame(frame)
                     }
                     try? await Task.sleep(for: .milliseconds(150))
