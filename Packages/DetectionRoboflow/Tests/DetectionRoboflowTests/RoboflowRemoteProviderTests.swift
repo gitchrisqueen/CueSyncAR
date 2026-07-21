@@ -50,9 +50,10 @@ struct ResponseParsingTests {
         let cue = detections[0]
         #expect(cue.classLabel == "cue")
         #expect(cue.ballKind == .cue)
-        // Center (320,240) size (64,48) in 640×480 → x: (320-32)/640 = 0.45.
+        // Center (320,240) size (64,48) in 640×480 →
+        // x: (320-32)/640 = 0.45; y: (240-24)/480 = 0.45.
         #expect(abs(cue.boundingBox.x - 0.45) < 1e-9)
-        #expect(abs(cue.boundingBox.y - 0.4) < 1e-9)
+        #expect(abs(cue.boundingBox.y - 0.45) < 1e-9)
         #expect(abs(cue.boundingBox.width - 0.1) < 1e-9)
         #expect(abs(cue.boundingBox.height - 0.1) < 1e-9)
         #expect(abs(cue.confidence - 0.91) < 1e-9)

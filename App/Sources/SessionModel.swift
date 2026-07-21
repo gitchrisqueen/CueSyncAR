@@ -98,7 +98,7 @@ final class SessionModel {
             } catch {
                 await MainActor.run {
                     guard let self else { return }
-                    self.previewStats.lastError = shortDescription(of: error)
+                    self.previewStats.lastError = self.shortDescription(of: error)
                 }
             }
             await MainActor.run { self?.detectTask = nil }
