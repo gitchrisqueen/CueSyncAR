@@ -81,10 +81,16 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
 
     // MARK: - Calibration support (raycast, projection, anchoring)
 
-    /// Raycast a screen point onto a detected (or estimated) horizontal
-    /// plane. Screen points are in the ARView's coordinate space.
-    public func raycastHorizontalPlane(screenPoint: CGPoint) -> Vec3? {
-        let queries: [ARRaycastQuery.Target] = [.existingPlaneGeometry, .estimatedPlane]
+    /// Raycast a screen point onto a horizontal plane. Uses the INFINITE
+    /// extension of detected planes first — corner placement and handle
+    /// drags must not be limited to the patch of plane ARKit happens to
+    /// have mapped (rail corners often sit outside it). Falls back to
+    /// estimated planes, then to a pure geometric intersection with the
+    /// horizontal plane at `fallbackPlaneHeight` (world y, meters) so a
+    /// drag over feature-poor cloth never dead-zones once corners exist.
+    public func raycastHorizontalPlane(screenPoint: CGPoint,
+                                       fallbackPlaneHeight: Double? = nil) -> Vec3? {
+        let queries: [ARRaycastQuery.Target] = [.existingPlaneInfinite, .estimatedPlane]
         for target in queries {
             if let hit = arView.raycast(from: screenPoint, allowing: target,
                                         alignment: .horizontal).first {
@@ -92,7 +98,16 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
                 return Vec3(Double(t.x), Double(t.y), Double(t.z))
             }
         }
-        return nil
+        guard let fallbackPlaneHeight,
+              let ray = arView.ray(through: screenPoint) else { return nil }
+        let origin = Vec3(Double(ray.origin.x), Double(ray.origin.y),
+                          Double(ray.origin.z))
+        let direction = Vec3(Double(ray.direction.x), Double(ray.direction.y),
+                             Double(ray.direction.z))
+        guard abs(direction.y) > 1e-6 else { return nil }
+        let t = (fallbackPlaneHeight - origin.y) / direction.y
+        guard t > 0 else { return nil }
+        return origin + direction * t
     }
 
     /// The up-normal of the raycast plane at a world point — for MVP

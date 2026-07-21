@@ -24,6 +24,19 @@ struct CalibrationOverlayView: View {
     @Environment(SessionModel.self) private var model
     let coordinator: ARSessionCoordinator
 
+    /// Active handle drag: which corner, plus the finger→handle offset at
+    /// grab time. Preserving the offset keeps the corner from snapping
+    /// under the fingertip (where the finger would hide it).
+    @State private var activeDrag: (index: Int, grabOffset: CGSize)?
+
+    /// Height (world y) of the plane the corners live on — lets raycasts
+    /// fall back to pure geometry when ARKit's plane queries miss.
+    private var cornerPlaneHeight: Double? {
+        let corners = displayCorners
+        guard !corners.isEmpty else { return nil }
+        return corners.reduce(0) { $0 + $1.y } / Double(corners.count)
+    }
+
     private var feltGreen: Color {
         Color(red: Theme.feltGreen.red, green: Theme.feltGreen.green,
               blue: Theme.feltGreen.blue)
@@ -50,9 +63,9 @@ struct CalibrationOverlayView: View {
             .contentShape(Rectangle())
             .onTapGesture(coordinateSpace: .local) { location in
                 guard case .planeFound = model.calibration.state else { return }
-                guard let world = coordinator.raycastHorizontalPlane(screenPoint: location) else {
-                    return
-                }
+                guard let world = coordinator.raycastHorizontalPlane(
+                    screenPoint: location,
+                    fallbackPlaneHeight: cornerPlaneHeight) else { return }
                 model.placeCorner(world, planeNormal: coordinator.horizontalPlaneNormal())
             }
     }
@@ -92,23 +105,40 @@ struct CalibrationOverlayView: View {
             ForEach(corners.indices, id: \.self) { index in
                 if let point = coordinator.projectToScreen(corners[index]) {
                     Circle()
-                        .fill(.white.opacity(0.85))
+                        .fill(.white.opacity(activeDrag?.index == index ? 1 : 0.85))
                         .overlay(Circle().stroke(feltGreen, lineWidth: 2))
                         .frame(width: 30, height: 30)
+                        // ≥44pt hit target around the visible 30pt handle.
+                        .frame(width: 56, height: 56)
+                        .contentShape(Circle())
                         .position(point)
-                        .gesture(
-                            DragGesture(minimumDistance: 2)
-                                .onChanged { value in
-                                    if let world = coordinator.raycastHorizontalPlane(
-                                        screenPoint: value.location) {
-                                        model.moveCorner(index: index, to: world)
-                                    }
-                                }
-                        )
+                        .gesture(handleDrag(index: index, handleCenter: point))
                         .accessibilityLabel("Corner \(index + 1) handle")
                 }
             }
         }
+    }
+
+    private func handleDrag(index: Int, handleCenter: CGPoint) -> some Gesture {
+        DragGesture(minimumDistance: 1)
+            .onChanged { value in
+                if activeDrag?.index != index {
+                    activeDrag = (index, CGSize(
+                        width: handleCenter.x - value.startLocation.x,
+                        height: handleCenter.y - value.startLocation.y))
+                }
+                guard let drag = activeDrag, drag.index == index else { return }
+                let target = CGPoint(x: value.location.x + drag.grabOffset.width,
+                                     y: value.location.y + drag.grabOffset.height)
+                if let world = coordinator.raycastHorizontalPlane(
+                    screenPoint: target,
+                    fallbackPlaneHeight: cornerPlaneHeight) {
+                    model.moveCorner(index: index, to: world)
+                }
+            }
+            .onEnded { _ in
+                activeDrag = nil
+            }
     }
 
     // MARK: - Controls
