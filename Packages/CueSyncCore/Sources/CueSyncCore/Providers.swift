@@ -18,19 +18,47 @@ public protocol ImageBufferProviding: Sendable {
     var height: Int { get }
 }
 
+/// Pinhole camera intrinsics for the captured image, in pixels of that
+/// image's native orientation. Lets consumers unproject image points into
+/// world rays without touching ARKit (pure math, any thread).
+public struct CameraIntrinsics: Sendable, Equatable, Codable {
+    public var focalX: Double
+    public var focalY: Double
+    public var principalX: Double
+    public var principalY: Double
+    public var imageWidth: Double
+    public var imageHeight: Double
+
+    public init(focalX: Double, focalY: Double,
+                principalX: Double, principalY: Double,
+                imageWidth: Double, imageHeight: Double) {
+        self.focalX = focalX
+        self.focalY = focalY
+        self.principalX = principalX
+        self.principalY = principalY
+        self.imageWidth = imageWidth
+        self.imageHeight = imageHeight
+    }
+}
+
 /// One camera frame plus the pose metadata needed to project detections.
 public struct CapturedFrame: Sendable {
     public var timestamp: TimeInterval
     /// Camera-to-world transform at capture time.
     public var cameraTransform: Transform3D
     public var image: (any ImageBufferProviding)?
+    /// Present when the capture source knows its intrinsics (ARKit does);
+    /// nil for sources that don't (fixtures, plain AVCapture).
+    public var intrinsics: CameraIntrinsics?
 
     public init(timestamp: TimeInterval,
                 cameraTransform: Transform3D,
-                image: (any ImageBufferProviding)? = nil) {
+                image: (any ImageBufferProviding)? = nil,
+                intrinsics: CameraIntrinsics? = nil) {
         self.timestamp = timestamp
         self.cameraTransform = cameraTransform
         self.image = image
+        self.intrinsics = intrinsics
     }
 }
 
