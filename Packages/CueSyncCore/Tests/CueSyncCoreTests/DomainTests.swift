@@ -4,7 +4,7 @@ import Testing
 
 @Suite("Table geometry")
 struct TableTests {
-    @Test(arguments: TableSize.allCases)
+    @Test(arguments: TableSize.standardSizes + [TableSize.custom(width: 1.58, height: 0.76)])
     func pocketsDerivedFromSize(size: TableSize) {
         let table = Table(size: size)
         #expect(table.pockets.count == 6)
@@ -28,8 +28,21 @@ struct TableTests {
         #expect(TableSize.inferred(width: 2.51, height: 1.29) == .nineFoot)
         // Orientation-agnostic.
         #expect(TableSize.inferred(width: 1.17, height: 2.34) == .eightFoot)
-        // Way off spec → nil.
+        // Way off spec → nil (inference never invents a custom size).
         #expect(TableSize.inferred(width: 3.5, height: 1.0) == nil)
+    }
+
+    @Test func customSizeCarriesMeasuredPlayFieldAndRoundTrips() throws {
+        let size = TableSize.custom(width: 1.58, height: 0.76)
+        #expect(size.playField.width == 1.58)
+        #expect(size.playField.height == 0.76)
+        let data = try JSONEncoder().encode(size)
+        let decoded = try JSONDecoder().decode(TableSize.self, from: data)
+        #expect(decoded == size)
+        // Standard sizes still encode/decode alongside the custom case.
+        let nine = try JSONDecoder().decode(
+            TableSize.self, from: JSONEncoder().encode(TableSize.nineFoot))
+        #expect(nine == .nineFoot)
     }
 
     @Test func containment() {

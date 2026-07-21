@@ -9,12 +9,20 @@
 
 import Foundation
 
-/// Standard table sizes, identified by their nominal playing-field dimensions
-/// (cushion nose to cushion nose). Values follow WPA/BCA equipment specs.
-public enum TableSize: String, Sendable, Codable, CaseIterable {
+/// Table sizes, identified by their playing-field dimensions (cushion nose
+/// to cushion nose). The standard cases follow WPA/BCA equipment specs;
+/// `custom` carries dimensions measured at calibration time — real venues
+/// have odd cuts, covered rails, and worn cloth, and calibration must not
+/// refuse to lock over them (measured geometry beats a forced snap).
+public enum TableSize: Sendable, Codable, Equatable, Hashable {
     case sevenFoot
     case eightFoot
     case nineFoot
+    /// Non-standard playing field (width = long axis, meters).
+    case custom(width: Double, height: Double)
+
+    /// The standard sizes, e.g. for pickers and snap inference.
+    public static let standardSizes: [TableSize] = [.sevenFoot, .eightFoot, .nineFoot]
 
     /// Playing field (width along x, height along y), meters.
     public var playField: (width: Double, height: Double) {
@@ -22,18 +30,21 @@ public enum TableSize: String, Sendable, Codable, CaseIterable {
         case .sevenFoot: (1.98, 0.99)
         case .eightFoot: (2.34, 1.17)
         case .nineFoot: (2.54, 1.27)
+        case .custom(let width, let height): (width, height)
         }
     }
 
-    /// Snap a measured playing field to the nearest standard size, if the
-    /// measurement is within `tolerance` (fractional, e.g. 0.05 = 5%) of it.
+    /// Snap a measured playing field to the nearest STANDARD size, if the
+    /// measurement is within `tolerance` (fractional, e.g. 0.05 = 5%) of
+    /// it. Returns nil (never `.custom`) when nothing is close enough —
+    /// callers decide whether to fall back to `.custom`.
     public static func inferred(width: Double, height: Double,
                                 tolerance: Double = 0.05) -> TableSize? {
         // Normalize orientation: long side is width.
         let w = Swift.max(width, height)
         let h = Swift.min(width, height)
         var best: (size: TableSize, error: Double)?
-        for size in allCases {
+        for size in standardSizes {
             let f = size.playField
             let error = Swift.max(abs(w - f.width) / f.width, abs(h - f.height) / f.height)
             if error <= tolerance, error < (best?.error ?? .infinity) {
