@@ -35,6 +35,9 @@ final class SessionModel {
     /// Set when the user has denied camera access (drives an explicit
     /// error state instead of a silent black screen).
     var cameraDenied = false
+    /// Latest AR session health message (errors/interruptions/tracking
+    /// limits), mirrored from the coordinator for the HUD.
+    var sessionEvent: String?
 
     // MARK: Detection preview state
 

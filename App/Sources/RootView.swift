@@ -43,6 +43,14 @@ struct RootView: View {
                         .background(.ultraThinMaterial, in: Capsule())
                         .foregroundStyle(.red)
                 }
+                if let event = model.sessionEvent {
+                    Text(event)
+                        .font(.caption)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .foregroundStyle(.orange)
+                }
                 if let error = model.previewStats.lastError {
                     Text(error)
                         .font(.caption2)
@@ -199,8 +207,10 @@ struct ARCameraView: View {
                     return
                 }
                 model.cameraDenied = false
-                coordinator.start()
+                // RealityKit auto-configures and runs the session itself;
+                // no manual start (manual config rendered a black feed).
                 while !Task.isCancelled {
+                    model.sessionEvent = coordinator.sessionEvent
                     if model.wantsPreviewFrame, let frame = await coordinator.nextFrame() {
                         model.ingestPreviewFrame(frame)
                     }

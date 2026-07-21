@@ -34,17 +34,25 @@ import RealityKit
 public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
     public let arView: ARView
     private let pendingRequest = FrameRequestBox()
+    /// Human-readable session health (errors, interruptions, tracking
+    /// limits) for the HUD. Nil when everything is nominal.
+    public private(set) var sessionEvent: String?
 
     public override init() {
+        // RealityKit owns session configuration (automaticallyConfigureSession
+        // defaults to true): its auto-config path is what reliably wires the
+        // camera background. Taking it over manually rendered black.
         arView = ARView(frame: .zero)
-        // We own the session lifecycle; RealityKit must not race us with its
-        // own automatic configuration (double-run flashes the camera feed).
-        arView.automaticallyConfigureSession = false
+        arView.environment.background = .cameraFeed()
         super.init()
         arView.session.delegate = self
     }
 
-    public func start() {
+    /// Enable horizontal plane detection on top of RealityKit's automatic
+    /// configuration — required by the calibration flow's raycasts. Safe to
+    /// call once the view is on screen; it reconfigures without restarting
+    /// the camera.
+    public func enablePlaneDetection() {
         let configuration = ARWorldTrackingConfiguration()
         configuration.planeDetection = [.horizontal]
         configuration.environmentTexturing = .automatic
@@ -86,6 +94,36 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
             cameraTransform: transform,
             image: PixelBufferImage(pixelBuffer: frame.capturedImage))
         continuation.resume(returning: captured)
+    }
+
+    public nonisolated func session(_ session: ARSession, didFailWithError error: Error) {
+        report("AR session failed: \(error.localizedDescription)")
+    }
+
+    public nonisolated func sessionWasInterrupted(_ session: ARSession) {
+        report("AR session interrupted")
+    }
+
+    public nonisolated func sessionInterruptionEnded(_ session: ARSession) {
+        report(nil)
+    }
+
+    public nonisolated func session(_ session: ARSession,
+                                    cameraDidChangeTrackingState camera: ARCamera) {
+        switch camera.trackingState {
+        case .normal:
+            report(nil)
+        case .notAvailable:
+            report("Tracking unavailable")
+        case .limited(let reason):
+            report("Tracking limited: \(String(describing: reason))")
+        }
+    }
+
+    private nonisolated func report(_ message: String?) {
+        Task { @MainActor in
+            self.sessionEvent = message
+        }
     }
 }
 
