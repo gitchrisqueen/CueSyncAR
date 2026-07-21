@@ -13,13 +13,38 @@ import CueSyncUI
 import DetectionRoboflow
 import SwiftUI
 import TableSpace
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct RootView: View {
     @Environment(SessionModel.self) private var model
-    @AppStorage("previewBoxRotation") private var boxRotationRaw = NormalizedRotation.clockwise90.rawValue
+    /// Manual trim ON TOP of the orientation-derived rotation, for devices
+    /// whose sensor mounting differs. Cycled by the rotate button.
+    @AppStorage("previewBoxRotationTrim") private var rotationTrimRaw = NormalizedRotation.none.rawValue
+    /// Rotation derived from the device's PHYSICAL orientation (fluid —
+    /// tracks the free-floating phone via orientation notifications, and
+    /// works even when the UI orientation is locked).
+    @State private var autoRotation: NormalizedRotation = .clockwise90
 
     private var boxRotation: NormalizedRotation {
-        NormalizedRotation(rawValue: boxRotationRaw) ?? .clockwise90
+        autoRotation.combined(with: NormalizedRotation(rawValue: rotationTrimRaw) ?? .none)
+    }
+
+    /// Camera sensor is landscape-native (buffer upright with the home
+    /// indicator on the right). Nil for faceUp/faceDown/unknown — keep the
+    /// last known rotation rather than guessing. Confirm per device
+    /// checklist (needs-device-run).
+    static func rotation(for orientation: UIDeviceOrientation) -> NormalizedRotation? {
+        switch orientation {
+        case .portrait: .clockwise90
+        case .portraitUpsideDown: .counterClockwise90
+        // Fully qualified: a bare `.none` in this Optional return context
+        // resolves to Optional.none (nil), silently breaking landscape.
+        case .landscapeLeft: NormalizedRotation.none
+        case .landscapeRight: .half
+        default: nil
+        }
     }
 
     var body: some View {
@@ -66,6 +91,16 @@ struct RootView: View {
             .padding(.top, 8)
             .padding(.bottom, 12)
         }
+        .onAppear {
+            UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+            autoRotation = Self.rotation(for: UIDevice.current.orientation) ?? autoRotation
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIDevice.orientationDidChangeNotification)) { _ in
+            if let rotation = Self.rotation(for: UIDevice.current.orientation) {
+                autoRotation = rotation
+            }
+        }
     }
 
     private var hudStatus: HUDStatus {
@@ -97,12 +132,13 @@ struct RootView: View {
                     .font(.footnote.weight(.semibold))
                     .monospacedDigit()
                 Button {
-                    boxRotationRaw = boxRotation.next.rawValue
+                    rotationTrimRaw = (NormalizedRotation(rawValue: rotationTrimRaw) ?? .none)
+                        .next.rawValue
                 } label: {
-                    Label("Rotate boxes", systemImage: "rotate.right")
+                    Label("Nudge box rotation", systemImage: "rotate.right")
                         .labelStyle(.iconOnly)
                 }
-                .accessibilityLabel("Rotate detection boxes")
+                .accessibilityLabel("Nudge detection box rotation")
             }
         }
     }
@@ -136,6 +172,8 @@ struct RootView: View {
         case .sevenFoot: "7-ft"
         case .eightFoot: "8-ft"
         case .nineFoot: "9-ft"
+        case .custom(let width, let height):
+            String(format: "%.1f×%.1f m", width, height)
         }
     }
 

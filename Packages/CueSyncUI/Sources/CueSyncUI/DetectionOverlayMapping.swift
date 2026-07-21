@@ -53,6 +53,12 @@ public enum NormalizedRotation: Int, Sendable, CaseIterable, Codable {
     public var swapsDimensions: Bool {
         self == .clockwise90 || self == .counterClockwise90
     }
+
+    /// Compose two quarter-turn rotations (angles add mod 360). Lets an
+    /// automatic orientation-derived rotation carry a user trim on top.
+    public func combined(with other: NormalizedRotation) -> NormalizedRotation {
+        NormalizedRotation(rawValue: (rawValue + other.rawValue) % 360) ?? .none
+    }
 }
 
 public enum AspectFillMapping {

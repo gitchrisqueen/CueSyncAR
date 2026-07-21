@@ -14,6 +14,8 @@ import Foundation
 public enum CalibrationError: Error, Equatable {
     case needFourCorners
     case degenerateCorners
+    /// No longer thrown by `fromCorners` (non-standard rectangles lock as
+    /// `TableSize.custom`); kept for API stability.
     case unrecognizedTableSize(width: Double, height: Double)
 }
 
@@ -71,10 +73,12 @@ public struct TableCalibration: Sendable, Equatable, Codable {
     /// Build a calibration from the four playing-field corners in world
     /// space, ordered around the rectangle (either winding, any starting
     /// corner): c0→c1 and c3→c2 must be one pair of opposite edges.
-    /// The long edge pair becomes the x axis. Table size is snapped to the
-    /// nearest standard size within `sizeTolerance`.
+    /// The long edge pair becomes the x axis. Table size snaps to the
+    /// nearest standard size within `sizeTolerance` (the "slight
+    /// adjustment" path); anything else locks as `.custom` with the
+    /// measured dimensions — never refuse a real table for being odd.
     public static func fromCorners(_ corners: [Vec3],
-                                   sizeTolerance: Double = 0.05)
+                                   sizeTolerance: Double = 0.08)
     throws -> TableCalibration {
         guard corners.count == 4 else { throw CalibrationError.needFourCorners }
         let c0 = corners[0], c1 = corners[1], c2 = corners[2], c3 = corners[3]
@@ -94,10 +98,9 @@ public struct TableCalibration: Sendable, Equatable, Codable {
         }
         let width = Swift.max(lengthA, lengthB)
         let height = Swift.min(lengthA, lengthB)
-        guard let size = TableSize.inferred(width: width, height: height,
-                                            tolerance: sizeTolerance) else {
-            throw CalibrationError.unrecognizedTableSize(width: width, height: height)
-        }
+        let size = TableSize.inferred(width: width, height: height,
+                                      tolerance: sizeTolerance)
+            ?? .custom(width: width, height: height)
 
         let x = edgeA.normalized
         // Orthonormalize the short axis against x (Gram-Schmidt).

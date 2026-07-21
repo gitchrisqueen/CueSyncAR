@@ -42,6 +42,13 @@ struct CalibrationOverlayView: View {
               blue: Theme.feltGreen.blue)
     }
 
+    /// Stable full-screen space shared by projections, taps, and drags.
+    /// Gestures MUST resolve in this space, not a handle's local space —
+    /// a handle moves while being dragged, and measuring the drag relative
+    /// to the moving handle compounds error every update (the white handle
+    /// visibly drifted off its green corner).
+    private static let space = "calibration-overlay"
+
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { _ in
             ZStack {
@@ -49,6 +56,7 @@ struct CalibrationOverlayView: View {
                 cornerGraphics
             }
         }
+        .coordinateSpace(name: Self.space)
         .overlay(alignment: .bottom) {
             controls
                 .padding(.bottom, 84)
@@ -120,7 +128,7 @@ struct CalibrationOverlayView: View {
     }
 
     private func handleDrag(index: Int, handleCenter: CGPoint) -> some Gesture {
-        DragGesture(minimumDistance: 1)
+        DragGesture(minimumDistance: 1, coordinateSpace: .named(Self.space))
             .onChanged { value in
                 if activeDrag?.index != index {
                     activeDrag = (index, CGSize(

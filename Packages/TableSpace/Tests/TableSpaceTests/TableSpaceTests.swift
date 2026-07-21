@@ -90,12 +90,28 @@ struct TableCalibrationTests {
                 Vec3(0, 0, 0), Vec3(0, 0, 0), Vec3(0, 0, 0), Vec3(0, 0, 0)
             ])
         }
-        // A rectangle far from any standard size.
-        #expect(throws: CalibrationError.self) {
-            _ = try TableCalibration.fromCorners([
-                Vec3(0, 0, 0), Vec3(5, 0, 0), Vec3(5, 0, 1), Vec3(0, 0, 1)
-            ])
+    }
+
+    @Test func fromCornersLocksNonStandardRectanglesAsCustom() throws {
+        // Chris's covered home table: 1.58 × 0.76 m — nowhere near a
+        // standard size, but a perfectly lockable rectangle.
+        let cal = try TableCalibration.fromCorners([
+            Vec3(0, 0, 0), Vec3(1.58, 0, 0), Vec3(1.58, 0, 0.76), Vec3(0, 0, 0.76)
+        ])
+        guard case let .custom(width, height) = cal.size else {
+            Issue.record("expected .custom, got \(cal.size)")
+            return
         }
+        #expect(abs(width - 1.58) < 1e-9)
+        #expect(abs(height - 0.76) < 1e-9)
+    }
+
+    @Test func fromCornersSnapsWhenCloseToAStandardSize() throws {
+        // ~4% off a nine-foot field → snapped (the "slight adjustment").
+        let cal = try TableCalibration.fromCorners([
+            Vec3(0, 0, 0), Vec3(2.45, 0, 0), Vec3(2.45, 0, 1.23), Vec3(0, 0, 1.23)
+        ])
+        #expect(cal.size == .nineFoot)
     }
 
     @Test func codableRoundTrip() throws {
