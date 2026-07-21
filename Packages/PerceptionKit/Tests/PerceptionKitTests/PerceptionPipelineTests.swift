@@ -51,11 +51,11 @@ struct PerceptionPipelineTests {
             calibration: calibration,
             raycaster: LinearFixtureRaycaster(calibration: calibration))
 
-        var iterator = await pipeline.states.makeAsyncIterator()
+        var iterator = await pipeline.outputs.makeAsyncIterator()
         var lastState: TableState?
         for index in 0..<6 {
             await pipeline.ingest(makeFrame(index))
-            lastState = await iterator.next()
+            lastState = await iterator.next()?.state
         }
 
         let state = try #require(lastState)
@@ -84,11 +84,11 @@ struct PerceptionPipelineTests {
             calibration: calibration,
             raycaster: LinearFixtureRaycaster(calibration: calibration))
 
-        var iterator = await pipeline.states.makeAsyncIterator()
+        var iterator = await pipeline.outputs.makeAsyncIterator()
         var ballCounts: [Int] = []
         for index in 0..<4 {
             await pipeline.ingest(makeFrame(index))
-            if let state = await iterator.next() {
+            if let state = await iterator.next()?.state {
                 ballCounts.append(state.balls.count)
             }
         }
@@ -114,7 +114,7 @@ struct PerceptionPipelineTests {
             calibration: calibration,
             raycaster: LinearFixtureRaycaster(calibration: calibration))
 
-        var iterator = await pipeline.states.makeAsyncIterator()
+        var iterator = await pipeline.outputs.makeAsyncIterator()
         var received = 0
         // Frames 0-2 fail (dropped, no yield); frames 3-8 succeed.
         for index in 0..<9 {

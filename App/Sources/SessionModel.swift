@@ -129,6 +129,12 @@ final class SessionModel {
     private(set) var shotPrediction: ShotPrediction?
     /// CoachKit's cue-tip recommendation for the current shot.
     private(set) var shotGuide: ShotGuide?
+    /// Latest cue-stick footprint (table space) from the pipeline.
+    private(set) var stickQuad: [Vec2]?
+    /// Where the current aim comes from: the detected cue stick when one
+    /// is addressing the ball, else the device-pose sighting model.
+    enum AimSource { case stick, devicePose }
+    private(set) var aimSource: AimSource = .devicePose
     @ObservationIgnored private var pipeline: PerceptionPipeline?
     @ObservationIgnored private var statesTask: Task<Void, Never>?
     @ObservationIgnored private let aimEngine = AimEngine()
@@ -149,9 +155,16 @@ final class SessionModel {
             calibration: calibration,
             raycaster: PlaneGeometryRaycaster(calibration: calibration))
         pipeline = newPipeline
+        // Spatial overlays take over — stale 2D preview boxes would linger
+        // frozen over the camera otherwise.
+        latestDetections = []
+        previewStats = PreviewStats()
         statesTask = Task { [weak self] in
-            for await state in await newPipeline.states {
-                await MainActor.run { self?.tableState = state }
+            for await output in await newPipeline.outputs {
+                await MainActor.run {
+                    self?.tableState = output.state
+                    self?.stickQuad = output.stickQuad
+                }
             }
         }
     }
@@ -162,6 +175,9 @@ final class SessionModel {
         pipeline = nil
         tableState = nil
         shotPrediction = nil
+        shotGuide = nil
+        stickQuad = nil
+        aimSource = .devicePose
     }
 
     /// Feed a frame to the pipeline, throttled to the hosted-API-friendly
@@ -174,15 +190,31 @@ final class SessionModel {
         Task { await pipeline.ingest(frame) }
     }
 
-    /// Recompute the aim ray + shot prediction + coaching guide from the
-    /// current device pose (called at UI cadence — solver is sub-ms).
+    /// Recompute the aim ray + shot prediction + coaching guide (called at
+    /// UI cadence — solver is sub-ms). The detected cue stick wins when
+    /// it's addressing the ball; the device-pose sighting model is the
+    /// fallback so aiming always works without a stick in frame.
     func updateAim(cameraTransform: Transform3D) {
         guard let calibration = tableCalibration,
               let state = tableState,
-              let cue = state.cueBall,
-              let aim = aimEngine.aimRay(cameraTransform: cameraTransform,
-                                         cueBall: cue.position,
-                                         calibration: calibration) else {
+              let cue = state.cueBall else {
+            shotPrediction = nil
+            shotGuide = nil
+            return
+        }
+        let aim: AimRay?
+        if let stickQuad,
+           let stickAim = StickAim.estimate(stickQuad: stickQuad,
+                                            cueBall: cue.position) {
+            aim = stickAim
+            aimSource = .stick
+        } else {
+            aim = aimEngine.aimRay(cameraTransform: cameraTransform,
+                                   cueBall: cue.position,
+                                   calibration: calibration)
+            aimSource = .devicePose
+        }
+        guard let aim else {
             shotPrediction = nil
             shotGuide = nil
             return

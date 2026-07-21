@@ -119,8 +119,13 @@ struct RootView: View {
     }
 
     private var hudStatus: HUDStatus {
-        // Live tracking: the pipeline's stabilized ball count.
+        // Live tracking: the pipeline's stabilized ball count — and an
+        // explicit prompt when no cue ball is on the table (nothing can be
+        // aimed or predicted without it).
         if model.isLiveTracking {
+            if model.tableState?.cueBall == nil {
+                return .awaitingCueBall
+            }
             return .tracking(ballCount: model.tableState?.balls.count ?? 0)
         }
         // The calibration flow owns the capsule while it's on screen.

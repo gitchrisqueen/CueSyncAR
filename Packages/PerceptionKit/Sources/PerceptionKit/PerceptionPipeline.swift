@@ -16,6 +16,21 @@ import CueSyncCore
 import Foundation
 import TableSpace
 
+/// One processed frame's worth of perception: the coherent ball state plus
+/// auxiliary (non-ball) observations like the cue stick's footprint.
+public struct PerceptionOutput: Sendable {
+    public var state: TableState
+    /// Table-space projection of the strongest cue-stick detection's
+    /// bounding-box corners, in image order TL, TR, BR, BL — StickAim's
+    /// input. Nil when no stick is confidently visible.
+    public var stickQuad: [Vec2]?
+
+    public init(state: TableState, stickQuad: [Vec2]? = nil) {
+        self.state = state
+        self.stickQuad = stickQuad
+    }
+}
+
 public actor PerceptionPipeline {
     private let detector: any DetectionProviding
     private let calibration: TableCalibration
@@ -27,11 +42,11 @@ public actor PerceptionPipeline {
     private var isProcessing = false
     private var prepared = false
 
-    private let stream: AsyncStream<TableState>
-    private let continuation: AsyncStream<TableState>.Continuation
+    private let stream: AsyncStream<PerceptionOutput>
+    private let continuation: AsyncStream<PerceptionOutput>.Continuation
 
-    /// Confirmed table states, one per processed frame.
-    public var states: AsyncStream<TableState> { stream }
+    /// One output per processed frame.
+    public var outputs: AsyncStream<PerceptionOutput> { stream }
 
     public init(detector: any DetectionProviding,
                 calibration: TableCalibration,
@@ -43,7 +58,7 @@ public actor PerceptionPipeline {
         self.raycaster = raycaster
         self.config = config
         self.tracker = BallTracker(config: trackerConfig)
-        (stream, continuation) = AsyncStream.makeStream(of: TableState.self)
+        (stream, continuation) = AsyncStream.makeStream(of: PerceptionOutput.self)
     }
 
     deinit {
@@ -100,10 +115,32 @@ public actor PerceptionPipeline {
             let state = TableState(table: Table(size: calibration.size),
                                    balls: balls,
                                    timestamp: frame.timestamp)
-            continuation.yield(state)
+            continuation.yield(PerceptionOutput(state: state,
+                                                stickQuad: stickQuad(in: detections,
+                                                                     frame: frame)))
         } catch {
             // A failed frame is dropped; the previous state stands. The
             // detector's own health surfaces through HUDStatus (M3-05).
         }
+    }
+
+    /// Project the strongest stick detection's box corners onto the table
+    /// plane (image order TL, TR, BR, BL) for StickAim.
+    private func stickQuad(in detections: [Detection2D],
+                           frame: CapturedFrame) -> [Vec2]? {
+        guard let stick = detections.filter({ $0.isCueStick && $0.confidence >= 0.3 })
+            .max(by: { $0.confidence < $1.confidence }) else { return nil }
+        let box = stick.boundingBox
+        let corners = [
+            Vec2(box.x, box.y),
+            Vec2(box.x + box.width, box.y),
+            Vec2(box.x + box.width, box.y + box.height),
+            Vec2(box.x, box.y + box.height)
+        ]
+        let projected = corners.compactMap { corner -> Vec2? in
+            raycaster.raycastToTablePlane(imagePoint: corner, frame: frame)
+                .map(calibration.worldToTable)
+        }
+        return projected.count == 4 ? projected : nil
     }
 }

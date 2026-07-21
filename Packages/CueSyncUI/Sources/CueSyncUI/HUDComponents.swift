@@ -19,6 +19,9 @@ public enum HUDStatus: Sendable, Equatable {
     /// `placed` counts corners already down (0...3).
     case placingCorners(placed: Int)
     case confirmingRails
+    /// Live tracking is running but no cue ball is on the table — nothing
+    /// can be aimed or predicted until it appears.
+    case awaitingCueBall
     case tracking(ballCount: Int)
     case degraded(reason: DegradedReason)
 
@@ -34,6 +37,7 @@ public enum HUDStatus: Sendable, Equatable {
         case .findingTable: "Point at the table"
         case .placingCorners(let placed): "Tap the rail corners (\(placed)/4)"
         case .confirmingRails: "Adjust the corners, then lock"
+        case .awaitingCueBall: "Place the cue ball on the table"
         case .tracking(let count): "Tracking \(count) balls"
         case .degraded(.fastMotion): "Hold steady…"
         case .degraded(.lowLight): "Need more light"
@@ -47,6 +51,7 @@ public enum HUDStatus: Sendable, Equatable {
         case .findingTable: "camera.viewfinder"
         case .placingCorners: "hand.tap"
         case .confirmingRails: "rectangle.dashed"
+        case .awaitingCueBall: "circle.dashed"
         case .tracking: "checkmark.circle"
         case .degraded: "exclamationmark.triangle"
         }
