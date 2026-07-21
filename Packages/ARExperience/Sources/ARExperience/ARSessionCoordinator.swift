@@ -2,12 +2,19 @@
 //  ARSessionCoordinator.swift
 //  ARExperience
 //
-//  Tasks M3-01/M3-04 (device layer): owns the ARSession, streams
-//  CapturedFrames with latest-wins semantics, implements PlaneRaycasting
-//  via ARKit raycast queries, and renders OverlayLayout as RealityKit
-//  entities. Compiles only where ARKit exists; all decision logic lives in
-//  the pure types (AimEngine, CalibrationController, OverlayLayout) so this
-//  file stays a thin, mechanical shell.
+//  Tasks M3-01/M3-04 (device layer): owns the ARSession, hands out camera
+//  frames on demand, implements PlaneRaycasting via ARKit raycast queries,
+//  and renders OverlayLayout as RealityKit entities. Compiles only where
+//  ARKit exists; all decision logic lives in the pure types (AimEngine,
+//  CalibrationController, OverlayLayout) so this file stays a thin,
+//  mechanical shell.
+//
+//  Frame delivery is PULL-based (nextFrame()), not a push stream: ARKit's
+//  camera buffer pool is small, and retaining pixel buffers — even one
+//  sitting in a stream buffer — stalls capture (black screen, Fig capture
+//  errors, Metal drawable allocation failures). With the pull model a
+//  buffer is only referenced while a consumer is actively using it; every
+//  other frame is dropped inside the delegate callback untouched.
 //
 //  Device verification per playbook rule 6: tracking quality, raycast
 //  accuracy, and overlay latency are device-checklist items (M3-06) —
@@ -26,15 +33,13 @@ import RealityKit
 @MainActor
 public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
     public let arView: ARView
-    private let frameContinuation: AsyncStream<CapturedFrame>.Continuation
-    /// Camera frames, newest-wins (buffering policy drops stale frames).
-    public let frames: AsyncStream<CapturedFrame>
+    private let pendingRequest = FrameRequestBox()
 
     public override init() {
         arView = ARView(frame: .zero)
-        (frames, frameContinuation) = AsyncStream.makeStream(
-            of: CapturedFrame.self,
-            bufferingPolicy: .bufferingNewest(1))
+        // We own the session lifecycle; RealityKit must not race us with its
+        // own automatic configuration (double-run flashes the camera feed).
+        arView.automaticallyConfigureSession = false
         super.init()
         arView.session.delegate = self
     }
@@ -47,12 +52,30 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
     }
 
     public func pause() {
+        pendingRequest.take()?.resume(returning: nil)
         arView.session.pause()
+    }
+
+    /// Await the next camera frame. Returns nil if the awaiting task is
+    /// cancelled or the session pauses first. One outstanding request at a
+    /// time — callers are expected to be a single polling loop.
+    public func nextFrame() async -> CapturedFrame? {
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if let stale = pendingRequest.swap(continuation) {
+                    stale.resume(returning: nil)
+                }
+            }
+        } onCancel: {
+            self.pendingRequest.take()?.resume(returning: nil)
+        }
     }
 
     // MARK: - ARSessionDelegate
 
     public nonisolated func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        // No pending request → drop the frame without touching its buffers.
+        guard let continuation = pendingRequest.take() else { return }
         let transform = Transform3D(columns: (0..<4).map { column in
             let c = frame.camera.transform.columns
             let v = [c.0, c.1, c.2, c.3][column]
@@ -62,7 +85,32 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
             timestamp: frame.timestamp,
             cameraTransform: transform,
             image: PixelBufferImage(pixelBuffer: frame.capturedImage))
-        frameContinuation.yield(captured)
+        continuation.resume(returning: captured)
+    }
+}
+
+/// Lock-protected hand-off slot for the single outstanding frame request.
+/// Accessed from the main actor (request side) and ARKit's session queue
+/// (fulfillment side).
+private final class FrameRequestBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<CapturedFrame?, Never>?
+
+    func swap(_ new: CheckedContinuation<CapturedFrame?, Never>)
+    -> CheckedContinuation<CapturedFrame?, Never>? {
+        lock.lock()
+        defer { lock.unlock() }
+        let old = continuation
+        continuation = new
+        return old
+    }
+
+    func take() -> CheckedContinuation<CapturedFrame?, Never>? {
+        lock.lock()
+        defer { lock.unlock() }
+        let taken = continuation
+        continuation = nil
+        return taken
     }
 }
 

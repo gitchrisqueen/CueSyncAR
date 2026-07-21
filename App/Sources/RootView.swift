@@ -35,6 +35,14 @@ struct RootView: View {
 
             VStack {
                 StatusCapsule(status: hudStatus)
+                if model.cameraDenied {
+                    Text("Camera access denied — enable it in Settings → CueSync AR")
+                        .font(.caption)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .foregroundStyle(.red)
+                }
                 if let error = model.previewStats.lastError {
                     Text(error)
                         .font(.caption2)
@@ -172,10 +180,13 @@ struct SimulatorPlaceholderView: View {
 #if canImport(ARKit) && !targetEnvironment(simulator)
 import ARExperience
 import ARKit
+import AVFoundation
 import RealityKit
 
-/// Hosts the shared ARSessionCoordinator's ARView and pumps its frame
-/// stream into the session model's preview loop.
+/// Hosts the shared ARSessionCoordinator's ARView and drives the pull-based
+/// preview loop: a camera frame is only requested (and its buffer only
+/// touched) when the model actually wants one — retaining ARKit frames
+/// starves the capture pipeline.
 struct ARCameraView: View {
     @Environment(SessionModel.self) private var model
     @State private var coordinator = ARSessionCoordinator()
@@ -183,11 +194,30 @@ struct ARCameraView: View {
     var body: some View {
         ARViewRepresentable(coordinator: coordinator)
             .task {
+                guard await ensureCameraAccess() else {
+                    model.cameraDenied = true
+                    return
+                }
+                model.cameraDenied = false
                 coordinator.start()
-                for await frame in coordinator.frames {
-                    model.ingestPreviewFrame(frame)
+                while !Task.isCancelled {
+                    if model.wantsPreviewFrame, let frame = await coordinator.nextFrame() {
+                        model.ingestPreviewFrame(frame)
+                    }
+                    try? await Task.sleep(for: .milliseconds(150))
                 }
             }
+    }
+
+    private func ensureCameraAccess() async -> Bool {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            return true
+        case .notDetermined:
+            return await AVCaptureDevice.requestAccess(for: .video)
+        default:
+            return false
+        }
     }
 }
 

@@ -32,6 +32,9 @@ final class SessionModel {
 
     let registry = ProviderRegistry()
     private(set) var phase: Phase = .launching
+    /// Set when the user has denied camera access (drives an explicit
+    /// error state instead of a silent black screen).
+    var cameraDenied = false
 
     // MARK: Detection preview state
 
@@ -74,6 +77,12 @@ final class SessionModel {
             apiKey: secrets.secret(for: .roboflowAPIKey) ?? "",
             transport: URLSessionTransport(),
             encoder: makeEncoder())
+    }
+
+    /// Whether the preview loop should bother pulling a camera frame now.
+    var wantsPreviewFrame: Bool {
+        provider != nil && detectTask == nil
+            && Date().timeIntervalSince(lastDetectionAt) >= previewInterval
     }
 
     /// Feed one camera frame into the preview loop. Skipped while a request
