@@ -15,9 +15,14 @@ enum DetectionModelCatalog {
         // This one VVV working
         RoboflowModelRef(slug: "pool-ball-agzev", version: 1,
                          label: "xhujustin — Pool Ball"),
-        // This one VVV not workign
-        RoboflowModelRef(slug: "pool-ball-detecion", version: 5,
-                         label: "leonardo — Ball Detection"),
+        // leonardo's "pool-ball-detecion" is removed: the Universe project
+        // (leonardo-wijaya-bdcih) has 3 dataset versions but NO deployed
+        // trained model at any of them — the hosted API can never serve it.
+        // Its 1.67k-image dataset remains a training-data lead for M2-01.
+        // Replacement candidate, verified deployed on Universe: 81.2%
+        // mAP@50, classifies each ball 0–15 individually (identity!).
+        RoboflowModelRef(slug: "pool-balls-detection-srlqi", version: 8,
+                         label: "mark — Pool Balls (numbered)"),
         // This one VVV working
         RoboflowModelRef(slug: "pool-ball-detection-v8huq", version: 1,
                          label: "kwinten — Ball Detection"),
