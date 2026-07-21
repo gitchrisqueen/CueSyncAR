@@ -1,6 +1,0 @@
-framework module Pods_CueSync_AR_CueSync_ARUITests {
-  umbrella header "Pods-CueSync AR-CueSync ARUITests-umbrella.h"
-
-  export *
-  module * { export * }
-}

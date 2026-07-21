@@ -1,0 +1,11 @@
+# gitleaks configuration.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Historical leak, remediated"
+# The pre-M0 scaffold committed a Roboflow key in BallDetect.swift. The file
+# is deleted and the key MUST be rotated in the Roboflow dashboard (task
+# M0-05); it remains in git history, so scans of old commits ignore that
+# path. Never allowlist a *current* file.
+paths = ['''CueSync AR/BallDetect\.swift''']

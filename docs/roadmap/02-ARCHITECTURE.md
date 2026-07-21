@@ -7,6 +7,7 @@ here are also the **parallel-agent work boundaries** (see 07-AGENT-PLAYBOOK).
 
 ```
 CueSyncAR/
+├── project.yml                   # XcodeGen definition; .xcodeproj is generated
 ├── App/                          # Xcode app target — thin shell only
 │   ├── CueSyncApp.swift          # @main SwiftUI App
 │   ├── Config/                   # xcconfigs incl. Secrets.example.xcconfig

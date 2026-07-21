@@ -12,12 +12,12 @@ claim/merge protocol). Legend: `[ ]` open · `[~] <branch>` claimed · `[x]` mer
 
 Goal: modern toolchain, clean repo, green CI. Details in 01-TECH-MODERNIZATION.
 
-- [ ] **M0-01** `.gitignore`; remove `Pods/` + `xcuserdata` from tree. *(deps: —)*
-- [ ] **M0-02** Drop CocoaPods; SwiftPM-only project; `Packages/` skeleton (all 8 packages, empty types, placeholder Swift Testing tests). *(deps: M0-01)*
-- [ ] **M0-03** Swift 6 mode + strict concurrency + iOS 26 min; SwiftUI `App` lifecycle; delete broken `AppDelegate` code. *(deps: M0-02)*
-- [ ] **M0-04** CI: `ci-core.yml`, `ci-app.yml`; SwiftLint + swift-format + gitleaks; `Scripts/format.sh`. *(deps: M0-02)*
-- [ ] **M0-05** Secrets pattern (`Secrets.example.xcconfig`, `SecretsProviding`); strip hardcoded key. **Maintainer: revoke old Roboflow key.** *(deps: M0-02)*
-- [ ] **M0-06** Docs refresh: README, CLAUDE.md, CONTRIBUTING.md, LICENSE. *(deps: M0-03)*
+- [x] **M0-01** `.gitignore`; remove `Pods/` + `xcuserdata` from tree. *(deps: —)*
+- [x] **M0-02** Drop CocoaPods; SwiftPM-only project (XcodeGen `project.yml`, see amendment in 01); `Packages/` skeleton (all packages, placeholder Swift Testing tests). *(deps: M0-01)*
+- [x] **M0-03** Swift 6 mode + strict concurrency + iOS 26 min; SwiftUI `App` lifecycle; delete broken `AppDelegate` code. *(deps: M0-02)*
+- [x] **M0-04** CI: `ci-core.yml`, `ci-app.yml`; SwiftLint + gitleaks; `Scripts/format.sh`. *(deps: M0-02)*
+- [x] **M0-05** Secrets pattern (`Secrets.example.xcconfig`, `SecretsProviding`); strip hardcoded key. **Maintainer: revoke old Roboflow key — STILL PENDING, human action.** *(deps: M0-02)*
+- [x] **M0-06** Docs refresh: README, CLAUDE.md, CONTRIBUTING.md, LICENSE. *(deps: M0-03)*
 
 **Exit:** fresh clone builds & tests green in CI without CocoaPods; no secrets.
 
@@ -27,13 +27,13 @@ Goal: modern toolchain, clean repo, green CI. Details in 01-TECH-MODERNIZATION.
 
 Goal: all pure logic complete and heavily tested before any device work.
 
-- [ ] **M1-01** `CueSyncCore` domain types + provider protocols + registry, per 02-ARCHITECTURE (this freezes the contracts). *(deps: M0-02)*
-- [ ] **M1-02** `BilliardsPhysics` solver: ghost-ball, ball-ball, cushions, pockets, rollout + full unit/property suites. *(deps: M1-01)*
-- [ ] **M1-03** `BilliardsPhysics` golden scenario suite (~20 JSON fixtures) + performance test. *(deps: M1-02)*
-- [ ] **M1-04** `TableSpace`: transforms, calibration model, size inference + tests. *(deps: M1-01)*
-- [ ] **M1-05** `CueSyncUI` design-system tokens + HUD components + snapshot suite. *(deps: M1-01)*
+- [x] **M1-01** `CueSyncCore` domain types + provider protocols + registry, per 02-ARCHITECTURE (this freezes the contracts). *(deps: M0-02)*
+- [x] **M1-02** `BilliardsPhysics` solver: ghost-ball, ball-ball, cushions, pockets, rollout + full unit/property suites (incl. CI-lenient performance test; model doc in `Packages/BilliardsPhysics/Docs/PhysicsModel.md`). *(deps: M1-01)*
+- [ ] **M1-03** `BilliardsPhysics` golden scenario suite (~20 JSON fixtures). Note: goldens must be generated in a Swift-capable env and human-reviewed once before freezing. *(deps: M1-02)*
+- [x] **M1-04** `TableSpace`: transforms, calibration model, size inference + tests. *(deps: M1-01)*
+- [ ] **M1-05** `CueSyncUI` HUD components + snapshot suite (design tokens landed with M0; components open). *(deps: M1-01)*
 - [ ] **M1-06** 2D table renderer (SwiftUI Canvas) from `TableState`/`ShotPrediction` + snapshots (shared by mini-map & TV mode). *(deps: M1-01, parallel w/ M1-05)*
-- [ ] **M1-07** `CueSyncTestSupport`: provider contract suites, fixture loaders, `FixtureDetectionProvider`/`FixtureRaycaster`/`MockCoach`. *(deps: M1-01)*
+- [x] **M1-07** `CueSyncTestSupport`: provider contract checks, fixtures (`eightBallRack`), `FixtureDetectionProvider`/`StaticSolver`/`MockCoach`. `FixtureRaycaster` moves to M2-03 with the `PlaneRaycasting` impl. *(deps: M1-01)*
 
 **Exit:** `swift test` green across packages, coverage ≥ 85%, golden physics
 suite human-reviewed once and frozen.

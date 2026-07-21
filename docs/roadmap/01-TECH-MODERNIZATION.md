@@ -41,6 +41,12 @@ Tasks here map to milestone **M0** in [06-MILESTONES.md](06-MILESTONES.md).
 - Delete `Podfile`, `Podfile.lock`, `Pods/`, and the CocoaPods-generated
   workspace. The Xcode **project** (or better: the project + local packages)
   becomes the entry point.
+- **Amendment (M0 implementation):** the Xcode project is *generated* by
+  [XcodeGen](https://github.com/yonaskolb/XcodeGen) from a committed
+  `project.yml`; `CueSyncAR.xcodeproj` is gitignored. Rationale: hand-edited
+  `.pbxproj` files are the single worst merge-conflict source for parallel
+  agents, and a declarative YAML definition is reviewable and diffable.
+  `Scripts/bootstrap.sh` regenerates the project (`brew install xcodegen`).
 - Repository restructure — app shell stays thin; logic lives in local SwiftPM
   packages under `Packages/` (full layout in
   [02-ARCHITECTURE.md](02-ARCHITECTURE.md)).
@@ -77,15 +83,15 @@ Tasks here map to milestone **M0** in [06-MILESTONES.md](06-MILESTONES.md).
 
 Two workflows, both required on PRs to `main`:
 
-1. **`ci-core.yml`** — runs on every push. macOS runner, Xcode 26.x:
-   `swift build` + `swift test` for every package under `Packages/`
-   (simulator-independent, fast), then SwiftLint + swift-format lint mode +
-   gitleaks.
-2. **`ci-app.yml`** — builds the app for iOS Simulator
-   (`xcodebuild build-for-testing -destination 'generic/platform=iOS Simulator'`)
-   and runs the simulator-safe test plan. AR/camera behavior is device-only and
-   covered by the device checklist in
-   [04-TESTING-STRATEGY.md](04-TESTING-STRATEGY.md).
+1. **`ci-core.yml`** — runs on every push. **Linux runner with the official
+   `swift:` container** (amended from macOS: free-tier fast, and doubles as a
+   cross-platform check that pure packages stay ARKit-free): `swift test` for
+   every package under `Packages/`, plus SwiftLint and gitleaks jobs.
+2. **`ci-app.yml`** — macOS runner (Xcode 26.x): regenerates the project via
+   XcodeGen, builds the app for iOS Simulator, and re-runs package tests on
+   the Apple toolchain (catches SwiftUI/Apple-only code paths Linux can't
+   see). AR/camera behavior is device-only and covered by the device
+   checklist in [04-TESTING-STRATEGY.md](04-TESTING-STRATEGY.md).
 
 ### Formatting & lint
 

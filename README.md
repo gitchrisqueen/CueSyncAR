@@ -50,9 +50,19 @@ describe the product vision; the roadmap describes how we get there.
 
 ## Getting Started
 
-1. Clone the repository: `git clone https://github.com/yourusername/CueSyncAR.git`
-2. Open the Xcode project: `CueSyncAR.xcodeproj`
-3. Build and run the app on a compatible iOS device or simulator.
+Requirements: macOS with **Xcode 26+** and [XcodeGen](https://github.com/yonaskolb/XcodeGen)
+(`brew install xcodegen`). The Xcode project is generated, not committed.
+
+1. Clone the repository: `git clone https://github.com/gitchrisqueen/CueSyncAR.git`
+2. Generate the project: `Scripts/bootstrap.sh`
+3. Open `CueSyncAR.xcodeproj`, then build and run.
+
+AR and the camera require a **physical iPhone/iPad** (iOS 26+); the Simulator
+shows a placeholder. Package logic can be tested anywhere Swift 6.1+ runs:
+
+```sh
+Scripts/test-all.sh
+```
 
 ## Contributing
 

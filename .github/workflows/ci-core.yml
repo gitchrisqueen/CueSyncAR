@@ -1,0 +1,47 @@
+name: ci-core
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test-packages-linux:
+    name: Swift package tests (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test every package
+        run: |
+          set -euo pipefail
+          status=0
+          for manifest in Packages/*/Package.swift; do
+            pkg=$(dirname "$manifest")
+            echo "::group::${pkg}"
+            if ! swift test --package-path "$pkg"; then
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $status
+
+  lint:
+    name: SwiftLint
+    runs-on: ubuntu-latest
+    container: ghcr.io/realm/swiftlint:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint
+        run: swiftlint lint --reporter github-actions-logging
+
+  secrets-scan:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

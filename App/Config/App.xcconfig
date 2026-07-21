@@ -1,0 +1,3 @@
+// Shared build settings. Secrets are optional — the include is soft so a
+// fresh clone builds with no setup (see Secrets.example.xcconfig).
+#include? "Secrets.xcconfig"

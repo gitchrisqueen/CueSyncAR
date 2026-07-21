@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+timeline.xctimeline
+playground.xcworkspace
+
+# XcodeGen output (generated — run Scripts/bootstrap.sh)
+CueSyncAR.xcodeproj/
+
+# SwiftPM
+.build/
+.swiftpm/
+
+# CocoaPods (removed from the project; ignore any local reinstall)
+Pods/
+*.xcworkspace
+
+# Secrets (copy Config/Secrets.example.xcconfig → Config/Secrets.xcconfig)
+App/Config/Secrets.xcconfig
+
+# Misc
+*.log
+.env
