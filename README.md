@@ -4,6 +4,13 @@
 
 CueSync AR is an iOS app designed to provide an immersive and educational experience for billiards enthusiasts using Augmented Reality (AR) technology. The app focuses on real-time object detection, trajectory projection, and spatial awareness to enhance the user's understanding and skills in playing billiards.
 
+## Project plan (2026)
+
+The full modernization & MVP roadmap — architecture, module specs, testing
+strategy, UX design, milestones, and the parallel-agent development playbook —
+lives in [`docs/roadmap/`](docs/roadmap/00-OVERVIEW.md). The features below
+describe the product vision; the roadmap describes how we get there.
+
 ## Features
 
 ### 1. Augmented Reality (AR) Object Detection

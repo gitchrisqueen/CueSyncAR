@@ -2,6 +2,12 @@
 
 Guidance for AI assistants working in this repository.
 
+> **START HERE:** The adopted modernization & MVP plan lives in
+> [`docs/roadmap/`](docs/roadmap/00-OVERVIEW.md). Read `00-OVERVIEW.md` and
+> `07-AGENT-PLAYBOOK.md` before doing any work; claim tasks from
+> `06-MILESTONES.md`. The sections below describe the **current legacy
+> scaffold**, which milestone M0 of that plan replaces.
+
 ## Project overview
 
 **CueSync AR** is an iOS augmented-reality app for billiards. The goal (per
