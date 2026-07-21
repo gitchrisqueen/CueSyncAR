@@ -11,6 +11,7 @@
 
 import ARExperience
 import BilliardsPhysics
+import CoachKit
 import CueSyncCore
 import DetectionRoboflow
 import Foundation
@@ -58,6 +59,10 @@ final class SessionModel {
 
     func beginCalibration() {
         stopLiveTracking() // recalibration invalidates the pipeline's plane
+        // Abandon the saved venue too: re-entering calibration means the
+        // stored one is wrong (or the table moved). Prevents a stale bad
+        // lock from relocalizing back over the fresh flow on next launch.
+        CalibrationStore.clear()
         pendingCorners = []
         calibration.handle(.resetRequested)
         calibrationVisible = true
@@ -122,6 +127,8 @@ final class SessionModel {
     private(set) var tableState: TableState?
     /// Latest shot prediction for the current aim; nil when no stable aim.
     private(set) var shotPrediction: ShotPrediction?
+    /// CoachKit's cue-tip recommendation for the current shot.
+    private(set) var shotGuide: ShotGuide?
     @ObservationIgnored private var pipeline: PerceptionPipeline?
     @ObservationIgnored private var statesTask: Task<Void, Never>?
     @ObservationIgnored private let aimEngine = AimEngine()
@@ -167,8 +174,8 @@ final class SessionModel {
         Task { await pipeline.ingest(frame) }
     }
 
-    /// Recompute the aim ray + shot prediction from the current device pose
-    /// (called at UI cadence — solver is sub-millisecond).
+    /// Recompute the aim ray + shot prediction + coaching guide from the
+    /// current device pose (called at UI cadence — solver is sub-ms).
     func updateAim(cameraTransform: Transform3D) {
         guard let calibration = tableCalibration,
               let state = tableState,
@@ -177,9 +184,12 @@ final class SessionModel {
                                          cueBall: cue.position,
                                          calibration: calibration) else {
             shotPrediction = nil
+            shotGuide = nil
             return
         }
-        shotPrediction = solver.predict(state: state, aim: aim, options: .default)
+        let prediction = solver.predict(state: state, aim: aim, options: .default)
+        shotPrediction = prediction
+        shotGuide = ShotGuide.recommend(state: state, prediction: prediction)
     }
 
     // MARK: Camera selection
@@ -287,9 +297,15 @@ final class SessionModel {
                 await MainActor.run {
                     guard let self else { return }
                     self.latestDetections = detections
+                    // The HUD count is BALLS, not raw boxes: cue-stick
+                    // detections and low-confidence noise (server floor is
+                    // 0.2 for evaluation) don't belong in "Tracking N".
+                    let ballCount = detections.filter {
+                        !$0.isCueStick && $0.confidence >= 0.35
+                    }.count
                     self.previewStats = PreviewStats(
                         latencyMilliseconds: Int(Date().timeIntervalSince(started) * 1000),
-                        detectionCount: detections.count,
+                        detectionCount: ballCount,
                         lastError: nil)
                 }
             } catch {

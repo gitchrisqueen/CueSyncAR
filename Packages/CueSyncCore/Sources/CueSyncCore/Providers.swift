@@ -75,6 +75,17 @@ public struct Detection2D: Sendable, Equatable, Codable {
     }
 
     public var ballKind: Ball.Kind { Ball.Kind(classLabel: classLabel) }
+
+    /// Whether this detection is a cue STICK, not a ball. The bundled MVP
+    /// dataset (pool-ball-agzev) labels the stick "cue" and the cue ball
+    /// "white-ball" — stick detections must never enter ball tracking, and
+    /// they're the future input for stick-based aiming.
+    public var isCueStick: Bool {
+        switch classLabel.lowercased() {
+        case "cue", "stick", "cue-stick", "cuestick", "cue_stick": true
+        default: false
+        }
+    }
 }
 
 /// Any object detector: bundled Core ML, Roboflow SDK, remote, or fixture.

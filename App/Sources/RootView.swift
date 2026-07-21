@@ -8,6 +8,7 @@
 //  workflow. The full calibration flow and AR overlays land with M3-02/05.
 //
 
+import CoachKit
 import CueSyncCore
 import CueSyncUI
 import DetectionRoboflow
@@ -89,6 +90,17 @@ struct RootView: View {
                         .foregroundStyle(.red)
                 }
                 Spacer()
+                if model.isLiveTracking, let guide = model.shotGuide {
+                    HStack {
+                        CueBallGuideView(tipOffset: guide.tipOffset,
+                                         headline: guide.headline,
+                                         cutAngleDegrees: guide.cutAngleDegrees)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 4)
+                    .transition(.opacity)
+                }
                 bottomBar
             }
             .padding(.top, 8)
@@ -350,13 +362,25 @@ struct ARCameraView: View {
         // saved venue can be relocalized), so the plain A/B-preview path
         // never reconfigures the session.
         var planeDetectionStarted = false
+        var relocalizationDeadline: Date?
         if CalibrationStore.load() != nil {
             coordinator.enablePlaneDetection(
                 restoringWorldMapAt: CalibrationStore.hasWorldMap
                     ? CalibrationStore.worldMapURL : nil)
             planeDetectionStarted = true
+            relocalizationDeadline = Date().addingTimeInterval(15)
         }
         while !Task.isCancelled {
+            // A stale world map can keep ARKit relocalizing forever
+            // (tracking limited, overlays degraded). Give it 15 s, then
+            // fall back to fresh tracking — the user can recalibrate.
+            if let deadline = relocalizationDeadline, Date() > deadline {
+                relocalizationDeadline = nil
+                if coordinator.restoredTableAnchorTransform == nil,
+                   !model.calibration.isLocked {
+                    coordinator.enablePlaneDetection()
+                }
+            }
             model.sessionEvent = coordinator.sessionEvent
             if model.calibrationVisible, !planeDetectionStarted {
                 coordinator.enablePlaneDetection()
@@ -423,14 +447,11 @@ private struct ARViewRepresentable: UIViewRepresentable {
     let coordinator: ARSessionCoordinator
 
     func makeUIView(context: Context) -> ARView {
-        let arView = coordinator.arView
-        let coaching = ARCoachingOverlayView()
-        coaching.session = arView.session
-        coaching.goal = .horizontalPlane
-        coaching.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        coaching.frame = arView.bounds
-        arView.addSubview(coaching)
-        return arView
+        // No ARCoachingOverlayView: it auto-reactivates on every tracking
+        // dip ("Move iPhone to start" nagging over the live feed). Our
+        // status capsule already gives one-line instructions, per the
+        // 05-UX-DESIGN "every wait state has a live preview and one line".
+        coordinator.arView
     }
 
     func updateUIView(_ uiView: ARView, context: Context) {}

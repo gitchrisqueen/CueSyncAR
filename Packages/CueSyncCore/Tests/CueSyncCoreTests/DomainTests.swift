@@ -67,6 +67,27 @@ struct BallKindTests {
         #expect(Ball.Kind(classLabel: "ball-12") == .stripe(12))
         #expect(Ball.Kind(classLabel: "chalk") == .unknown)
         #expect(Ball.Kind(classLabel: "16") == .unknown)
+        // The bundled dataset's cue-BALL label (suffix form).
+        #expect(Ball.Kind(classLabel: "white-ball") == .cue)
+        #expect(Ball.Kind(classLabel: "White-Ball") == .cue)
+    }
+
+    @Test func cueStickDetectionsAreFlaggedAndNeverBalls() {
+        // pool-ball-agzev semantics: "cue" is the STICK, "white-ball" the
+        // cue ball. Sticks must be filterable before ball tracking.
+        let stick = Detection2D(classLabel: "cue",
+                                boundingBox: NormalizedRect(x: 0, y: 0, width: 0.9, height: 0.2),
+                                confidence: 0.5)
+        #expect(stick.isCueStick)
+        let cueBall = Detection2D(classLabel: "white-ball",
+                                  boundingBox: NormalizedRect(x: 0, y: 0, width: 0.05, height: 0.05),
+                                  confidence: 0.9)
+        #expect(!cueBall.isCueStick)
+        #expect(cueBall.ballKind == .cue)
+        let colorBall = Detection2D(classLabel: "color-ball",
+                                    boundingBox: NormalizedRect(x: 0, y: 0, width: 0.05, height: 0.05),
+                                    confidence: 0.9)
+        #expect(!colorBall.isCueStick)
     }
 }
 

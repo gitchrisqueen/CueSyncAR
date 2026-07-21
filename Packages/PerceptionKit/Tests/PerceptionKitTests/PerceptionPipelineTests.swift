@@ -34,7 +34,7 @@ struct PerceptionPipelineTests {
     @Test func projectsDetectionsGatesConfidenceAndStabilizes() async throws {
         let detections = [
             // Foot point (0.225, 0.5) → table (-0.6985, 0).
-            Detection2D(classLabel: "cue",
+            Detection2D(classLabel: "white-ball",
                         boundingBox: NormalizedRect(x: 0.20, y: 0.45, width: 0.05, height: 0.05),
                         confidence: 0.95),
             // Foot point (0.75, 0.25) → table (0.635, 0.3175).
@@ -75,7 +75,7 @@ struct PerceptionPipelineTests {
 
     @Test func appearanceGateDelaysFirstReport() async throws {
         let detections = [
-            Detection2D(classLabel: "cue",
+            Detection2D(classLabel: "white-ball",
                         boundingBox: NormalizedRect(x: 0.475, y: 0.475, width: 0.05, height: 0.05),
                         confidence: 0.9)
         ]
@@ -103,7 +103,7 @@ struct PerceptionPipelineTests {
             func detect(in frame: CapturedFrame) async throws -> [Detection2D] {
                 // Fail on early frames (timestamp < 0.1s), succeed after.
                 if frame.timestamp < 0.1 { throw Boom() }
-                return [Detection2D(classLabel: "cue",
+                return [Detection2D(classLabel: "white-ball",
                                     boundingBox: NormalizedRect(x: 0.475, y: 0.475,
                                                                 width: 0.05, height: 0.05),
                                     confidence: 0.9)]

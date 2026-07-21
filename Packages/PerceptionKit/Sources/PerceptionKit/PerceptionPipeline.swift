@@ -81,6 +81,10 @@ public actor PerceptionPipeline {
             }
             let detections = try await detector.detect(in: frame)
             let observations = detections.compactMap { detection -> BallObservation? in
+                // Cue-stick detections are not balls — feeding them to the
+                // tracker corrupts the cue-ball estimate (stick boxes span
+                // half the table). They'll drive stick-based aiming later.
+                guard !detection.isCueStick else { return nil }
                 guard detection.confidence >= config.confidenceFloor else { return nil }
                 // The bounding box's bottom-center is where the ball meets
                 // the cloth — the right point to project onto the plane.

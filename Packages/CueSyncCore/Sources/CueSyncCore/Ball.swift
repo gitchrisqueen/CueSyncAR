@@ -24,10 +24,11 @@ public struct Ball: Identifiable, Sendable, Equatable, Codable {
         public init(classLabel: String) {
             let label = classLabel.lowercased()
                 .replacingOccurrences(of: "ball-", with: "")
+                .replacingOccurrences(of: "-ball", with: "")
                 .replacingOccurrences(of: "ball", with: "")
                 .replacingOccurrences(of: "solid-", with: "")
                 .replacingOccurrences(of: "stripe-", with: "")
-                .trimmingCharacters(in: .whitespaces)
+                .trimmingCharacters(in: CharacterSet(charactersIn: " -_"))
             if label == "cue" || label == "white" || label == "0" {
                 self = .cue
             } else if let n = Int(label) {
