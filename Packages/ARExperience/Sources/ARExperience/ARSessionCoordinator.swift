@@ -14,7 +14,9 @@
 //  sitting in a stream buffer — stalls capture (black screen, Fig capture
 //  errors, Metal drawable allocation failures). With the pull model a
 //  buffer is only referenced while a consumer is actively using it; every
-//  other frame is dropped inside the delegate callback untouched.
+//  other frame is dropped inside the delegate callback untouched. The one
+//  frame that IS handed out carries a deep copy of the pixel buffer, so no
+//  consumer can pin an ARKit pool buffer past this callback.
 //
 //  Device verification per playbook rule 6: tracking quality, raycast
 //  accuracy, and overlay latency are device-checklist items (M3-06) —
@@ -89,11 +91,69 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
             let v = [c.0, c.1, c.2, c.3][column]
             return SIMD4<Double>(Double(v.x), Double(v.y), Double(v.z), Double(v.w))
         })
+        // Hand consumers a DEEP COPY of the camera pixel buffer, never the
+        // ARKit-owned one: anything downstream that outlives this callback
+        // (JPEG encode, CIContext texture caches) would otherwise pin one of
+        // ARKit's few pool buffers — "delegate is retaining N ARFrames"
+        // warnings, then a stopped camera. Copy cost is trivial at the
+        // preview's ≤2 Hz pull rate.
+        guard let copiedBuffer = Self.copyPixelBuffer(frame.capturedImage) else {
+            continuation.resume(returning: nil)
+            return
+        }
         let captured = CapturedFrame(
             timestamp: frame.timestamp,
             cameraTransform: transform,
-            image: PixelBufferImage(pixelBuffer: frame.capturedImage))
+            image: PixelBufferImage(pixelBuffer: copiedBuffer))
         continuation.resume(returning: captured)
+    }
+
+    /// Byte-for-byte copy of a pixel buffer into freshly allocated storage.
+    /// Handles planar (ARKit's bi-planar YUV) and packed formats.
+    private nonisolated static func copyPixelBuffer(_ source: CVPixelBuffer) -> CVPixelBuffer? {
+        var created: CVPixelBuffer?
+        let attributes = [kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary] as CFDictionary
+        CVPixelBufferCreate(kCFAllocatorDefault,
+                            CVPixelBufferGetWidth(source),
+                            CVPixelBufferGetHeight(source),
+                            CVPixelBufferGetPixelFormatType(source),
+                            attributes,
+                            &created)
+        guard let copy = created else { return nil }
+        CVPixelBufferLockBaseAddress(source, .readOnly)
+        CVPixelBufferLockBaseAddress(copy, [])
+        defer {
+            CVPixelBufferUnlockBaseAddress(copy, [])
+            CVPixelBufferUnlockBaseAddress(source, .readOnly)
+        }
+        if CVPixelBufferIsPlanar(source) {
+            for plane in 0..<CVPixelBufferGetPlaneCount(source) {
+                guard let src = CVPixelBufferGetBaseAddressOfPlane(source, plane),
+                      let dst = CVPixelBufferGetBaseAddressOfPlane(copy, plane) else {
+                    return nil
+                }
+                let height = CVPixelBufferGetHeightOfPlane(source, plane)
+                let srcBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(source, plane)
+                let dstBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(copy, plane)
+                let rowBytes = min(srcBytesPerRow, dstBytesPerRow)
+                for row in 0..<height {
+                    memcpy(dst + row * dstBytesPerRow, src + row * srcBytesPerRow, rowBytes)
+                }
+            }
+        } else {
+            guard let src = CVPixelBufferGetBaseAddress(source),
+                  let dst = CVPixelBufferGetBaseAddress(copy) else {
+                return nil
+            }
+            let height = CVPixelBufferGetHeight(source)
+            let srcBytesPerRow = CVPixelBufferGetBytesPerRow(source)
+            let dstBytesPerRow = CVPixelBufferGetBytesPerRow(copy)
+            let rowBytes = min(srcBytesPerRow, dstBytesPerRow)
+            for row in 0..<height {
+                memcpy(dst + row * dstBytesPerRow, src + row * srcBytesPerRow, rowBytes)
+            }
+        }
+        return copy
     }
 
     public nonisolated func session(_ session: ARSession, didFailWithError error: Error) {

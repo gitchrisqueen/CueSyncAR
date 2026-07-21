@@ -50,6 +50,10 @@ final class SessionModel {
     private let secrets: any SecretsProviding = AppSecrets()
     private var detectTask: Task<Void, Never>?
     @ObservationIgnored private var provider: RoboflowRemoteProvider?
+    /// Encodes preview frames to JPEG *before* the upload task starts so the
+    /// ARKit pixel buffer inside the frame is released immediately (see
+    /// `ingestPreviewFrame`).
+    @ObservationIgnored private var frameEncoder: (any FrameJPEGEncoding)?
     /// Seconds between hosted-API calls (keep the free tier happy).
     private let previewInterval: TimeInterval = 0.5
 
@@ -73,13 +77,16 @@ final class SessionModel {
         UserDefaults.standard.set(model?.id, forKey: Self.selectedModelKey)
         guard let model else {
             provider = nil
+            frameEncoder = nil
             return
         }
+        let encoder = makeEncoder()
+        frameEncoder = encoder
         provider = RoboflowRemoteProvider(
             model: model,
             apiKey: secrets.secret(for: .roboflowAPIKey) ?? "",
             transport: URLSessionTransport(),
-            encoder: makeEncoder())
+            encoder: encoder)
     }
 
     /// Whether the preview loop should bother pulling a camera frame now.
@@ -90,15 +97,29 @@ final class SessionModel {
 
     /// Feed one camera frame into the preview loop. Skipped while a request
     /// is in flight or inside the throttle window — latest state wins.
+    ///
+    /// The frame wraps one of ARKit's few camera pixel buffers; retaining it
+    /// across the hosted-API round trip (200–800 ms every 0.5 s) starves the
+    /// capture pool — black camera feed, `(Fig) err=-12710`, and CAMetalLayer
+    /// drawable failures. So: encode to JPEG synchronously (~640 px, a few ms
+    /// at 2 Hz) and let `frame` die *before* any async work starts. Nothing
+    /// below this method may capture `frame`.
     private var lastDetectionAt: Date = .distantPast
     func ingestPreviewFrame(_ frame: CapturedFrame) {
-        guard let provider, detectTask == nil,
+        guard let provider, let frameEncoder, detectTask == nil,
               Date().timeIntervalSince(lastDetectionAt) >= previewInterval else { return }
         lastDetectionAt = Date()
+        let jpeg: Data
+        do {
+            jpeg = try frameEncoder.encodeJPEG(from: frame).data
+        } catch {
+            previewStats.lastError = shortDescription(of: error)
+            return
+        }
         detectTask = Task { [weak self] in
             let started = Date()
             do {
-                let detections = try await provider.detect(in: frame)
+                let detections = try await provider.detect(jpegData: jpeg)
                 await MainActor.run {
                     guard let self else { return }
                     self.latestDetections = detections

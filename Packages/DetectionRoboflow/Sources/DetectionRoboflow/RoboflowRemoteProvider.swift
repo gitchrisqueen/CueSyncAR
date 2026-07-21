@@ -78,9 +78,20 @@ public struct RoboflowRemoteProvider: DetectionProviding {
     public func detect(in frame: CapturedFrame) async throws -> [Detection2D] {
         guard !apiKey.isEmpty else { throw RoboflowError.missingAPIKey }
         let encoded = try encoder.encodeJPEG(from: frame)
+        return try await detect(jpegData: encoded.data)
+    }
+
+    /// Upload pre-encoded JPEG data. Callers whose frames wrap scarce
+    /// upstream resources (ARKit camera pixel buffers) must encode eagerly,
+    /// release the frame, and call this overload — `detect(in:)` keeps the
+    /// frame (and its CVPixelBuffer) alive across the whole network await,
+    /// which starves ARKit's capture pool (black camera feed, Fig errors,
+    /// Metal drawable allocation failures).
+    public func detect(jpegData: Data) async throws -> [Detection2D] {
+        guard !apiKey.isEmpty else { throw RoboflowError.missingAPIKey }
         let url = Self.requestURL(model: model, apiKey: apiKey,
                                   confidenceFloor: confidenceFloor)
-        let body = Data(encoded.data.base64EncodedString().utf8)
+        let body = Data(jpegData.base64EncodedString().utf8)
         let responseData = try await transport.post(
             url: url, body: body,
             contentType: "application/x-www-form-urlencoded")

@@ -114,6 +114,33 @@ struct ProviderBehaviorTests {
         #expect(body.map { String(decoding: $0, as: UTF8.self) } == Data([0xFF, 0xD8, 0xFF]).base64EncodedString())
     }
 
+    @Test func detectWithPreEncodedJPEGPostsSameBodyAndParses() async throws {
+        let recorded = RecordedRequest()
+        let provider = RoboflowRemoteProvider(
+            model: sampleModel, apiKey: "k",
+            transport: StubTransport(response: Data(sampleResponse.utf8)) { url, body, contentType in
+                recorded.set(url: url, body: body, contentType: contentType)
+            },
+            encoder: StubEncoder())
+        let jpeg = Data([0xFF, 0xD8, 0xFF])
+        let detections = try await provider.detect(jpegData: jpeg)
+        #expect(detections.count == 2)
+        let (url, body, contentType) = recorded.get()
+        #expect(url?.host == "detect.roboflow.com")
+        #expect(contentType == "application/x-www-form-urlencoded")
+        #expect(body.map { String(decoding: $0, as: UTF8.self) } == jpeg.base64EncodedString())
+    }
+
+    @Test func detectWithPreEncodedJPEGRequiresKey() async {
+        let provider = RoboflowRemoteProvider(
+            model: sampleModel, apiKey: "",
+            transport: StubTransport(response: Data()),
+            encoder: StubEncoder())
+        await #expect(throws: RoboflowError.missingAPIKey) {
+            _ = try await provider.detect(jpegData: Data([0xFF, 0xD8, 0xFF]))
+        }
+    }
+
     @Test func missingKeyFailsFastWithoutNetwork() async {
         let provider = RoboflowRemoteProvider(
             model: sampleModel, apiKey: "",

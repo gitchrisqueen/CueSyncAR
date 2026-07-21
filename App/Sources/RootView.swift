@@ -197,26 +197,45 @@ import RealityKit
 /// starves the capture pipeline.
 struct ARCameraView: View {
     @Environment(SessionModel.self) private var model
-    @State private var coordinator = ARSessionCoordinator()
+    /// Created once in `onAppear`, NOT via `@State`'s inline initializer:
+    /// that autoclosure re-runs on every enclosing body evaluation (~2 Hz
+    /// while the Detection Preview streams stats), and each run built and
+    /// discarded a whole ARView + ARSession — dozens of CAMetalLayers and
+    /// camera clients. The churn exhausted Metal drawable allocation and
+    /// kept the real session interrupted (black feed, Fig errors).
+    @State private var coordinator: ARSessionCoordinator?
 
     var body: some View {
-        ARViewRepresentable(coordinator: coordinator)
-            .task {
-                guard await ensureCameraAccess() else {
-                    model.cameraDenied = true
-                    return
-                }
-                model.cameraDenied = false
-                // RealityKit auto-configures and runs the session itself;
-                // no manual start (manual config rendered a black feed).
-                while !Task.isCancelled {
-                    model.sessionEvent = coordinator.sessionEvent
-                    if model.wantsPreviewFrame, let frame = await coordinator.nextFrame() {
-                        model.ingestPreviewFrame(frame)
-                    }
-                    try? await Task.sleep(for: .milliseconds(150))
-                }
+        ZStack {
+            if let coordinator {
+                ARViewRepresentable(coordinator: coordinator)
+                    .task { await runPreviewLoop(coordinator) }
+            } else {
+                Color.black
             }
+        }
+        .onAppear {
+            if coordinator == nil {
+                coordinator = ARSessionCoordinator()
+            }
+        }
+    }
+
+    private func runPreviewLoop(_ coordinator: ARSessionCoordinator) async {
+        guard await ensureCameraAccess() else {
+            model.cameraDenied = true
+            return
+        }
+        model.cameraDenied = false
+        // RealityKit auto-configures and runs the session itself;
+        // no manual start (manual config rendered a black feed).
+        while !Task.isCancelled {
+            model.sessionEvent = coordinator.sessionEvent
+            if model.wantsPreviewFrame, let frame = await coordinator.nextFrame() {
+                model.ingestPreviewFrame(frame)
+            }
+            try? await Task.sleep(for: .milliseconds(150))
+        }
     }
 
     private func ensureCameraAccess() async -> Bool {
