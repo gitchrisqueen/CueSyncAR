@@ -18,7 +18,7 @@ private func cueOnly(at position: Vec2) -> TableState {
 struct StraightRollTests {
     let solver = AnalyticSolver()
 
-    @Test func straightShotStopsAtFrictionDistance() {
+    @Test func straightShotStopsAtFrictionDistance() throws {
         // v²/(2a) = 1 / (2·0.5) = 1 m of roll.
         let state = cueOnly(at: Vec2(-0.5, 0))
         let prediction = solver.predict(
@@ -27,7 +27,7 @@ struct StraightRollTests {
             options: SolverOptions(initialSpeed: 1.0))
 
         #expect(prediction.segments.count == 1)
-        let segment = try! #require(prediction.segments.first)
+        let segment = try #require(prediction.segments.first)
         #expect(segment.ballID == cueID)
         #expect(abs(segment.end.x - 0.5) < 1e-9)
         #expect(abs(segment.end.y) < 1e-9)
@@ -60,7 +60,7 @@ struct CushionTests {
     let config = PhysicsConfig.standard
     let solver = AnalyticSolver()
 
-    @Test func fortyFiveDegreeBounceReflectsAcrossRail() {
+    @Test func fortyFiveDegreeBounceReflectsAcrossRail() throws {
         // Start chosen so the 45° path crosses the top rail (y) first, well
         // clear of the side and corner pocket capture circles.
         let start = Vec2(-0.9, 0)
@@ -81,7 +81,7 @@ struct CushionTests {
         #expect(abs(point.y - expectedY) < 1e-9)
 
         // Post-bounce segment departs downward with x-direction preserved.
-        let second = try! #require(prediction.segments.dropFirst().first)
+        let second = try #require(prediction.segments.dropFirst().first)
         let outDir = (second.end - second.start).normalized
         #expect(outDir.x > 0)
         #expect(outDir.y < 0)
@@ -112,7 +112,7 @@ struct BallCollisionTests {
     let config = PhysicsConfig.standard
     let solver = AnalyticSolver()
 
-    @Test func headOnTransfersMotionAndStunsCue() {
+    @Test func headOnTransfersMotionAndStunsCue() throws {
         let cueStart = Vec2(-0.5, 0)
         let state = makeState(balls: [
             Ball(id: cueID, kind: .cue, position: cueStart),
@@ -123,7 +123,7 @@ struct BallCollisionTests {
             aim: AimRay(origin: cueStart, direction: Vec2(1, 0)),
             options: SolverOptions(initialSpeed: 1.0))
 
-        let contact = try! #require(prediction.firstContact)
+        let contact = try #require(prediction.firstContact)
         #expect(contact.moving == cueID)
         #expect(contact.struck == objectID)
         // Ghost-ball center: one ball diameter short of the object ball.
@@ -143,7 +143,7 @@ struct BallCollisionTests {
         #expect(prediction.pocketedBalls.isEmpty)
     }
 
-    @Test func thirtyDegreeCutSplitsAlongImpactAndTangentLines() {
+    @Test func thirtyDegreeCutSplitsAlongImpactAndTangentLines() throws {
         // Object offset by half the collision radius → 30° cut:
         // impact line at 30° above x; tangent line at 60° below.
         let collisionRadius = 2 * Ball.standardRadius
@@ -158,13 +158,13 @@ struct BallCollisionTests {
             aim: AimRay(origin: cueStart, direction: Vec2(1, 0)),
             options: SolverOptions(initialSpeed: 1.5))
 
-        let contact = try! #require(prediction.firstContact)
+        let contact = try #require(prediction.firstContact)
         let impactDir = (objectPosition - contact.contact).normalized
         #expect(abs(impactDir.x - cos(.pi / 6)) < 1e-9)
         #expect(abs(impactDir.y - sin(.pi / 6)) < 1e-9)
 
         // Object ball's first segment follows the impact line.
-        let objectSegment = try! #require(prediction.segments(for: objectID).first)
+        let objectSegment = try #require(prediction.segments(for: objectID).first)
         let objectDir = (objectSegment.end - objectSegment.start).normalized
         #expect(abs(objectDir.x - impactDir.x) < 1e-9)
         #expect(abs(objectDir.y - impactDir.y) < 1e-9)
@@ -177,7 +177,7 @@ struct BallCollisionTests {
         #expect(cueDir.y < 0)
     }
 
-    @Test func speedSplitMatchesCutAngle() {
+    @Test func speedSplitMatchesCutAngle() throws {
         let collisionRadius = 2 * Ball.standardRadius
         let state = makeState(balls: [
             Ball(id: cueID, kind: .cue, position: .zero),
@@ -188,7 +188,7 @@ struct BallCollisionTests {
             aim: AimRay(origin: .zero, direction: Vec2(1, 0)),
             options: SolverOptions(initialSpeed: 1.5))
 
-        let objectEntry = try! #require(prediction.segments(for: objectID).first).entrySpeed
+        let objectEntry = try #require(prediction.segments(for: objectID).first).entrySpeed
         let cueSegments = prediction.segments(for: cueID)
         let cueEntry = cueSegments[1].entrySpeed
         // cos30/sin30 split, object scaled by ball-ball restitution.
@@ -201,7 +201,7 @@ struct BallCollisionTests {
 struct PocketTests {
     let solver = AnalyticSolver()
 
-    @Test func objectBallDrivenIntoCornerPocketIsCaptured() {
+    @Test func objectBallDrivenIntoCornerPocketIsCaptured() throws {
         let table = Table(size: .nineFoot)
         let pocket = table.pockets.first { $0.id == .cornerTopRight }!
         let objectPosition = Vec2(1.0, 0.5)
@@ -222,7 +222,7 @@ struct PocketTests {
         #expect(prediction.pocketedBalls.contains(objectID))
         #expect(prediction.events.contains(.pocket(ball: objectID, pocket: .cornerTopRight)))
         // The pocket segment ends at the pocket mouth for rendering.
-        let last = try! #require(prediction.segments(for: objectID).last)
+        let last = try #require(prediction.segments(for: objectID).last)
         #expect(last.kind == .intoPocket)
         #expect(last.end == pocket.position)
     }

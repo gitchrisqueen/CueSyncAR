@@ -10,6 +10,9 @@ jobs:
     name: Swift package tests (Linux)
     runs-on: ubuntu-latest
     container: swift:6.1
+    defaults:
+      run:
+        shell: bash   # the swift container's default sh rejects pipefail
     steps:
       - uses: actions/checkout@v4
       - name: Build and test every package

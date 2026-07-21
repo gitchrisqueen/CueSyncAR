@@ -41,14 +41,14 @@ struct TableCalibrationTests {
         #expect(abs(cal.heightAbovePlane(cal.tableToWorld(Vec2(0.4, 0.1)))) < 1e-9)
     }
 
-    @Test func rayIntersection() {
+    @Test func rayIntersection() throws {
         let cal = calibration
         // Camera 1 m above the point (0.5, 0.2) in table space, looking
         // straight down.
         let target = cal.tableToWorld(Vec2(0.5, 0.2))
         let cameraPosition = target + Vec3(0, 1, 0)
         let hit = cal.intersect(rayOrigin: cameraPosition, rayDirection: Vec3(0, -1, 0))
-        let point = try! #require(hit)
+        let point = try #require(hit)
         #expect(abs(point.x - 0.5) < 1e-9)
         #expect(abs(point.y - 0.2) < 1e-9)
 
@@ -132,11 +132,11 @@ struct AffineTransformTests {
         #expect(scale.concatenating(translate).apply(p) == Vec2(4, 2))
     }
 
-    @Test func inverseRoundTrip() {
+    @Test func inverseRoundTrip() throws {
         let transform = AffineTransform2D.translation(Vec2(5, -1))
             .concatenating(.rotation(0.7))
             .concatenating(.scale(2, 3))
-        let inverse = try! #require(transform.inverted())
+        let inverse = try #require(transform.inverted())
         let p = Vec2(0.3, -0.9)
         let back = inverse.apply(transform.apply(p))
         #expect(abs(back.x - p.x) < 1e-9)
