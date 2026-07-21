@@ -12,16 +12,16 @@ import DetectionRoboflow
 
 enum DetectionModelCatalog {
     static let candidates: [RoboflowModelRef] = [
-        RoboflowModelRef(slug: "pool-ball-agzev", version: 1,
+        RoboflowModelRef(slug: "pool-ball-agzev", version: 2,
                          label: "xhujustin — Pool Ball"),
-        RoboflowModelRef(slug: "pool-ball-detecion", version: 1,
+        RoboflowModelRef(slug: "pool-ball-detecion", version: 3,
                          label: "leonardo — Ball Detection"),
         RoboflowModelRef(slug: "pool-ball-detection-v8huq", version: 1,
                          label: "kwinten — Ball Detection"),
         // Table detection: not needed for MVP calibration (ARKit plane +
         // corners does that) — included to observe whether it could later
         // auto-propose rail corners (M3-02 enhancement).
-        RoboflowModelRef(slug: "pool-table-detection", version: 1,
+        RoboflowModelRef(slug: "pool-table-detection", version: 6,
                          label: "leonardo — TABLE detection")
     ]
 }
