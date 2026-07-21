@@ -49,7 +49,7 @@ Goal: real balls become `TableState`.
 - [x] **M2-03** `PerceptionPipeline`: latest-wins scheduling, foot-point projection, Kalman tracking, identity association, stability gating, kind voting + unit and fixture pipeline tests. *(deps: M1-04, M1-07)*
 - [ ] **M2-04** Fixture capture tool (debug menu) + first committed fixture sets from a real table. *(deps: M2-03; **device session**)*
 - [ ] **M2-05** Replay integration suite over fixtures (accuracy/stability bars from 04-TESTING-STRATEGY). *(deps: M2-04)*
-- [ ] **M2-06** Optional: `DetectionRoboflow` adapter behind the same contract. *(deps: M1-07; low priority)*
+- [x] **M2-06** `DetectionRoboflow` adapter behind the same contract (hosted-API provider, transport/encoder seams, contract + parser tests) + in-app model picker & Detection Preview overlay for M2-01 candidate evaluation (see `docs/model-testing.md`). *(deps: M1-07)*
 
 **Exit:** replay suite green in CI; device checklist rows for detection filled.
 

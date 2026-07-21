@@ -27,6 +27,8 @@ packages:
     path: Packages/CueSyncUI
   CoachKit:
     path: Packages/CoachKit
+  DetectionRoboflow:
+    path: Packages/DetectionRoboflow
   CueSyncTestSupport:
     path: Packages/CueSyncTestSupport
 
@@ -47,6 +49,7 @@ targets:
       - package: DisplayKit
       - package: CueSyncUI
       - package: CoachKit
+      - package: DetectionRoboflow
     info:
       path: App/Info.plist
       properties:

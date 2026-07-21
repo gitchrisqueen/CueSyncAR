@@ -2,26 +2,106 @@
 //  RootView.swift
 //  CueSync AR
 //
-//  Live camera + AR scene with the minimal M0 HUD. The real calibration
-//  flow and overlay renderer land in M3 (see docs/roadmap/06-MILESTONES.md).
+//  Live camera + AR scene with the M0 HUD plus the Detection Preview mode:
+//  pick a hosted Roboflow model from the HUD and see its raw detections
+//  drawn over the camera with latency stats — the M2-01 model-selection
+//  workflow. The full calibration flow and AR overlays land with M3-02/05.
 //
 
+import CueSyncCore
 import CueSyncUI
+import DetectionRoboflow
 import SwiftUI
 
 struct RootView: View {
     @Environment(SessionModel.self) private var model
+    @AppStorage("previewBoxRotation") private var boxRotationRaw = NormalizedRotation.clockwise90.rawValue
+
+    private var boxRotation: NormalizedRotation {
+        NormalizedRotation(rawValue: boxRotationRaw) ?? .clockwise90
+    }
 
     var body: some View {
         ZStack {
             arSurface
                 .ignoresSafeArea()
+
+            if model.selectedModel != nil {
+                DetectionPreviewOverlay(detections: model.latestDetections,
+                                        rotation: boxRotation)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
+
             VStack {
-                statusCapsule
+                StatusCapsule(status: hudStatus)
+                if let error = model.previewStats.lastError {
+                    Text(error)
+                        .font(.caption2)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .foregroundStyle(.red)
+                }
                 Spacer()
+                bottomBar
             }
             .padding(.top, 8)
+            .padding(.bottom, 12)
         }
+    }
+
+    private var hudStatus: HUDStatus {
+        if model.selectedModel != nil {
+            return .tracking(ballCount: model.previewStats.detectionCount)
+        }
+        switch model.phase {
+        case .launching: return .launching
+        case .findingTable: return .findingTable
+        case .ready: return .tracking(ballCount: 0)
+        }
+    }
+
+    private var bottomBar: some View {
+        HUDBar {
+            modelPicker
+            if model.selectedModel != nil {
+                Text("\(model.previewStats.latencyMilliseconds) ms")
+                    .font(.footnote.weight(.semibold))
+                    .monospacedDigit()
+                Button {
+                    boxRotationRaw = boxRotation.next.rawValue
+                } label: {
+                    Label("Rotate boxes", systemImage: "rotate.right")
+                        .labelStyle(.iconOnly)
+                }
+                .accessibilityLabel("Rotate detection boxes")
+            }
+        }
+    }
+
+    private var modelPicker: some View {
+        Menu {
+            Button("Preview off") { model.selectModel(nil) }
+            Divider()
+            ForEach(DetectionModelCatalog.candidates) { candidate in
+                Button {
+                    model.selectModel(candidate)
+                } label: {
+                    if model.selectedModel == candidate {
+                        Label(candidate.label, systemImage: "checkmark")
+                    } else {
+                        Text(candidate.label)
+                    }
+                }
+            }
+        } label: {
+            Label(model.selectedModel?.label ?? "Model", systemImage: "brain")
+                .font(.footnote.weight(.semibold))
+                .lineLimit(1)
+        }
+        .accessibilityIdentifier("model-picker")
+        .disabled(!model.hasRoboflowKey && model.selectedModel == nil)
     }
 
     @ViewBuilder
@@ -29,19 +109,40 @@ struct RootView: View {
         #if targetEnvironment(simulator)
         SimulatorPlaceholderView()
         #else
-        ARTableContainerView()
+        ARCameraView()
         #endif
     }
+}
 
-    private var statusCapsule: some View {
-        StatusCapsule(status: hudStatus)
-    }
+/// Draws detector bounding boxes over the camera. Coordinates arrive in raw
+/// camera-image space; NormalizedRotation + aspect-fill mapping place them.
+struct DetectionPreviewOverlay: View {
+    let detections: [Detection2D]
+    let rotation: NormalizedRotation
 
-    private var hudStatus: HUDStatus {
-        switch model.phase {
-        case .launching: .launching
-        case .findingTable: .findingTable
-        case .ready: .tracking(ballCount: 0)
+    var body: some View {
+        GeometryReader { proxy in
+            Canvas { context, size in
+                for detection in detections {
+                    let rotated = rotation.apply(detection.boundingBox)
+                    // Camera buffers are 4:3; dimensions swap with rotation.
+                    let (iw, ih) = rotation.swapsDimensions ? (3.0, 4.0) : (4.0, 3.0)
+                    let r = AspectFillMapping.mapRect(rotated,
+                                                      imageWidth: iw, imageHeight: ih,
+                                                      viewWidth: size.width,
+                                                      viewHeight: size.height)
+                    let rect = CGRect(x: r.x, y: r.y, width: r.width, height: r.height)
+                    let style = Theme.ballStyle(for: detection.ballKind)
+                    let color = Color(red: style.fill.red, green: style.fill.green,
+                                      blue: style.fill.blue)
+                    context.stroke(Path(roundedRect: rect, cornerRadius: 4),
+                                   with: .color(color), lineWidth: 2)
+                    let caption = Text("\(detection.classLabel) \(Int(detection.confidence * 100))%")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(color)
+                    context.draw(caption, at: CGPoint(x: rect.midX, y: rect.minY - 8))
+                }
+            }
         }
     }
 }
@@ -69,19 +170,32 @@ struct SimulatorPlaceholderView: View {
 }
 
 #if canImport(ARKit) && !targetEnvironment(simulator)
+import ARExperience
 import ARKit
 import RealityKit
 
-/// Minimal AR surface: world tracking with horizontal plane detection and
-/// the system coaching overlay. M3 replaces this with the calibration flow
-/// and overlay renderer from ARExperience.
-struct ARTableContainerView: UIViewRepresentable {
-    func makeUIView(context: Context) -> ARView {
-        let arView = ARView(frame: .zero)
-        let configuration = ARWorldTrackingConfiguration()
-        configuration.planeDetection = [.horizontal]
-        arView.session.run(configuration)
+/// Hosts the shared ARSessionCoordinator's ARView and pumps its frame
+/// stream into the session model's preview loop.
+struct ARCameraView: View {
+    @Environment(SessionModel.self) private var model
+    @State private var coordinator = ARSessionCoordinator()
 
+    var body: some View {
+        ARViewRepresentable(coordinator: coordinator)
+            .task {
+                coordinator.start()
+                for await frame in coordinator.frames {
+                    model.ingestPreviewFrame(frame)
+                }
+            }
+    }
+}
+
+private struct ARViewRepresentable: UIViewRepresentable {
+    let coordinator: ARSessionCoordinator
+
+    func makeUIView(context: Context) -> ARView {
+        let arView = coordinator.arView
         let coaching = ARCoachingOverlayView()
         coaching.session = arView.session
         coaching.goal = .horizontalPlane
