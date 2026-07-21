@@ -31,8 +31,8 @@ Goal: all pure logic complete and heavily tested before any device work.
 - [x] **M1-02** `BilliardsPhysics` solver: ghost-ball, ball-ball, cushions, pockets, rollout + full unit/property suites (incl. CI-lenient performance test; model doc in `Packages/BilliardsPhysics/Docs/PhysicsModel.md`). *(deps: M1-01)*
 - [ ] **M1-03** `BilliardsPhysics` golden scenario suite (~20 JSON fixtures). Note: goldens must be generated in a Swift-capable env and human-reviewed once before freezing. *(deps: M1-02)*
 - [x] **M1-04** `TableSpace`: transforms, calibration model, size inference + tests. *(deps: M1-01)*
-- [ ] **M1-05** `CueSyncUI` HUD components + snapshot suite (design tokens landed with M0; components open). *(deps: M1-01)*
-- [ ] **M1-06** 2D table renderer (SwiftUI Canvas) from `TableState`/`ShotPrediction` + snapshots (shared by mini-map & TV mode). *(deps: M1-01, parallel w/ M1-05)*
+- [x] **M1-05** `CueSyncUI` HUD components (StatusCapsule/BallCountChip/HUDBar over a pure, tested `HUDStatus` model). Snapshot suite deferred to M4-03 with the rest of visual QA. *(deps: M1-01)*
+- [x] **M1-06** 2D table renderer: pure `TableScene` composer (mapping, ball/pocket/path primitives, styling rules — Linux-tested) + `TableSceneView` SwiftUI Canvas (shared by mini-map & TV mode). *(deps: M1-01, parallel w/ M1-05)*
 - [x] **M1-07** `CueSyncTestSupport`: provider contract checks, fixtures (`eightBallRack`), `FixtureDetectionProvider`/`StaticSolver`/`MockCoach`. `FixtureRaycaster` moves to M2-03 with the `PlaneRaycasting` impl. *(deps: M1-01)*
 
 **Exit:** `swift test` green across packages, coverage ≥ 85%, golden physics
@@ -45,8 +45,8 @@ suite human-reviewed once and frozen.
 Goal: real balls become `TableState`.
 
 - [ ] **M2-01** Model: train/export bundled Core ML pool-ball detector; eval harness + committed metrics (bar: mAP@50 ≥ 0.85). *(deps: none technically; needs dataset access)*
-- [ ] **M2-02** `CoreMLDetectionProvider` (Vision request wrapper) + contract tests. *(deps: M1-07, M2-01)*
-- [ ] **M2-03** `PerceptionPipeline`: scheduling, projection, Kalman tracking, identity association, stability gating + unit tests. *(deps: M1-04, M1-07)*
+- [ ] **M2-02** `CoreMLDetectionProvider` (Vision request wrapper) + contract tests. *Adapter + box-mapping tests landed; runtime contract verification blocked on the M2-01 model.* *(deps: M1-07, M2-01)*
+- [x] **M2-03** `PerceptionPipeline`: latest-wins scheduling, foot-point projection, Kalman tracking, identity association, stability gating, kind voting + unit and fixture pipeline tests. *(deps: M1-04, M1-07)*
 - [ ] **M2-04** Fixture capture tool (debug menu) + first committed fixture sets from a real table. *(deps: M2-03; **device session**)*
 - [ ] **M2-05** Replay integration suite over fixtures (accuracy/stability bars from 04-TESTING-STRATEGY). *(deps: M2-04)*
 - [ ] **M2-06** Optional: `DetectionRoboflow` adapter behind the same contract. *(deps: M1-07; low priority)*
@@ -74,7 +74,7 @@ Goal: the MVP core loop on a phone.
 
 - [ ] **M4-01** `DisplayKit` scene routing (connect/mirror/Table View/hot-plug) + state-machine tests. *(deps: M1-06)*
 - [ ] **M4-02** Broadcast-quality Table View styling for 1080p/4K + snapshots. *(deps: M4-01)*
-- [ ] **M4-03** UI test suite (fixture mode launch smoke) + accessibility pass (VoiceOver labels, Reduce Motion/Transparency). *(deps: M3-05)*
+- [ ] **M4-03** UI test suite (fixture mode launch smoke) + snapshot suite (CueSyncUI components + TableSceneView, light/dark × Dynamic Type) + accessibility pass (VoiceOver labels, Reduce Motion/Transparency). *(deps: M3-05)*
 - [ ] **M4-04** Settings screen (table size override, provider selection, debug HUD) + persistence tests. *(deps: M3-05)*
 
 **Exit:** MVP item 5 working; snapshot/UI suites green.

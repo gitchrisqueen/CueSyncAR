@@ -30,7 +30,7 @@ CueSyncAR/
 Dependency rule (arrows = "may import"):
 
 ```
-App ─▶ ARExperience ─▶ PerceptionKit ─▶ CueSyncCore
+App ─▶ ARExperience ─▶ PerceptionKit ─▶ CueSyncCore, TableSpace
  │        │                 │
  │        ├─▶ BilliardsPhysics ─▶ CueSyncCore
  │        └─▶ TableSpace ──────▶ CueSyncCore

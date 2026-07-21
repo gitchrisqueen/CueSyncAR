@@ -34,21 +34,15 @@ struct RootView: View {
     }
 
     private var statusCapsule: some View {
-        Group {
-            switch model.phase {
-            case .launching:
-                Label("Starting…", systemImage: "circle.dotted")
-            case .findingTable:
-                Label("Point at the table", systemImage: "camera.viewfinder")
-            case .ready:
-                Label("Ready", systemImage: "checkmark.circle")
-            }
+        StatusCapsule(status: hudStatus)
+    }
+
+    private var hudStatus: HUDStatus {
+        switch model.phase {
+        case .launching: .launching
+        case .findingTable: .findingTable
+        case .ready: .tracking(ballCount: 0)
         }
-        .font(.callout.weight(.medium))
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: Capsule())
-        .accessibilityIdentifier("status-capsule")
     }
 }
 

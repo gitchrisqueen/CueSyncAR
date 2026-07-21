@@ -8,10 +8,13 @@ let package = Package(
         .library(name: "PerceptionKit", targets: ["PerceptionKit"])
     ],
     dependencies: [
-        .package(path: "../CueSyncCore")
+        .package(path: "../CueSyncCore"),
+        .package(path: "../TableSpace"),
+        .package(path: "../CueSyncTestSupport")
     ],
     targets: [
-        .target(name: "PerceptionKit", dependencies: ["CueSyncCore"]),
-        .testTarget(name: "PerceptionKitTests", dependencies: ["PerceptionKit"])
+        .target(name: "PerceptionKit", dependencies: ["CueSyncCore", "TableSpace"]),
+        .testTarget(name: "PerceptionKitTests",
+                    dependencies: ["PerceptionKit", "CueSyncTestSupport"])
     ]
 )
