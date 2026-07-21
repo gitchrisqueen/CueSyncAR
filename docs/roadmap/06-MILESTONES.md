@@ -60,7 +60,7 @@ Goal: real balls become `TableState`.
 Goal: the MVP core loop on a phone.
 
 - [x] **M3-01** `ARSessionCoordinator` + ARKit `PlaneRaycasting` impl + frame stream with latest-wins backpressure. *(needs-device-run: tracking/raycast quality, M3-06)* *(deps: M2-03)*
-- [ ] **M3-02** Calibration flow UI per 05-UX-DESIGN. *`CalibrationController` state machine landed with tests (plane → corners → adjust → lock, error handling, plane-loss rules); SwiftUI flow + world-anchor persistence open.* *(deps: M3-01, M1-04, M1-05)*
+- [x] (needs-device-run) **M3-02** Calibration flow UI per 05-UX-DESIGN. *State machine + tests landed earlier; now: SwiftUI flow (tap 4 corners → drag-adjust → lock, world-glued handles, HUD statuses, size badge, re-enterable from HUD), corner perimeter-ordering + anchor-relative persistence math in TableSpace (tested), world-anchor + ARWorldMap persistence with relocalize-to-locked restore. Device checklist: corner raycast accuracy, lock haptic, anchor stability while walking, saved-venue relocalization.* *(deps: M3-01, M1-04, M1-05)*
 - [x] **M3-03** `AimEngine` (device pose → `AimRay`: look-point model with forward-projection fallback) + unit tests on transform fixtures. *(deps: M1-01)*
 - [x] **M3-04** Overlay rendering: pure `OverlayLayout` (strip placement/styling, ghost, pocket glow — tested) + RealityKit `OverlayRenderer`. *(needs-device-run: visual latency/occlusion; occlusion + snapshots tracked in M3-06/M4-03)* *(deps: M1-02, M3-01)*
 - [ ] **M3-05** `SessionModel` composition root wiring pipeline→solver→renderer; HUD assembly; degraded-tracking states. *(deps: M3-01…04)*

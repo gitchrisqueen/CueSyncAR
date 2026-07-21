@@ -146,6 +146,33 @@ struct CalibrationControllerTests {
         controller.handle(.resetRequested)
         #expect(controller.state == .searchingPlane)
     }
+
+    @Test func restoredCalibrationLocksFromAnyUnlockedState() throws {
+        let saved = try TableCalibration.fromCorners(corners)
+
+        // Cold start: restore locks immediately (saved-venue fast path).
+        var controller = CalibrationController()
+        controller.handle(.restored(saved))
+        #expect(controller.calibration == saved)
+
+        // Mid-flow restore wins over manual progress…
+        var midFlow = CalibrationController()
+        midFlow.handle(.planeDetected)
+        midFlow.handle(.cornersProposed(corners))
+        midFlow.handle(.restored(saved))
+        #expect(midFlow.isLocked)
+
+        // …but never replaces a calibration locked this session.
+        var locked = CalibrationController()
+        locked.handle(.planeDetected)
+        locked.handle(.cornersProposed(corners))
+        locked.handle(.lockRequested)
+        let lockedCalibration = locked.calibration
+        var other = saved
+        other.origin += Vec3(1, 0, 0)
+        locked.handle(.restored(other))
+        #expect(locked.calibration == lockedCalibration)
+    }
 }
 
 @Suite("OverlayLayout")

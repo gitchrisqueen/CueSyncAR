@@ -9,12 +9,14 @@
 //  Roboflow hosted model against live camera frames.
 //
 
+import ARExperience
 import BilliardsPhysics
 import CueSyncCore
 import DetectionRoboflow
 import Foundation
 import Observation
 import PerceptionKit
+import TableSpace
 
 @MainActor
 @Observable
@@ -39,6 +41,79 @@ final class SessionModel {
     /// Latest AR session health message (errors/interruptions/tracking
     /// limits), mirrored from the coordinator for the HUD.
     var sessionEvent: String?
+
+    // MARK: Calibration (M3-02)
+
+    /// The calibration state machine (find plane → tap corners → adjust →
+    /// lock). The AR layer feeds it events; views render its state.
+    private(set) var calibration = CalibrationController()
+    /// Corners tapped so far while waiting for all four (world space).
+    private(set) var pendingCorners: [Vec3] = []
+    /// Whether the calibration overlay is on screen. Calibration is
+    /// re-enterable from the HUD at any time (05-UX-DESIGN).
+    private(set) var calibrationVisible = false
+
+    /// The locked world-space calibration, when one exists.
+    var tableCalibration: TableCalibration? { calibration.calibration }
+
+    func beginCalibration() {
+        pendingCorners = []
+        calibration.handle(.resetRequested)
+        calibrationVisible = true
+    }
+
+    func cancelCalibration() {
+        calibrationVisible = false
+    }
+
+    func calibrationPlaneDetected() {
+        calibration.handle(.planeDetected)
+    }
+
+    /// Add one tapped corner; proposes the (perimeter-ordered) rectangle to
+    /// the controller once all four are down.
+    func placeCorner(_ world: Vec3, planeNormal: Vec3) {
+        guard case .planeFound = calibration.state, pendingCorners.count < 4 else { return }
+        pendingCorners.append(world)
+        if pendingCorners.count == 4 {
+            let ordered = CornerOrdering.orderedAroundCentroid(pendingCorners,
+                                                               planeNormal: planeNormal)
+            calibration.handle(.cornersProposed(ordered))
+        }
+    }
+
+    /// Throw away tapped/proposed corners and start corner placement over
+    /// (stays in the flow; the AR layer re-reports the plane on next tick).
+    func restartCorners() {
+        pendingCorners = []
+        calibration.handle(.resetRequested)
+    }
+
+    func moveCorner(index: Int, to world: Vec3) {
+        calibration.handle(.cornerMoved(index: index, to: world))
+    }
+
+    /// Ask the controller to lock. On success the overlay dismisses; the
+    /// caller (AR layer) then anchors + persists via `persistCalibration`.
+    func requestCalibrationLock() -> Bool {
+        calibration.handle(.lockRequested)
+        guard calibration.isLocked else { return false }
+        calibrationVisible = false
+        return true
+    }
+
+    /// Persist a locked calibration relative to its world anchor so a
+    /// returning visit relocalizes straight to Ready.
+    func persistCalibration(_ locked: TableCalibration, anchorTransform: Transform3D) {
+        CalibrationStore.save(AnchoredCalibration(calibration: locked,
+                                                  anchorTransform: anchorTransform))
+    }
+
+    /// A saved venue relocalized — jump to locked (unless the user already
+    /// locked a fresh calibration this session; the controller ignores it).
+    func restoreCalibration(_ restored: TableCalibration) {
+        calibration.handle(.restored(restored))
+    }
 
     // MARK: Detection preview state
 

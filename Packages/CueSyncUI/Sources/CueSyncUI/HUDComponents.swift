@@ -15,6 +15,9 @@ import Foundation
 public enum HUDStatus: Sendable, Equatable {
     case launching
     case findingTable
+    /// Plane found; waiting for the user to tap the four rail corners.
+    /// `placed` counts corners already down (0...3).
+    case placingCorners(placed: Int)
     case confirmingRails
     case tracking(ballCount: Int)
     case degraded(reason: DegradedReason)
@@ -29,6 +32,7 @@ public enum HUDStatus: Sendable, Equatable {
         switch self {
         case .launching: "Starting…"
         case .findingTable: "Point at the table"
+        case .placingCorners(let placed): "Tap the rail corners (\(placed)/4)"
         case .confirmingRails: "Adjust the corners, then lock"
         case .tracking(let count): "Tracking \(count) balls"
         case .degraded(.fastMotion): "Hold steady…"
@@ -41,6 +45,7 @@ public enum HUDStatus: Sendable, Equatable {
         switch self {
         case .launching: "circle.dotted"
         case .findingTable: "camera.viewfinder"
+        case .placingCorners: "hand.tap"
         case .confirmingRails: "rectangle.dashed"
         case .tracking: "checkmark.circle"
         case .degraded: "exclamationmark.triangle"

@@ -12,6 +12,7 @@ import CueSyncCore
 import CueSyncUI
 import DetectionRoboflow
 import SwiftUI
+import TableSpace
 
 struct RootView: View {
     @Environment(SessionModel.self) private var model
@@ -68,6 +69,15 @@ struct RootView: View {
     }
 
     private var hudStatus: HUDStatus {
+        // The calibration flow owns the capsule while it's on screen.
+        if model.calibrationVisible, !model.calibration.isLocked {
+            switch model.calibration.state {
+            case .searchingPlane: return .findingTable
+            case .planeFound: return .placingCorners(placed: model.pendingCorners.count)
+            case .adjusting: return .confirmingRails
+            case .locked: return .tracking(ballCount: 0)
+            }
+        }
         if model.selectedModel != nil {
             return .tracking(ballCount: model.previewStats.detectionCount)
         }
@@ -80,6 +90,7 @@ struct RootView: View {
 
     private var bottomBar: some View {
         HUDBar {
+            calibrateButton
             modelPicker
             if model.selectedModel != nil {
                 Text("\(model.previewStats.latencyMilliseconds) ms")
@@ -93,6 +104,38 @@ struct RootView: View {
                 }
                 .accessibilityLabel("Rotate detection boxes")
             }
+        }
+    }
+
+    /// Enters (or re-enters) the calibration flow; shows the locked table
+    /// size once calibrated (tappable to recalibrate — 05-UX-DESIGN).
+    private var calibrateButton: some View {
+        Button {
+            if model.calibrationVisible {
+                model.cancelCalibration()
+            } else {
+                model.beginCalibration()
+            }
+        } label: {
+            if let size = model.tableCalibration?.size {
+                Text(Self.sizeBadge(for: size))
+                    .font(.footnote.weight(.semibold))
+            } else {
+                Label("Calibrate", systemImage: "rectangle.dashed")
+                    .labelStyle(.iconOnly)
+            }
+        }
+        .accessibilityLabel(model.tableCalibration == nil
+                            ? "Calibrate table"
+                            : "Table calibrated — tap to recalibrate")
+        .accessibilityIdentifier("calibrate-button")
+    }
+
+    static func sizeBadge(for size: TableSize) -> String {
+        switch size {
+        case .sevenFoot: "7-ft"
+        case .eightFoot: "8-ft"
+        case .nineFoot: "9-ft"
         }
     }
 
@@ -209,7 +252,11 @@ struct ARCameraView: View {
         ZStack {
             if let coordinator {
                 ARViewRepresentable(coordinator: coordinator)
-                    .task { await runPreviewLoop(coordinator) }
+                    .task { await runSessionLoop(coordinator) }
+                if model.calibrationVisible {
+                    CalibrationOverlayView(coordinator: coordinator)
+                        .ignoresSafeArea()
+                }
             } else {
                 Color.black
             }
@@ -221,16 +268,42 @@ struct ARCameraView: View {
         }
     }
 
-    private func runPreviewLoop(_ coordinator: ARSessionCoordinator) async {
+    private func runSessionLoop(_ coordinator: ARSessionCoordinator) async {
         guard await ensureCameraAccess() else {
             model.cameraDenied = true
             return
         }
         model.cameraDenied = false
-        // RealityKit auto-configures and runs the session itself;
-        // no manual start (manual config rendered a black feed).
+        // RealityKit auto-configures and runs the session itself; plane
+        // detection is layered on only when calibration needs it (or a
+        // saved venue can be relocalized), so the plain A/B-preview path
+        // never reconfigures the session.
+        var planeDetectionStarted = false
+        if CalibrationStore.load() != nil {
+            coordinator.enablePlaneDetection(
+                restoringWorldMapAt: CalibrationStore.hasWorldMap
+                    ? CalibrationStore.worldMapURL : nil)
+            planeDetectionStarted = true
+        }
         while !Task.isCancelled {
             model.sessionEvent = coordinator.sessionEvent
+            if model.calibrationVisible, !planeDetectionStarted {
+                coordinator.enablePlaneDetection()
+                planeDetectionStarted = true
+            }
+            if !model.calibration.isLocked {
+                // Feed plane availability into the flow's state machine.
+                if model.calibrationVisible, coordinator.planeAvailable,
+                   case .searchingPlane = model.calibration.state {
+                    model.calibrationPlaneDetected()
+                }
+                // A saved venue relocalized → jump straight to locked.
+                if let anchorTransform = coordinator.restoredTableAnchorTransform,
+                   let saved = CalibrationStore.load() {
+                    model.restoreCalibration(
+                        saved.worldCalibration(anchorTransform: anchorTransform))
+                }
+            }
             if model.wantsPreviewFrame, let frame = await coordinator.nextFrame() {
                 model.ingestPreviewFrame(frame)
             }

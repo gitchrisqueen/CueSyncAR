@@ -33,6 +33,10 @@ public struct CalibrationController: Sendable, Equatable {
         case cornerMoved(index: Int, to: Vec3)
         case lockRequested
         case resetRequested
+        /// A persisted calibration came back from world-anchor
+        /// relocalization — jump straight to locked (05-UX-DESIGN: a
+        /// returning user at a saved venue skips to Ready).
+        case restored(TableCalibration)
     }
 
     public private(set) var state: State = .searchingPlane
@@ -82,6 +86,12 @@ public struct CalibrationController: Sendable, Equatable {
 
         case (_, .resetRequested):
             state = .searchingPlane
+
+        case (_, .restored(let calibration)) where !isLocked:
+            // Relocalization wins over any in-progress manual flow, but
+            // never silently replaces a calibration the user already locked
+            // this session.
+            state = .locked(calibration)
 
         default:
             break // ignore events that don't apply to the current state

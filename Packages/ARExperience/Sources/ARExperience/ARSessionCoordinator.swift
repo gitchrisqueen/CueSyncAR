@@ -34,11 +34,21 @@ import RealityKit
 
 @MainActor
 public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
+    /// Name of the world anchor the locked table calibration hangs off.
+    public nonisolated static let tableAnchorName = "cuesync.tableOrigin"
+
     public let arView: ARView
     private let pendingRequest = FrameRequestBox()
     /// Human-readable session health (errors, interruptions, tracking
     /// limits) for the HUD. Nil when everything is nominal.
     public private(set) var sessionEvent: String?
+    /// True once ARKit has detected at least one horizontal plane —
+    /// drives CalibrationController's planeDetected event.
+    public private(set) var planeAvailable = false
+    /// Set when a previously saved table anchor relocalizes in this
+    /// session (its transform in *this* session's world coordinates).
+    /// The app layer combines it with a persisted AnchoredCalibration.
+    public private(set) var restoredTableAnchorTransform: Transform3D?
 
     public override init() {
         // RealityKit owns session configuration (automaticallyConfigureSession
@@ -53,12 +63,95 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
     /// Enable horizontal plane detection on top of RealityKit's automatic
     /// configuration — required by the calibration flow's raycasts. Safe to
     /// call once the view is on screen; it reconfigures without restarting
-    /// the camera.
-    public func enablePlaneDetection() {
+    /// the camera. Pass a saved world map to attempt relocalization of a
+    /// previously calibrated venue (the table anchor comes back through
+    /// `restoredTableAnchorTransform` when ARKit re-recognizes the space).
+    public func enablePlaneDetection(restoringWorldMapAt url: URL? = nil) {
         let configuration = ARWorldTrackingConfiguration()
         configuration.planeDetection = [.horizontal]
         configuration.environmentTexturing = .automatic
+        if let url,
+           let data = try? Data(contentsOf: url),
+           let map = try? NSKeyedUnarchiver.unarchivedObject(ofClass: ARWorldMap.self,
+                                                             from: data) {
+            configuration.initialWorldMap = map
+        }
         arView.session.run(configuration)
+    }
+
+    // MARK: - Calibration support (raycast, projection, anchoring)
+
+    /// Raycast a screen point onto a detected (or estimated) horizontal
+    /// plane. Screen points are in the ARView's coordinate space.
+    public func raycastHorizontalPlane(screenPoint: CGPoint) -> Vec3? {
+        let queries: [ARRaycastQuery.Target] = [.existingPlaneGeometry, .estimatedPlane]
+        for target in queries {
+            if let hit = arView.raycast(from: screenPoint, allowing: target,
+                                        alignment: .horizontal).first {
+                let t = hit.worldTransform.columns.3
+                return Vec3(Double(t.x), Double(t.y), Double(t.z))
+            }
+        }
+        return nil
+    }
+
+    /// The up-normal of the raycast plane at a world point — for MVP
+    /// horizontal planes this is world up; kept as a seam for angled
+    /// surfaces later.
+    public func horizontalPlaneNormal() -> Vec3 { Vec3(0, 1, 0) }
+
+    /// Project a world point into the ARView's screen space (nil when the
+    /// point is behind the camera).
+    public func projectToScreen(_ world: Vec3) -> CGPoint? {
+        arView.project(SIMD3<Float>(Float(world.x), Float(world.y), Float(world.z)))
+    }
+
+    /// Drop the named world anchor for a locked calibration at the table
+    /// origin, replacing any previous one. Returns the anchor's transform
+    /// for AnchoredCalibration bookkeeping.
+    @discardableResult
+    public func placeTableAnchor(origin: Vec3) -> Transform3D {
+        for anchor in arView.session.currentFrame?.anchors ?? []
+        where anchor.name == Self.tableAnchorName {
+            arView.session.remove(anchor: anchor)
+        }
+        var transform = matrix_identity_float4x4
+        transform.columns.3 = SIMD4<Float>(Float(origin.x), Float(origin.y),
+                                           Float(origin.z), 1)
+        let anchor = ARAnchor(name: Self.tableAnchorName, transform: transform)
+        arView.session.add(anchor: anchor)
+        return Self.transform3D(from: transform)
+    }
+
+    /// Serialize the current world map (async — ARKit assembles it) so the
+    /// venue relocalizes instantly on the next visit. Throws when the map
+    /// isn't available yet (insufficient mapping); callers may retry later.
+    public func saveWorldMap(to url: URL) async throws {
+        // Archive inside the callback so only Sendable Data crosses the
+        // continuation (ARWorldMap itself is not Sendable).
+        let data: Data = try await withCheckedThrowingContinuation { continuation in
+            arView.session.getCurrentWorldMap { map, error in
+                guard let map else {
+                    continuation.resume(throwing: error ?? CocoaError(.fileWriteUnknown))
+                    return
+                }
+                do {
+                    let archived = try NSKeyedArchiver.archivedData(
+                        withRootObject: map, requiringSecureCoding: true)
+                    continuation.resume(returning: archived)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+        try data.write(to: url, options: .atomic)
+    }
+
+    nonisolated static func transform3D(from m: simd_float4x4) -> Transform3D {
+        Transform3D(columns: (0..<4).map { column in
+            let c = [m.columns.0, m.columns.1, m.columns.2, m.columns.3][column]
+            return SIMD4<Double>(Double(c.x), Double(c.y), Double(c.z), Double(c.w))
+        })
     }
 
     public func pause() {
@@ -154,6 +247,17 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
             }
         }
         return copy
+    }
+
+    public nonisolated func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+        let sawPlane = anchors.contains { $0 is ARPlaneAnchor }
+        let tableTransform = anchors.first { $0.name == Self.tableAnchorName }
+            .map { Self.transform3D(from: $0.transform) }
+        guard sawPlane || tableTransform != nil else { return }
+        Task { @MainActor in
+            if sawPlane { self.planeAvailable = true }
+            if let tableTransform { self.restoredTableAnchorTransform = tableTransform }
+        }
     }
 
     public nonisolated func session(_ session: ARSession, didFailWithError error: Error) {
