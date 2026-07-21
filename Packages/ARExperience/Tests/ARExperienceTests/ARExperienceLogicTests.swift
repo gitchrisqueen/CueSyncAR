@@ -242,6 +242,53 @@ struct OverlayLayoutTests {
         #expect(layout.highlightedPockets.count == 1)
     }
 
+    @Test func calledPocketRingsAndConfirmsOnLine() {
+        let table = Table(size: .nineFoot)
+        let cueID = BallID(0)
+        let threeID = BallID(3)
+        let state = TableState(table: table, balls: [
+            Ball(id: cueID, kind: .cue, position: .zero),
+            Ball(id: threeID, kind: .solid(3), position: Vec2(0.5, 0))
+        ], timestamp: 0)
+
+        // Object ball predicted into the called pocket → on line.
+        let makes = ShotPrediction(
+            segments: [],
+            events: [.pocket(ball: threeID, pocket: .cornerTopRight)],
+            pocketedBalls: [threeID])
+        let onLine = OverlayLayout.compose(state: state, prediction: makes,
+                                           calibration: calibration,
+                                           calledPocket: .cornerTopRight)
+        #expect(onLine.calledPocket != nil)
+        #expect(onLine.calledPocketSatisfied)
+
+        // Different pocket predicted → ring shows, not satisfied.
+        let misses = ShotPrediction(
+            segments: [],
+            events: [.pocket(ball: threeID, pocket: .sideTop)],
+            pocketedBalls: [threeID])
+        let offLine = OverlayLayout.compose(state: state, prediction: misses,
+                                            calibration: calibration,
+                                            calledPocket: .cornerTopRight)
+        #expect(offLine.calledPocket != nil)
+        #expect(!offLine.calledPocketSatisfied)
+
+        // Only the CUE ball into the called pocket is a scratch, not a make.
+        let scratch = ShotPrediction(
+            segments: [],
+            events: [.pocket(ball: cueID, pocket: .cornerTopRight)],
+            pocketedBalls: [cueID])
+        let scratched = OverlayLayout.compose(state: state, prediction: scratch,
+                                              calibration: calibration,
+                                              calledPocket: .cornerTopRight)
+        #expect(!scratched.calledPocketSatisfied)
+
+        // No call → no marker.
+        let uncalled = OverlayLayout.compose(state: state, prediction: makes,
+                                             calibration: calibration)
+        #expect(uncalled.calledPocket == nil)
+    }
+
     @Test func zeroLengthSegmentsAreDropped() {
         let prediction = ShotPrediction(
             segments: [TrajectorySegment(ballID: cueID, start: .zero, end: .zero)],

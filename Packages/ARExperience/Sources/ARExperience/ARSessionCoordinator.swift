@@ -430,6 +430,22 @@ public final class OverlayRenderer {
                                            Float(pocket.position.z))
             root.addChild(entity)
         }
+
+        // Called pocket (M6-02): amber ring while aiming, felt green when
+        // the prediction is on line into it.
+        if let called = layout.calledPocket {
+            let mesh = MeshResource.generateCylinder(height: Float(Self.stripWidth / 2),
+                                                     radius: Float(called.radius))
+            let color: UInt32 = layout.calledPocketSatisfied ? 0x2FA36B : 0xF5A623
+            var material = UnlitMaterial(color: uiColor(from: color))
+            material.blending = .transparent(
+                opacity: layout.calledPocketSatisfied ? 0.85 : 0.6)
+            let entity = ModelEntity(mesh: mesh, materials: [material])
+            entity.position = SIMD3<Float>(Float(called.position.x),
+                                           Float(called.position.y) + Float(Self.stripLift * 2),
+                                           Float(called.position.z))
+            root.addChild(entity)
+        }
     }
 
     public func clear() {

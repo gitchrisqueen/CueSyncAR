@@ -22,6 +22,9 @@ public enum HUDStatus: Sendable, Equatable {
     /// Live tracking is running but no cue ball is on the table — nothing
     /// can be aimed or predicted until it appears.
     case awaitingCueBall
+    /// Called-shot mode: the prediction sends an object ball into the
+    /// called pocket.
+    case onLine
     case tracking(ballCount: Int)
     case degraded(reason: DegradedReason)
 
@@ -37,7 +40,8 @@ public enum HUDStatus: Sendable, Equatable {
         case .findingTable: "Point at the table"
         case .placingCorners(let placed): "Tap the rail corners (\(placed)/4)"
         case .confirmingRails: "Adjust the corners, then lock"
-        case .awaitingCueBall: "Place the cue ball on the table"
+        case .awaitingCueBall: "Place the cue ball — or tap a ball to mark it"
+        case .onLine: "On line — send it"
         case .tracking(let count): "Tracking \(count) balls"
         case .degraded(.fastMotion): "Hold steady…"
         case .degraded(.lowLight): "Need more light"
@@ -52,6 +56,7 @@ public enum HUDStatus: Sendable, Equatable {
         case .placingCorners: "hand.tap"
         case .confirmingRails: "rectangle.dashed"
         case .awaitingCueBall: "circle.dashed"
+        case .onLine: "target"
         case .tracking: "checkmark.circle"
         case .degraded: "exclamationmark.triangle"
         }

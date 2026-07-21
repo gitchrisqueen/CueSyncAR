@@ -135,6 +135,51 @@ final class SessionModel {
     /// is addressing the ball, else the device-pose sighting model.
     enum AimSource { case stick, devicePose }
     private(set) var aimSource: AimSource = .devicePose
+    /// The user's called pocket (M6-02); nil = no call.
+    private(set) var calledPocket: PocketID?
+    /// True when the current prediction sends an object ball into the
+    /// called pocket.
+    private(set) var calledShotOnLine = false
+
+    func togglePocketCall(_ pocket: PocketID) {
+        calledPocket = calledPocket == pocket ? nil : pocket
+        if calledPocket == nil { calledShotOnLine = false }
+    }
+
+    /// Manual cue-ball designation: the detector can miss non-plain cue
+    /// balls (practice/measle balls with red dots read as color-ball).
+    /// Tapping a tracked ball marks it as the cue ball by its stable track
+    /// id; tapping the designated ball again clears the override.
+    private(set) var designatedCueBallID: BallID?
+
+    func designateCueBall(near tablePoint: Vec2, maxDistance: Double = 0.12) {
+        guard let balls = tableState?.balls else { return }
+        guard let nearest = balls.min(by: {
+            $0.position.distance(to: tablePoint) < $1.position.distance(to: tablePoint)
+        }), nearest.position.distance(to: tablePoint) <= maxDistance else { return }
+        designatedCueBallID = designatedCueBallID == nearest.id ? nil : nearest.id
+    }
+
+    /// Apply the cue-ball designation to a pipeline state: the designated
+    /// ball becomes .cue; any other .cue claims demote to .unknown so
+    /// exactly one cue ball exists.
+    private func applyingCueDesignation(_ state: TableState) -> TableState {
+        guard let designatedCueBallID,
+              state.balls.contains(where: { $0.id == designatedCueBallID }) else {
+            return state
+        }
+        var adjusted = state
+        adjusted.balls = state.balls.map { ball in
+            var ball = ball
+            if ball.id == designatedCueBallID {
+                ball.kind = .cue
+            } else if ball.kind == .cue {
+                ball.kind = .unknown
+            }
+            return ball
+        }
+        return adjusted
+    }
     @ObservationIgnored private var pipeline: PerceptionPipeline?
     @ObservationIgnored private var statesTask: Task<Void, Never>?
     @ObservationIgnored private let aimEngine = AimEngine()
@@ -162,8 +207,9 @@ final class SessionModel {
         statesTask = Task { [weak self] in
             for await output in await newPipeline.outputs {
                 await MainActor.run {
-                    self?.tableState = output.state
-                    self?.stickQuad = output.stickQuad
+                    guard let self else { return }
+                    self.tableState = self.applyingCueDesignation(output.state)
+                    self.stickQuad = output.stickQuad
                 }
             }
         }
@@ -178,6 +224,9 @@ final class SessionModel {
         shotGuide = nil
         stickQuad = nil
         aimSource = .devicePose
+        calledPocket = nil
+        calledShotOnLine = false
+        designatedCueBallID = nil
     }
 
     /// Feed a frame to the pipeline, throttled to the hosted-API-friendly
@@ -222,6 +271,14 @@ final class SessionModel {
         let prediction = solver.predict(state: state, aim: aim, options: .default)
         shotPrediction = prediction
         shotGuide = ShotGuide.recommend(state: state, prediction: prediction)
+        calledShotOnLine = calledPocket.map { called in
+            prediction.events.contains { event in
+                if case let .pocket(ball, pocket) = event {
+                    return pocket == called && ball != cue.id
+                }
+                return false
+            }
+        } ?? false
     }
 
     // MARK: Camera selection

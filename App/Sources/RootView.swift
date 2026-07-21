@@ -126,6 +126,9 @@ struct RootView: View {
             if model.tableState?.cueBall == nil {
                 return .awaitingCueBall
             }
+            if model.calledShotOnLine {
+                return .onLine
+            }
             return .tracking(ballCount: model.tableState?.balls.count ?? 0)
         }
         // The calibration flow owns the capsule while it's on screen.
@@ -341,6 +344,10 @@ struct ARCameraView: View {
             if let coordinator {
                 ARViewRepresentable(coordinator: coordinator)
                     .task { await runSessionLoop(coordinator) }
+                if model.isLiveTracking, !model.calibrationVisible {
+                    PocketCallCatcher(coordinator: coordinator)
+                        .ignoresSafeArea()
+                }
                 if model.calibrationVisible {
                     CalibrationOverlayView(coordinator: coordinator)
                         .ignoresSafeArea()
@@ -423,7 +430,8 @@ struct ARCameraView: View {
                        let calibration = model.tableCalibration {
                         overlayRenderer?.render(OverlayLayout.compose(
                             state: state, prediction: prediction,
-                            calibration: calibration))
+                            calibration: calibration,
+                            calledPocket: model.calledPocket))
                     } else {
                         overlayRenderer?.clear()
                     }
@@ -445,6 +453,45 @@ struct ARCameraView: View {
         default:
             return false
         }
+    }
+}
+
+/// Invisible tap layer during live tracking: tap near a pocket to call it,
+/// tap it again to clear (M6-02). The called pocket rings amber; the ring
+/// turns felt green when the prediction is on line into it.
+private struct PocketCallCatcher: View {
+    @Environment(SessionModel.self) private var model
+    let coordinator: ARSessionCoordinator
+
+    var body: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture(coordinateSpace: .local) { location in
+                guard let calibration = model.tableCalibration,
+                      let table = model.tableState?.table else { return }
+                var best: (id: PocketID, distance: CGFloat)?
+                for pocket in table.pockets {
+                    let world = calibration.tableToWorld(pocket.position)
+                    guard let point = coordinator.projectToScreen(world) else { continue }
+                    let distance = hypot(point.x - location.x, point.y - location.y)
+                    if distance <= 50, distance < (best?.distance ?? .infinity) {
+                        best = (pocket.id, distance)
+                    }
+                }
+                if let best {
+                    model.togglePocketCall(best.id)
+                    return
+                }
+                // Not a pocket tap: try cue-ball designation — covers cue
+                // balls the detector can't recognize (measle/practice
+                // balls with red dots classify as color-ball).
+                if let world = coordinator.raycastHorizontalPlane(
+                    screenPoint: location,
+                    fallbackPlaneHeight: calibration.origin.y) {
+                    model.designateCueBall(near: calibration.worldToTable(world))
+                }
+            }
+            .accessibilityLabel("Tap a pocket to call it, or a ball to mark it as the cue ball")
     }
 }
 

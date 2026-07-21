@@ -34,11 +34,17 @@ public struct OverlayLayout: Sendable, Equatable {
     public var strips: [Strip]
     public var ghostBall: Marker?
     public var highlightedPockets: [Marker]
+    /// The user's called pocket (M6-02), rendered as a distinct ring.
+    public var calledPocket: Marker?
+    /// True when the current prediction sends an OBJECT ball (not the cue
+    /// ball) into the called pocket — the "on line" state.
+    public var calledPocketSatisfied: Bool = false
 
     /// Colors mirror TableScene's path styling rules (05-UX-DESIGN).
     public static func compose(state: TableState,
                                prediction: ShotPrediction,
                                calibration: TableCalibration,
+                               calledPocket calledPocketID: PocketID? = nil,
                                aimColor: UInt32 = 0xF5A623,
                                objectColor: UInt32 = 0x2FA36B,
                                cueAfterColor: UInt32 = 0x4A90D9,
@@ -105,7 +111,26 @@ public struct OverlayLayout: Sendable, Equatable {
             .map { Marker(position: calibration.tableToWorld($0.position),
                           radius: $0.captureRadius) }
 
+        // Called-shot state (M6-02): ring the called pocket; "on line"
+        // when an object ball is predicted into it (the cue ball going in
+        // is a scratch, not a make).
+        var calledMarker: Marker?
+        var satisfied = false
+        if let calledPocketID,
+           let pocket = state.table.pockets.first(where: { $0.id == calledPocketID }) {
+            calledMarker = Marker(position: calibration.tableToWorld(pocket.position),
+                                  radius: pocket.captureRadius * 1.3)
+            satisfied = prediction.events.contains { event in
+                if case let .pocket(ball, pocketID) = event {
+                    return pocketID == calledPocketID && ball != cueID
+                }
+                return false
+            }
+        }
+
         return OverlayLayout(strips: strips, ghostBall: ghost,
-                             highlightedPockets: highlights)
+                             highlightedPockets: highlights,
+                             calledPocket: calledMarker,
+                             calledPocketSatisfied: satisfied)
     }
 }
