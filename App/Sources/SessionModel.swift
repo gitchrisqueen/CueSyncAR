@@ -18,6 +18,9 @@ import Foundation
 import Observation
 import PerceptionKit
 import TableSpace
+#if canImport(CoreML)
+import CoreML
+#endif
 
 @MainActor
 @Observable
@@ -182,6 +185,12 @@ final class SessionModel {
     }
     @ObservationIgnored private var pipeline: PerceptionPipeline?
     @ObservationIgnored private var statesTask: Task<Void, Never>?
+    /// Bundled on-device detector (M2-01/02); nil when the compiled model
+    /// resource is missing (e.g. simulator-only CI builds).
+    @ObservationIgnored private var onDeviceProvider: (any DetectionProviding)?
+    /// True when live tracking runs on the bundled Core ML model rather
+    /// than the hosted evaluation API.
+    private(set) var usingOnDeviceDetection = false
     @ObservationIgnored private let aimEngine = AimEngine()
     @ObservationIgnored private let solver: any TrajectorySolving = AnalyticSolver()
     @ObservationIgnored private var lastTrackingIngestAt: Date = .distantPast
@@ -193,10 +202,14 @@ final class SessionModel {
     /// projected onto the locked table plane (intrinsics unprojection —
     /// no per-point ARKit raycasts) and tracked into TableState.
     func startLiveTrackingIfReady() {
-        guard pipeline == nil, let calibration = tableCalibration,
-              let provider else { return }
+        guard pipeline == nil, let calibration = tableCalibration else { return }
+        // Bundled on-device model first (offline, ~15 Hz); hosted picker
+        // model as evaluation fallback when the bundle resource is absent.
+        guard let detector = onDeviceProvider.map({ $0 })
+                ?? provider.map({ $0 as any DetectionProviding }) else { return }
+        usingOnDeviceDetection = onDeviceProvider != nil
         let newPipeline = PerceptionPipeline(
-            detector: provider,
+            detector: detector,
             calibration: calibration,
             raycaster: PlaneGeometryRaycaster(calibration: calibration))
         pipeline = newPipeline
@@ -227,14 +240,21 @@ final class SessionModel {
         calledPocket = nil
         calledShotOnLine = false
         designatedCueBallID = nil
+        usingOnDeviceDetection = false
     }
 
-    /// Feed a frame to the pipeline, throttled to the hosted-API-friendly
-    /// preview cadence. No motion gate here: during live tracking the BALLS
-    /// move while the phone may be still — scene changes matter.
+    /// Feed a frame to the pipeline. On-device detection takes every frame
+    /// the loop pulls (~6-7 Hz; the pipeline's latest-wins scheduling and
+    /// the tracker handle the rest); the hosted API stays throttled to the
+    /// quota-friendly preview cadence. No motion gate in either case:
+    /// during live tracking the BALLS move while the phone may be still.
     func ingestTrackingFrame(_ frame: CapturedFrame) {
-        guard let pipeline,
-              Date().timeIntervalSince(lastTrackingIngestAt) >= previewInterval else { return }
+        guard let pipeline else { return }
+        if !usingOnDeviceDetection {
+            guard Date().timeIntervalSince(lastTrackingIngestAt) >= previewInterval else {
+                return
+            }
+        }
         lastTrackingIngestAt = Date()
         Task { await pipeline.ingest(frame) }
     }
@@ -314,6 +334,18 @@ final class SessionModel {
     func bootstrap() async {
         await registry.register(AnalyticSolver() as any TrajectorySolving)
         await registry.register(AppSecrets() as any SecretsProviding)
+        // M2-01 winner, bundled: YOLOv11n on the pool-ball-agzev fork,
+        // mAP50 0.896 / mAP50-95 0.765 (Linux fine-tune, epoch 19).
+        // The MVP works offline on this model; the hosted picker remains
+        // as evaluation tooling.
+        #if canImport(CoreML)
+        if let url = Bundle.main.url(forResource: "BallDetector",
+                                     withExtension: "mlmodelc"),
+           let model = try? MLModel(contentsOf: url),
+           let onDevice = try? CoreMLDetectionProvider(model: model) {
+            onDeviceProvider = onDevice
+        }
+        #endif
         phase = .findingTable
         // Restore the last-used preview model.
         if let saved = UserDefaults.standard.string(forKey: Self.selectedModelKey),

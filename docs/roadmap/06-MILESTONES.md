@@ -44,8 +44,8 @@ suite human-reviewed once and frozen.
 
 Goal: real balls become `TableState`.
 
-- [ ] **M2-01** Model: train/export bundled Core ML pool-ball detector; eval harness + committed metrics (bar: mAP@50 ≥ 0.85). *(deps: none technically; needs dataset access)*
-- [ ] **M2-02** `CoreMLDetectionProvider` (Vision request wrapper) + contract tests. *Adapter + box-mapping tests landed; runtime contract verification blocked on the M2-01 model.* *(deps: M1-07, M2-01)*
+- [x] **M2-01** Model: train/export bundled Core ML pool-ball detector; eval harness + committed metrics (bar: mAP@50 ≥ 0.85). *Winner: xhujustin pool-ball-agzev (A/B via M2-06 preview). Weights export was plan-gated on Roboflow, so the dataset (1,425 imgs, CC BY 4.0) was forked to cqc/pool-ball-agzev-tekpn and YOLOv11n fine-tuned externally (freeze=10, 640px): mAP50 0.896 / mAP50-95 0.765 at epoch 19 — bar met. Exported (coremltools NMS pipeline) to `App/Resources/BallDetector.mlpackage`; classes color-ball / cue (STICK) / white-ball (cue ball). Known gap: dotted/measle practice cue balls misclassify — add dotted-ball images next dataset rev (tap-to-designate covers it in-app).* *(deps: none technically; needs dataset access)*
+- [x] (needs-device-run) **M2-02** `CoreMLDetectionProvider` (Vision request wrapper) + contract tests. *Adapter + box-mapping tests landed earlier; now wired: SessionModel loads the bundled BallDetector at bootstrap and live tracking prefers it (unthrottled ingest) over the hosted evaluation API. Device checklist: on-device inference latency + detection parity vs hosted.* *(deps: M1-07, M2-01)*
 - [x] **M2-03** `PerceptionPipeline`: latest-wins scheduling, foot-point projection, Kalman tracking, identity association, stability gating, kind voting + unit and fixture pipeline tests. *(deps: M1-04, M1-07)*
 - [ ] **M2-04** Fixture capture tool (debug menu) + first committed fixture sets from a real table. *(deps: M2-03; **device session**)*
 - [ ] **M2-05** Replay integration suite over fixtures (accuracy/stability bars from 04-TESTING-STRATEGY). *(deps: M2-04)*
