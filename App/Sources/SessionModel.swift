@@ -241,6 +241,11 @@ final class SessionModel {
     private func startDebugMirror() {
         do {
             let server = try DebugMirrorServer()
+            server.setCommandHandler { [weak self] params in
+                Task { @MainActor in
+                    self?.handleMirrorCommand(params)
+                }
+            }
             debugMirror = server
             let host = DebugMirrorServer.deviceIPAddress() ?? "<device-ip>"
             debugMirrorURL = "http://\(host):\(DebugMirrorServer.port)"
@@ -248,6 +253,44 @@ final class SessionModel {
         } catch {
             Self.log.error("debug mirror failed: \(String(describing: error), privacy: .public)")
             showTapFeedback("Mirror failed to start (port in use?)")
+        }
+    }
+
+    /// Remote control from the mirror page (LAN debug tool): everything a
+    /// finger on the screen could do, minus calibration-corner taps. Lets
+    /// the remote debugging agent iterate with the device untouched at
+    /// the table.
+    private func handleMirrorCommand(_ params: [String: String]) {
+        switch params["action"] {
+        case "resetTracking":
+            resetBallTracking()
+        case "designate":
+            guard let x = params["x"].flatMap(Double.init),
+                  let y = params["y"].flatMap(Double.init) else { return }
+            // Generous radius: the caller clicked a listed ball's exact
+            // coordinates, not a screen guess.
+            designateCueBall(near: Vec2(x, y), maxDistance: 0.4)
+        case "clearCue":
+            designatedCueBallID = nil
+            showTapFeedback("Cue-ball mark cleared (remote)")
+        case "callPocket":
+            guard let id = params["id"],
+                  let pocket = tableState?.table.pockets
+                    .first(where: { String(describing: $0.id) == id }) else { return }
+            togglePocketCall(pocket.id)
+            showTapFeedback("Pocket \(id) toggled (remote)")
+        case "clearPocket":
+            calledPocket = nil
+            calledShotOnLine = false
+            showTapFeedback("Pocket call cleared (remote)")
+        case "guideSpeed":
+            guard let v = params["v"].flatMap(Double.init), (1.0...8.0).contains(v)
+            else { return }
+            guideSpeed = v
+            lastPredictedState = nil // force a re-solve at the new speed
+            showTapFeedback(String(format: "Guide speed %.1f m/s (remote)", v))
+        default:
+            Self.log.info("mirror command ignored: \(String(describing: params), privacy: .public)")
         }
     }
 
@@ -285,6 +328,10 @@ final class SessionModel {
         if !latestDetectionLabels.isEmpty {
             state["rawDetections"] = latestDetectionLabels
         }
+        if let pockets = tableState?.table.pockets {
+            state["pockets"] = pockets.map { String(describing: $0.id) }
+        }
+        state["guideSpeed"] = guideSpeed
         state["hasPrediction"] = shotPrediction != nil
         if let calledPocket { state["calledPocket"] = String(describing: calledPocket) }
         if let sessionEvent { state["sessionEvent"] = sessionEvent }
@@ -472,8 +519,9 @@ final class SessionModel {
     /// rails and show their ricochets (a 2 m/s lag-speed default dies
     /// mid-table — the user sees a line that just stops). 3.5 m/s with
     /// the effective cloth deceleration crosses the table several times;
-    /// the 8-event budget still bounds the polyline.
-    private static let guideOptions = SolverOptions(initialSpeed: 3.5)
+    /// the 8-event budget still bounds the polyline. Remotely tunable via
+    /// the mirror (`/cmd?action=guideSpeed&v=...`).
+    private(set) var guideSpeed: Double = 3.5
 
     @ObservationIgnored private var lastAimNilLogAt: Date = .distantPast
     /// Aim stabilization state (see AimStabilizer): smoothing + deadband.
@@ -561,7 +609,7 @@ final class SessionModel {
         }
         lastPredictedState = state
         let prediction = solver.predict(state: state, aim: aim,
-                                        options: Self.guideOptions)
+                                        options: SolverOptions(initialSpeed: guideSpeed))
         shotPrediction = prediction
         shotGuide = ShotGuide.recommend(state: state, prediction: prediction)
         calledShotOnLine = calledPocket.map { called in

@@ -24,11 +24,23 @@ final class DebugMirrorServer: @unchecked Sendable {
     static let port: UInt16 = 8787
     private static let log = Logger(subsystem: "com.cuesync.ar", category: "mirror")
 
+    /// Remote command sink (`GET /cmd?action=...`): lets a browser on the
+    /// LAN drive the app — designate the cue ball, call pockets, reset
+    /// tracking, tune the guide speed — so a debugging agent can iterate
+    /// WITHOUT a hand at the device. Called on the server queue; the
+    /// installer is responsible for hopping to the main actor.
+    typealias CommandHandler = @Sendable ([String: String]) -> Void
+
     private let listener: NWListener
     private let queue = DispatchQueue(label: "cuesync.debugmirror")
     private let lock = NSLock()
     private var latestJPEG: Data?
     private var latestStateJSON: Data?
+    private var commandHandler: CommandHandler?
+
+    func setCommandHandler(_ handler: @escaping CommandHandler) {
+        lock.lock(); commandHandler = handler; lock.unlock()
+    }
 
     init() throws {
         let parameters = NWParameters.tcp
@@ -111,6 +123,17 @@ final class DebugMirrorServer: @unchecked Sendable {
 
     private func response(for rawPath: String) -> Data {
         let path = rawPath.split(separator: "?").first.map(String.init) ?? rawPath
+        if path == "/cmd" {
+            let params = Self.queryParameters(from: rawPath)
+            lock.lock(); let handler = commandHandler; lock.unlock()
+            if let handler, !params.isEmpty {
+                Self.log.info("mirror command: \(String(describing: params), privacy: .public)")
+                handler(params)
+                return Self.httpResponse(body: Data(#"{"ok":true}"#.utf8),
+                                         contentType: "application/json")
+            }
+            return Self.httpResponse(status: "400 Bad Request")
+        }
         switch path {
         case "/frame.jpg":
             lock.lock(); let jpeg = latestJPEG; lock.unlock()
@@ -126,6 +149,24 @@ final class DebugMirrorServer: @unchecked Sendable {
         default:
             return Self.httpResponse(status: "404 Not Found")
         }
+    }
+
+    /// Minimal query parsing for /cmd URLs ("a=1&b=two"); values are
+    /// simple numerics/identifiers so only '+'/percent basics decode.
+    private static func queryParameters(from rawPath: String) -> [String: String] {
+        guard let queryStart = rawPath.firstIndex(of: "?") else { return [:] }
+        var params: [String: String] = [:]
+        let query = rawPath[rawPath.index(after: queryStart)...]
+        for pair in query.split(separator: "&") {
+            let parts = pair.split(separator: "=", maxSplits: 1)
+            guard parts.count == 2 else { continue }
+            let key = String(parts[0])
+            let value = String(parts[1])
+                .replacingOccurrences(of: "+", with: " ")
+                .removingPercentEncoding ?? String(parts[1])
+            params[key] = value
+        }
+        return params
     }
 
     private static func httpResponse(status: String = "200 OK",
@@ -147,23 +188,54 @@ final class DebugMirrorServer: @unchecked Sendable {
       body { margin: 0; background: #101614; color: #d9e5df; \
     font: 13px -apple-system, system-ui, monospace; }
       #wrap { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px; }
-      img { max-width: min(72vw, 1100px); border-radius: 8px; \
+      img { max-width: min(62vw, 1000px); border-radius: 8px; \
     border: 1px solid #2FA36B; }
-      pre { flex: 1; min-width: 260px; white-space: pre-wrap; \
-    background: #182420; padding: 10px; border-radius: 8px; margin: 0; }
+      #side { flex: 1; min-width: 300px; }
+      pre { white-space: pre-wrap; background: #182420; padding: 10px; \
+    border-radius: 8px; margin: 8px 0 0; }
       h1 { font-size: 15px; padding: 10px 12px 0; margin: 0; color: #2FA36B; }
+      button { background: #1f3329; color: #d9e5df; border: 1px solid #2FA36B; \
+    border-radius: 6px; padding: 5px 9px; margin: 2px; cursor: pointer; }
+      button:hover { background: #2FA36B; color: #08130d; }
+      #controls, #balls, #pockets { margin-top: 8px; }
+      .lbl { color: #2FA36B; margin-right: 4px; }
+      input { width: 52px; background: #182420; color: #d9e5df; \
+    border: 1px solid #2FA36B; border-radius: 6px; padding: 4px; }
     </style></head><body>
     <h1>CueSync AR — Debug Mirror</h1>
     <div id="wrap"><img id="frame" alt="waiting for first frame…">
-    <pre id="state">waiting…</pre></div>
+    <div id="side">
+      <div id="controls">
+        <button onclick="cmd('action=resetTracking')">Reset tracking</button>
+        <button onclick="cmd('action=clearCue')">Clear cue mark</button>
+        <button onclick="cmd('action=clearPocket')">Clear pocket call</button>
+        <span class="lbl">guide m/s</span><input id="speed" value="3.5">
+        <button onclick="cmd('action=guideSpeed&v=' + \
+    document.getElementById('speed').value)">Set</button>
+      </div>
+      <div id="balls"></div>
+      <div id="pockets"></div>
+      <pre id="state">waiting…</pre>
+    </div></div>
     <script>
       const img = document.getElementById('frame');
       const pre = document.getElementById('state');
+      const ballsDiv = document.getElementById('balls');
+      const pocketsDiv = document.getElementById('pockets');
+      function cmd(q) { fetch('/cmd?' + q); }
       setInterval(() => { img.src = '/frame.jpg?' + Date.now(); }, 700);
       setInterval(async () => {
         try {
           const r = await fetch('/state.json');
-          pre.textContent = JSON.stringify(await r.json(), null, 2);
+          const s = await r.json();
+          pre.textContent = JSON.stringify(s, null, 2);
+          ballsDiv.innerHTML = (s.balls || []).map(b =>
+            `<button onclick="cmd('action=designate&x=${b.x}&y=${b.y}')">` +
+            `${b.kind === 'cue' ? '☆' : '→'} cue @ (${b.x}, ${b.y})</button>`
+          ).join('');
+          pocketsDiv.innerHTML = (s.pockets || []).map(p =>
+            `<button onclick="cmd('action=callPocket&id=${p}')">◎ ${p}</button>`
+          ).join('');
         } catch (e) { pre.textContent = 'state fetch failed: ' + e; }
       }, 1000);
     </script></body></html>
