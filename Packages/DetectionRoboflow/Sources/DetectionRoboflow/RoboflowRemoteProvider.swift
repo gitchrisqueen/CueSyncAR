@@ -138,7 +138,7 @@ public struct RoboflowRemoteProvider: DetectionProviding {
         do {
             response = try JSONDecoder().decode(Response.self, from: data)
         } catch {
-            let snippet = String(decoding: data.prefix(200), as: UTF8.self)
+            let snippet = String(bytes: data.prefix(200), encoding: .utf8) ?? "<non-utf8>"
             throw RoboflowError.badResponse(snippet)
         }
         guard response.image.width > 0, response.image.height > 0 else {
@@ -179,7 +179,7 @@ public struct URLSessionTransport: HTTPPosting {
                     return
                 }
                 if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-                    let snippet = data.map { String(decoding: $0.prefix(200), as: UTF8.self) } ?? ""
+                    let snippet = data.flatMap { String(bytes: $0.prefix(200), encoding: .utf8) } ?? ""
                     continuation.resume(throwing: RoboflowError.badResponse(
                         "HTTP \(http.statusCode): \(snippet)"))
                     return

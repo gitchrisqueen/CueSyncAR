@@ -111,7 +111,8 @@ struct ProviderBehaviorTests {
         #expect(url?.host == "detect.roboflow.com")
         #expect(contentType == "application/x-www-form-urlencoded")
         // Body is base64 of the stub JPEG bytes.
-        #expect(body.map { String(decoding: $0, as: UTF8.self) } == Data([0xFF, 0xD8, 0xFF]).base64EncodedString())
+        #expect(body.flatMap { String(bytes: $0, encoding: .utf8) }
+                == Data([0xFF, 0xD8, 0xFF]).base64EncodedString())
     }
 
     @Test func detectWithPreEncodedJPEGPostsSameBodyAndParses() async throws {
@@ -128,7 +129,7 @@ struct ProviderBehaviorTests {
         let (url, body, contentType) = recorded.get()
         #expect(url?.host == "detect.roboflow.com")
         #expect(contentType == "application/x-www-form-urlencoded")
-        #expect(body.map { String(decoding: $0, as: UTF8.self) } == jpeg.base64EncodedString())
+        #expect(body.flatMap { String(bytes: $0, encoding: .utf8) } == jpeg.base64EncodedString())
     }
 
     @Test func detectWithPreEncodedJPEGRequiresKey() async {

@@ -307,7 +307,7 @@ struct DetectionPreviewOverlay: View {
     let rotation: NormalizedRotation
 
     var body: some View {
-        GeometryReader { proxy in
+        GeometryReader { _ in
             Canvas { context, size in
                 for detection in detections {
                     let rotated = rotation.apply(detection.boundingBox)

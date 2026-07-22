@@ -46,6 +46,7 @@ struct FrontCameraPreviewView: UIViewRepresentable {
 }
 
 final class FrontCameraCaptureView: UIView {
+    // swiftlint:disable:next static_over_final_class
     override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
 
     private let session = AVCaptureSession()

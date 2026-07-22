@@ -273,7 +273,8 @@ final class SessionModel {
 
     func designateCueBall(near tablePoint: Vec2, maxDistance: Double = 0.25) {
         guard let balls = tableState?.balls, !balls.isEmpty else {
-            Self.log.info("designateCueBall: no tracked balls (tableState \(self.tableState == nil ? "nil" : "empty", privacy: .public))")
+            let reason = tableState == nil ? "nil" : "empty"
+            Self.log.info("designateCueBall: no tracked balls (tableState \(reason, privacy: .public))")
             showTapFeedback("No tracked balls yet — keep the table in view")
             return
         }
@@ -281,7 +282,11 @@ final class SessionModel {
             $0.position.distance(to: tablePoint) < $1.position.distance(to: tablePoint)
         }) else { return }
         let distance = nearest.position.distance(to: tablePoint)
-        Self.log.info("designateCueBall: tap table=(\(tablePoint.x, format: .fixed(precision: 2)), \(tablePoint.y, format: .fixed(precision: 2))) nearest ball=(\(nearest.position.x, format: .fixed(precision: 2)), \(nearest.position.y, format: .fixed(precision: 2))) d=\(distance, format: .fixed(precision: 2))m of \(balls.count) balls")
+        let tapSummary = String(
+            format: "tap table=(%.2f, %.2f) nearest=(%.2f, %.2f) d=%.2fm of %d balls",
+            tablePoint.x, tablePoint.y,
+            nearest.position.x, nearest.position.y, distance, balls.count)
+        Self.log.info("designateCueBall: \(tapSummary, privacy: .public)")
         guard distance <= maxDistance else {
             showTapFeedback(String(format: "Nearest tracked ball is %.2f m from your tap", distance))
             return
@@ -344,11 +349,18 @@ final class SessionModel {
         // model as evaluation fallback when the bundle resource is absent.
         guard let detector = onDeviceProvider.map({ $0 })
                 ?? provider.map({ $0 as any DetectionProviding }) else {
-            Self.log.error("startLiveTracking: no detector (bundled model missing AND no hosted model selected) — live tracking cannot start")
+            Self.log.error("""
+                startLiveTracking: no detector (bundled model missing AND \
+                no hosted model selected) — live tracking cannot start
+                """)
             return
         }
         usingOnDeviceDetection = onDeviceProvider != nil
-        Self.log.info("startLiveTracking: detector=\(self.usingOnDeviceDetection ? "on-device BallDetector" : "hosted API", privacy: .public) table=\(calibration.size.playField.width, format: .fixed(precision: 2))x\(calibration.size.playField.height, format: .fixed(precision: 2))m")
+        let detectorName = usingOnDeviceDetection ? "on-device BallDetector" : "hosted API"
+        let tableSummary = String(format: "%.2fx%.2fm",
+                                  calibration.size.playField.width,
+                                  calibration.size.playField.height)
+        Self.log.info("startLiveTracking: detector=\(detectorName, privacy: .public) table=\(tableSummary, privacy: .public)")
         let newPipeline = PerceptionPipeline(
             detector: detector,
             calibration: calibration,
@@ -369,8 +381,11 @@ final class SessionModel {
                     self.stickQuad = output.stickQuad
                     if count == 1 || count % 40 == 0 {
                         let state = self.tableState
-                        let cue = state?.cueBall != nil
-                        Self.log.info("pipeline output #\(count): balls=\(state?.balls.count ?? 0) cueBall=\(cue) stick=\(output.stickQuad != nil) designated=\(self.designatedCueBallID != nil)")
+                        let summary = "balls=\(state?.balls.count ?? 0)"
+                            + " cueBall=\(state?.cueBall != nil)"
+                            + " stick=\(output.stickQuad != nil)"
+                            + " designated=\(self.designatedCueBallID != nil)"
+                        Self.log.info("pipeline output #\(count): \(summary, privacy: .public)")
                     }
                 }
             }
