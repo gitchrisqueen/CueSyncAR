@@ -31,9 +31,22 @@ public struct OverlayLayout: Sendable, Equatable {
         public var radius: Double
     }
 
+    /// A tracked ball's footprint on the cloth — always rendered during
+    /// live tracking (independent of any shot prediction) so the user can
+    /// SEE where the app believes each ball is. Doubles as the visual
+    /// target for tap-to-designate: a marker off the real ball instantly
+    /// reveals a projection/calibration problem.
+    public struct BallMarker: Sendable, Equatable {
+        public var position: Vec3
+        public var radius: Double
+        public var isCue: Bool
+    }
+
     public var strips: [Strip]
     public var ghostBall: Marker?
     public var highlightedPockets: [Marker]
+    /// Tracked-ball rings (cue rendered distinctly).
+    public var balls: [BallMarker] = []
     /// The user's called pocket (M6-02), rendered as a distinct ring.
     public var calledPocket: Marker?
     /// True when the current prediction sends an OBJECT ball (not the cue
@@ -130,7 +143,28 @@ public struct OverlayLayout: Sendable, Equatable {
 
         return OverlayLayout(strips: strips, ghostBall: ghost,
                              highlightedPockets: highlights,
+                             balls: ballMarkers(state: state, calibration: calibration),
                              calledPocket: calledMarker,
                              calledPocketSatisfied: satisfied)
+    }
+
+    /// Ball rings without a prediction — rendered whenever live tracking
+    /// has a state, so the overlay never goes fully dark just because no
+    /// shot line exists yet (e.g. no cue ball designated).
+    public static func ballsOnly(state: TableState,
+                                 calibration: TableCalibration) -> OverlayLayout {
+        OverlayLayout(strips: [], ghostBall: nil, highlightedPockets: [],
+                      balls: ballMarkers(state: state, calibration: calibration),
+                      calledPocket: nil, calledPocketSatisfied: false)
+    }
+
+    static func ballMarkers(state: TableState,
+                            calibration: TableCalibration) -> [BallMarker] {
+        let cueID = state.cueBall?.id
+        return state.balls.map { ball in
+            BallMarker(position: calibration.tableToWorld(ball.position),
+                       radius: ball.radius,
+                       isCue: ball.id == cueID)
+        }
     }
 }

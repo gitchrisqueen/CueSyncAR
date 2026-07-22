@@ -89,6 +89,15 @@ struct RootView: View {
                         .background(.ultraThinMaterial, in: Capsule())
                         .foregroundStyle(.red)
                 }
+                if let feedback = model.tapFeedback {
+                    Text(feedback)
+                        .font(.caption)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .foregroundStyle(.primary)
+                        .transition(.opacity)
+                }
                 Spacer()
                 if model.isLiveTracking, let guide = model.shotGuide {
                     HStack {
@@ -436,12 +445,20 @@ struct ARCameraView: View {
                             tableAnchor: coordinator.tableAnchor)
                     }
                     if let state = model.tableState,
-                       let prediction = model.shotPrediction,
                        let calibration = model.tableCalibration {
-                        overlayRenderer?.render(OverlayLayout.compose(
-                            state: state, prediction: prediction,
-                            calibration: calibration,
-                            calledPocket: model.calledPocket))
+                        if let prediction = model.shotPrediction {
+                            overlayRenderer?.render(OverlayLayout.compose(
+                                state: state, prediction: prediction,
+                                calibration: calibration,
+                                calledPocket: model.calledPocket))
+                        } else {
+                            // No shot line yet (usually: no cue ball) —
+                            // still render the tracked-ball rings so the
+                            // user sees what the app sees and where to
+                            // tap to designate the cue ball.
+                            overlayRenderer?.render(OverlayLayout.ballsOnly(
+                                state: state, calibration: calibration))
+                        }
                     } else {
                         overlayRenderer?.clear()
                     }
@@ -485,8 +502,15 @@ private struct PocketCallCatcher: View {
         Color.clear
             .contentShape(Rectangle())
             .onTapGesture(coordinateSpace: .local) { location in
-                guard let calibration = model.tableCalibration,
-                      let table = model.tableState?.table else { return }
+                guard let calibration = model.tableCalibration else {
+                    SessionModel.log.info("tap: ignored — no calibration")
+                    return
+                }
+                guard let table = model.tableState?.table else {
+                    SessionModel.log.info("tap: ignored — no pipeline state yet (detector not producing frames?)")
+                    model.showTapFeedback("Still waiting for ball tracking to start…")
+                    return
+                }
                 var best: (id: PocketID, distance: CGFloat)?
                 for pocket in table.pockets {
                     let world = calibration.tableToWorld(pocket.position)
@@ -507,6 +531,9 @@ private struct PocketCallCatcher: View {
                     screenPoint: location,
                     fallbackPlaneHeight: calibration.origin.y) {
                     model.designateCueBall(near: calibration.worldToTable(world))
+                } else {
+                    SessionModel.log.info("tap: raycast missed the table plane at (\(location.x), \(location.y))")
+                    model.showTapFeedback("Couldn't find the table under that tap")
                 }
             }
             .accessibilityLabel("Tap a pocket to call it, or a ball to mark it as the cue ball")

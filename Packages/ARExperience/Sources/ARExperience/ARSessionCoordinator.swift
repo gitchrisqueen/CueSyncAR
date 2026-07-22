@@ -463,6 +463,23 @@ public final class OverlayRenderer {
     public func render(_ layout: OverlayLayout, planeNormalUp: Bool = true) {
         root.children.removeAll()
 
+        // Tracked-ball rings first (visually lowest): flat rings on the
+        // cloth at each tracked ball, the cue ball's filled + white so the
+        // user always sees which ball the app treats as the cue — and can
+        // see where to tap when designating one manually.
+        for ball in layout.balls {
+            let ringRadius = max(ball.radius * 1.35, 0.03)
+            let mesh = MeshResource.generateCylinder(
+                height: Float(Self.stripWidth / 2),
+                radius: Float(ringRadius))
+            let color: UIColor = ball.isCue ? .white : uiColor(from: 0xF5A623)
+            var material = UnlitMaterial(color: color)
+            material.blending = .transparent(opacity: ball.isCue ? 0.9 : 0.45)
+            let entity = ModelEntity(mesh: mesh, materials: [material])
+            entity.position = local(ball.position, lift: Self.stripLift)
+            root.addChild(entity)
+        }
+
         for strip in layout.strips {
             let mesh = MeshResource.generateBox(
                 width: Float(strip.length),

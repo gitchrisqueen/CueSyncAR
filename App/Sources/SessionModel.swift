@@ -16,6 +16,7 @@ import CueSyncCore
 import DetectionRoboflow
 import Foundation
 import Observation
+import os
 import PerceptionKit
 import TableSpace
 #if canImport(CoreML)
@@ -36,6 +37,9 @@ final class SessionModel {
         var detectionCount: Int = 0
         var lastError: String?
     }
+
+    /// Diagnostics channel — filter the Xcode console with "cuesync".
+    static let log = Logger(subsystem: "com.cuesync.ar", category: "session")
 
     let registry = ProviderRegistry()
     private(set) var phase: Phase = .launching
@@ -184,12 +188,49 @@ final class SessionModel {
     /// id; tapping the designated ball again clears the override.
     private(set) var designatedCueBallID: BallID?
 
-    func designateCueBall(near tablePoint: Vec2, maxDistance: Double = 0.12) {
-        guard let balls = tableState?.balls else { return }
+    /// Transient feedback line for the HUD after a tap — designation
+    /// success/misses must never be silent (device debugging showed taps
+    /// swallowed by guards with no visible reaction).
+    private(set) var tapFeedback: String?
+    @ObservationIgnored private var tapFeedbackTask: Task<Void, Never>?
+
+    func showTapFeedback(_ message: String) {
+        tapFeedback = message
+        tapFeedbackTask?.cancel()
+        tapFeedbackTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2.5))
+            guard !Task.isCancelled else { return }
+            self?.tapFeedback = nil
+        }
+    }
+
+    func designateCueBall(near tablePoint: Vec2, maxDistance: Double = 0.25) {
+        guard let balls = tableState?.balls, !balls.isEmpty else {
+            Self.log.info("designateCueBall: no tracked balls (tableState \(self.tableState == nil ? "nil" : "empty", privacy: .public))")
+            showTapFeedback("No tracked balls yet — keep the table in view")
+            return
+        }
         guard let nearest = balls.min(by: {
             $0.position.distance(to: tablePoint) < $1.position.distance(to: tablePoint)
-        }), nearest.position.distance(to: tablePoint) <= maxDistance else { return }
-        designatedCueBallID = designatedCueBallID == nearest.id ? nil : nearest.id
+        }) else { return }
+        let distance = nearest.position.distance(to: tablePoint)
+        Self.log.info("designateCueBall: tap table=(\(tablePoint.x, format: .fixed(precision: 2)), \(tablePoint.y, format: .fixed(precision: 2))) nearest ball=(\(nearest.position.x, format: .fixed(precision: 2)), \(nearest.position.y, format: .fixed(precision: 2))) d=\(distance, format: .fixed(precision: 2))m of \(balls.count) balls")
+        guard distance <= maxDistance else {
+            showTapFeedback(String(format: "Nearest tracked ball is %.2f m from your tap", distance))
+            return
+        }
+        if designatedCueBallID == nearest.id {
+            designatedCueBallID = nil
+            showTapFeedback("Cue-ball mark cleared")
+        } else {
+            designatedCueBallID = nearest.id
+            showTapFeedback("Marked as cue ball")
+        }
+        // Re-apply immediately so the HUD/overlays react on this frame
+        // instead of waiting for the next pipeline output.
+        if let state = tableState {
+            tableState = applyingCueDesignation(state)
+        }
     }
 
     /// Apply the cue-ball designation to a pipeline state: the designated
@@ -235,8 +276,12 @@ final class SessionModel {
         // Bundled on-device model first (offline, ~15 Hz); hosted picker
         // model as evaluation fallback when the bundle resource is absent.
         guard let detector = onDeviceProvider.map({ $0 })
-                ?? provider.map({ $0 as any DetectionProviding }) else { return }
+                ?? provider.map({ $0 as any DetectionProviding }) else {
+            Self.log.error("startLiveTracking: no detector (bundled model missing AND no hosted model selected) — live tracking cannot start")
+            return
+        }
         usingOnDeviceDetection = onDeviceProvider != nil
+        Self.log.info("startLiveTracking: detector=\(self.usingOnDeviceDetection ? "on-device BallDetector" : "hosted API", privacy: .public) table=\(calibration.size.playField.width, format: .fixed(precision: 2))x\(calibration.size.playField.height, format: .fixed(precision: 2))m")
         let newPipeline = PerceptionPipeline(
             detector: detector,
             calibration: calibration,
@@ -247,11 +292,19 @@ final class SessionModel {
         latestDetections = []
         previewStats = PreviewStats()
         statesTask = Task { [weak self] in
+            var outputCount = 0
             for await output in await newPipeline.outputs {
+                outputCount += 1
+                let count = outputCount
                 await MainActor.run {
                     guard let self else { return }
                     self.tableState = self.applyingCueDesignation(output.state)
                     self.stickQuad = output.stickQuad
+                    if count == 1 || count % 40 == 0 {
+                        let state = self.tableState
+                        let cue = state?.cueBall != nil
+                        Self.log.info("pipeline output #\(count): balls=\(state?.balls.count ?? 0) cueBall=\(cue) stick=\(output.stickQuad != nil) designated=\(self.designatedCueBallID != nil)")
+                    }
                 }
             }
         }
@@ -292,12 +345,23 @@ final class SessionModel {
     /// UI cadence — solver is sub-ms). The detected cue stick wins when
     /// it's addressing the ball; the device-pose sighting model is the
     /// fallback so aiming always works without a stick in frame.
+    @ObservationIgnored private var lastAimNilLogAt: Date = .distantPast
+
     func updateAim(cameraTransform: Transform3D) {
         guard let calibration = tableCalibration,
               let state = tableState,
               let cue = state.cueBall else {
             shotPrediction = nil
             shotGuide = nil
+            // Throttled: explain WHY no guides render (the #1 question
+            // when the screen shows nothing).
+            if Date().timeIntervalSince(lastAimNilLogAt) > 5 {
+                lastAimNilLogAt = Date()
+                let reason = tableCalibration == nil ? "no calibration"
+                    : tableState == nil ? "no pipeline output yet"
+                    : "no cue ball among \(tableState?.balls.count ?? 0) tracked balls (tap one to mark it)"
+                Self.log.info("updateAim: no guides — \(reason, privacy: .public)")
+            }
             return
         }
         let aim: AimRay?

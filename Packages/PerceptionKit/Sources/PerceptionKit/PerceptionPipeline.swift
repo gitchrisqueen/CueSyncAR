@@ -15,6 +15,9 @@
 import CueSyncCore
 import Foundation
 import TableSpace
+#if canImport(os)
+import os
+#endif
 
 /// One processed frame's worth of perception: the coherent ball state plus
 /// auxiliary (non-ball) observations like the cue stick's footprint.
@@ -41,6 +44,11 @@ public actor PerceptionPipeline {
     private var pendingFrame: CapturedFrame?
     private var isProcessing = false
     private var prepared = false
+    private var frameCount = 0
+    private var errorCount = 0
+    #if canImport(os)
+    private static let log = Logger(subsystem: "com.cuesync.ar", category: "pipeline")
+    #endif
 
     private let stream: AsyncStream<PerceptionOutput>
     private let continuation: AsyncStream<PerceptionOutput>.Continuation
@@ -115,12 +123,35 @@ public actor PerceptionPipeline {
             let state = TableState(table: Table(size: calibration.size),
                                    balls: balls,
                                    timestamp: frame.timestamp)
+            frameCount += 1
+            #if canImport(os)
+            if frameCount == 1 || frameCount % 40 == 0 {
+                let kinds = balls.map { String(describing: $0.kind) }.joined(separator: ",")
+                Self.log.info("frame #\(self.frameCount): detections=\(detections.count) projected=\(observations.count) confirmed=\(balls.count) kinds=[\(kinds, privacy: .public)]")
+                // Ball table positions — sanity-check the projection math
+                // against the real cloth layout.
+                if !balls.isEmpty {
+                    let positions = balls.map {
+                        String(format: "(%.2f,%.2f)", $0.position.x, $0.position.y)
+                    }.joined(separator: " ")
+                    Self.log.info("frame #\(self.frameCount): table positions \(positions, privacy: .public)")
+                }
+            }
+            #endif
             continuation.yield(PerceptionOutput(state: state,
                                                 stickQuad: stickQuad(in: detections,
                                                                      frame: frame)))
         } catch {
-            // A failed frame is dropped; the previous state stands. The
-            // detector's own health surfaces through HUDStatus (M3-05).
+            // A failed frame is dropped; the previous state stands — but
+            // NEVER silently: a permanently-failing detector looks like
+            // "no guides, no reaction" on device, which cost us a debugging
+            // session to identify. Log the first few, then throttle.
+            errorCount += 1
+            #if canImport(os)
+            if errorCount <= 5 || errorCount % 50 == 0 {
+                Self.log.error("detect failed (#\(self.errorCount)): \(String(describing: error), privacy: .public)")
+            }
+            #endif
         }
     }
 
