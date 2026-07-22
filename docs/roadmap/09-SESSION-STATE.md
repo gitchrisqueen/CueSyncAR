@@ -26,7 +26,22 @@ Working on device (iPhone 16 Pro "CDQ iPhone", iPad "Christopher's iPad (2)"):
   `session`, `pipeline`, `mirror`); every tap gives on-screen feedback;
   tracked-ball rings always render during live tracking (cue = white).
 
-## Open bug being chased (top priority)
+## RESOLVED 2026-07-22 (late session): guides + designation work at the table
+
+Verified live through the debug mirror: cue ball classified (white-ball →
+.cue, 90%+), stick-based aiming active (aimSource "stick"), trajectory
+strips + ghost ball + spin guide all rendering on the cloth. The fixes that
+got there: playing-surface observation gate (phantom tracks from
+frame-clipped boxes / off-table matches), tap feedback on every path
+(pocket-call taps used to look dead), 0.25 m designation radius, always-on
+ball rings, raw detector labels in the mirror state. Remaining polish:
+overlay/ring positions sit a few cm off the real balls (foot-point
+projection + calibration offset — tune with mirror screenshots); fast cue
+ball movement can briefly spawn a duplicate track (gating distance 0.08 m
+vs ball speed); ARSession "retaining 11 ARFrames" warning persists
+harmlessly at ~11-13 — profile before M5.
+
+## Original bug notes (kept for context)
 
 **Symptom (user report at the table):** tapping a ball to mark it as cue did
 nothing, and no trace paths/guides appeared.
