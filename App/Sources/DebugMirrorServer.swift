@@ -67,15 +67,27 @@ final class DebugMirrorServer: @unchecked Sendable {
             guard let addr = interface.ifa_addr,
                   addr.pointee.sa_family == UInt8(AF_INET),
                   let namePtr = interface.ifa_name,
-                  String(cString: namePtr) == "en0" else { continue }
+                  Self.string(fromCString: namePtr) == "en0" else { continue }
             var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
             if getnameinfo(addr, socklen_t(addr.pointee.sa_len),
                            &host, socklen_t(host.count),
                            nil, 0, NI_NUMERICHOST) == 0 {
-                address = String(cString: host)
+                address = host.withUnsafeBufferPointer { buffer in
+                    buffer.baseAddress.map { Self.string(fromCString: $0) }
+                }
             }
         }
         return address
+    }
+
+    /// Null-terminated C string → String without the deprecated
+    /// `String(cString:)` (truncates at the terminator, decodes UTF-8).
+    private static func string(fromCString pointer: UnsafePointer<CChar>) -> String {
+        let length = strlen(pointer)
+        return pointer.withMemoryRebound(to: UInt8.self, capacity: length) { bytes in
+            String(bytes: UnsafeBufferPointer(start: bytes, count: length),
+                   encoding: .utf8) ?? ""
+        }
     }
 
     // MARK: - HTTP
