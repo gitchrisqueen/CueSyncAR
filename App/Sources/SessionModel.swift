@@ -369,16 +369,7 @@ final class SessionModel {
         // as evaluation tooling. Loaded OFF the main actor: MLModel init +
         // Neural Engine specialization can take seconds.
         #if canImport(CoreML)
-        Task.detached(priority: .userInitiated) { [weak self] in
-            guard let url = Bundle.main.url(forResource: "BallDetector",
-                                            withExtension: "mlmodelc") else { return }
-            let configuration = MLModelConfiguration()
-            configuration.computeUnits = .all
-            guard let model = try? MLModel(contentsOf: url,
-                                           configuration: configuration),
-                  let onDevice = try? CoreMLDetectionProvider(model: model) else { return }
-            await MainActor.run { self?.onDeviceProvider = onDevice }
-        }
+        onDeviceProvider = await Self.loadBundledDetector()
         #endif
         phase = .findingTable
         // Restore the last-used preview model.
@@ -482,6 +473,31 @@ final class SessionModel {
         }
         return String(describing: error).prefix(80).description
     }
+
+    #if canImport(CoreML)
+    /// Load the bundled BallDetector OFF the main actor (MLModel init can
+    /// take seconds) and hand back the Sendable provider.
+    private nonisolated static func loadBundledDetector() async -> (any DetectionProviding)? {
+        await Task.detached(priority: .userInitiated) {
+            guard let url = Bundle.main.url(forResource: "BallDetector",
+                                            withExtension: "mlmodelc") else { return nil }
+            let configuration = MLModelConfiguration()
+            // CPU-only for now: the coremltools-9 mlprogram trips
+            // "MLIR pass manager failed" assertions in MPSGraph when the
+            // GPU/ANE graph compiler ingests it (crash at first Vision
+            // request on device). YOLOv11n@640 on CPU is still far faster
+            // than the hosted API. TODO(M2): re-export targeting an older
+            // opset / neuralnetwork backend and restore .all.
+            configuration.computeUnits = .cpuOnly
+            guard let model = try? MLModel(contentsOf: url,
+                                           configuration: configuration),
+                  let provider = try? CoreMLDetectionProvider(model: model) else {
+                return nil
+            }
+            return provider as (any DetectionProviding)
+        }.value
+    }
+    #endif
 
     private func makeEncoder() -> any FrameJPEGEncoding {
         #if canImport(CoreImage)
