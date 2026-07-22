@@ -106,6 +106,16 @@ struct RootView: View {
                         .background(.ultraThinMaterial, in: Capsule())
                         .foregroundStyle(.green)
                 }
+                if model.isLiveTracking,
+                   let hint = model.practiceMode.pendingHint(
+                    hasCalledPocket: model.calledPocket != nil) {
+                    Text(hint)
+                        .font(.caption)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .foregroundStyle(.yellow)
+                }
                 Spacer()
                 if model.isLiveTracking, let guide = model.shotGuide {
                     HStack {
@@ -174,6 +184,7 @@ struct RootView: View {
                 calibrateButton
             }
             mirrorButton
+            modeMenu
             modelPicker
             if model.selectedModel != nil {
                 Text("\(model.previewStats.latencyMilliseconds) ms")
@@ -189,6 +200,28 @@ struct RootView: View {
                 .accessibilityLabel("Nudge detection box rotation")
             }
         }
+    }
+
+    /// Practice-mode picker (M6-01): free play, called shots, guided drill.
+    private var modeMenu: some View {
+        Menu {
+            ForEach(PracticeMode.allCases, id: \.rawValue) { mode in
+                Button {
+                    model.selectPracticeMode(mode)
+                } label: {
+                    if model.practiceMode == mode {
+                        Label(mode.title, systemImage: "checkmark")
+                    } else {
+                        Text(mode.title)
+                    }
+                }
+            }
+        } label: {
+            Label("Practice mode", systemImage: "figure.billiards")
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel("Practice mode: \(model.practiceMode.title)")
+        .accessibilityIdentifier("practice-mode-menu")
     }
 
     /// Debug mirror toggle: serves the live screen + tracking state to any

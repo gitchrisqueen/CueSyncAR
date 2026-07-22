@@ -204,6 +204,21 @@ final class SessionModel {
         }
     }
 
+    // MARK: Practice modes (M6-01)
+
+    private static let practiceModeKey = "practiceMode"
+    /// Selected practice mode (persisted). The mode is a pure bundle of
+    /// behavior flags from CoachKit — the app honors them, never the
+    /// reverse (08-PRACTICE-MODES).
+    private(set) var practiceMode: PracticeMode = .freePlay
+
+    func selectPracticeMode(_ mode: PracticeMode) {
+        practiceMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: Self.practiceModeKey)
+        Self.log.info("practice mode: \(mode.rawValue, privacy: .public)")
+        showTapFeedback("Mode: \(mode.title)")
+    }
+
     // MARK: Debug mirror (remote table-side debugging)
 
     /// LAN HTTP server exposing the rendered screen + tracking state, so a
@@ -289,6 +304,10 @@ final class SessionModel {
             guideSpeed = v
             lastPredictedState = nil // force a re-solve at the new speed
             showTapFeedback(String(format: "Guide speed %.1f m/s (remote)", v))
+        case "setMode":
+            guard let raw = params["mode"], let mode = PracticeMode(rawValue: raw)
+            else { return }
+            selectPracticeMode(mode)
         default:
             Self.log.info("mirror command ignored: \(String(describing: params), privacy: .public)")
         }
@@ -332,6 +351,7 @@ final class SessionModel {
             state["pockets"] = pockets.map { String(describing: $0.id) }
         }
         state["guideSpeed"] = guideSpeed
+        state["mode"] = practiceMode.rawValue
         state["hasPrediction"] = shotPrediction != nil
         if let calledPocket { state["calledPocket"] = String(describing: calledPocket) }
         if let sessionEvent { state["sessionEvent"] = sessionEvent }
@@ -656,6 +676,10 @@ final class SessionModel {
         await registry.register(AnalyticSolver() as any TrajectorySolving)
         await registry.register(AppSecrets() as any SecretsProviding)
         startDebugMirrorIfEnabled()
+        if let saved = UserDefaults.standard.string(forKey: Self.practiceModeKey),
+           let mode = PracticeMode(rawValue: saved) {
+            practiceMode = mode
+        }
         // M2-01 winner, bundled: YOLOv11n on the pool-ball-agzev fork,
         // mAP50 0.896 / mAP50-95 0.765 (Linux fine-tune, epoch 19).
         // The MVP works offline on this model; the hosted picker remains

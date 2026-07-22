@@ -17,7 +17,13 @@ table detection. Everything here builds on the MVP loop (M3-05): tracked
 3. **Pure-core discipline** — every mode's rules/scoring is a pure,
    Linux-tested type (`Packages/` logic); device layers only render.
 
-## M6-01 — Session modes framework
+## M6-01 — Session modes framework  ✅ LANDED 2026-07-22
+
+*Implemented: `CoachKit.PracticeMode` (freePlay / calledShots / guidedDrill)
+with pure `ModeConfiguration` flags + pending-hint logic (5 tests); HUD mode
+menu; persisted selection; remote-settable via the debug mirror
+(`/cmd?action=setMode&mode=...`). guidedDrill honestly announces that drill
+content lands with M6-03.*
 
 `SessionMode` enum + mode sheet (glass) from the HUD: **Free Play**
 (today's live tracking), **Called Shot**, **Guided Practice** (drill
