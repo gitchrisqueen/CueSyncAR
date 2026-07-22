@@ -411,6 +411,12 @@ final class SessionModel {
         calledShotOnLine = false
         designatedCueBallID = nil
         usingOnDeviceDetection = false
+        aimStabilizer.reset()
+        lastAimSource = nil
+        lastStickAim = nil
+        stickAimGrace = 0
+        lastPredictedState = nil
+        latestDetectionLabels = []
     }
 
     /// Feed a frame to the pipeline. On-device detection takes every frame
@@ -434,6 +440,32 @@ final class SessionModel {
     /// it's addressing the ball; the device-pose sighting model is the
     /// fallback so aiming always works without a stick in frame.
     @ObservationIgnored private var lastAimNilLogAt: Date = .distantPast
+    /// Aim stabilization state (see AimStabilizer): smoothing + deadband.
+    @ObservationIgnored private var aimStabilizer = AimStabilizer()
+    @ObservationIgnored private var lastAimSource: AimSource?
+    /// Last stick-derived aim + remaining grace updates it stays live for
+    /// after the stick drops out of detection (~1.2 s at loop cadence).
+    @ObservationIgnored private var lastStickAim: AimRay?
+    @ObservationIgnored private var stickAimGrace = 0
+    /// State the current prediction was solved against — a changed ball
+    /// layout forces a re-solve even inside the aim deadband.
+    @ObservationIgnored private var lastPredictedState: TableState?
+
+    /// Material layout change (ball added/removed/rolled > 5 mm or
+    /// re-classified) — Kalman sub-millimeter jitter and the per-frame
+    /// timestamp must NOT count, or the aim deadband never engages.
+    private static func layoutMoved(from old: TableState?, to new: TableState,
+                                    tolerance: Double = 0.005) -> Bool {
+        guard let old, old.balls.count == new.balls.count else { return true }
+        for ball in new.balls {
+            guard let match = old.balls.first(where: { $0.id == ball.id }),
+                  match.kind == ball.kind,
+                  match.position.distance(to: ball.position) <= tolerance else {
+                return true
+            }
+        }
+        return false
+    }
 
     func updateAim(cameraTransform: Transform3D) {
         guard let calibration = tableCalibration,
@@ -452,23 +484,46 @@ final class SessionModel {
             }
             return
         }
-        let aim: AimRay?
+        // Aim source with hysteresis: a stick estimate wins; when the stick
+        // momentarily drops out of detection, keep its last aim for a grace
+        // window instead of snapping to the device-pose model and back
+        // (each snap redraws every guide line — the "jumping" bug).
+        let rawAim: AimRay?
         if let stickQuad,
            let stickAim = StickAim.estimate(stickQuad: stickQuad,
                                             cueBall: cue.position) {
-            aim = stickAim
+            rawAim = stickAim
+            lastStickAim = stickAim
+            stickAimGrace = 8
+            aimSource = .stick
+        } else if stickAimGrace > 0, let held = lastStickAim {
+            stickAimGrace -= 1
+            rawAim = held
             aimSource = .stick
         } else {
-            aim = aimEngine.aimRay(cameraTransform: cameraTransform,
-                                   cueBall: cue.position,
-                                   calibration: calibration)
+            rawAim = aimEngine.aimRay(cameraTransform: cameraTransform,
+                                      cueBall: cue.position,
+                                      calibration: calibration)
             aimSource = .devicePose
         }
-        guard let aim else {
+        guard let rawAim else {
             shotPrediction = nil
             shotGuide = nil
             return
         }
+        // Temporal smoothing + deadband: tiny per-frame noise keeps the
+        // previous prediction perfectly still; intentional aim changes pass
+        // through after a couple of frames of smoothing.
+        if aimSource != lastAimSource {
+            aimStabilizer.reset()
+            lastAimSource = aimSource
+        }
+        let (aim, changed) = aimStabilizer.stabilize(rawAim)
+        if !changed, shotPrediction != nil,
+           !Self.layoutMoved(from: lastPredictedState, to: state) {
+            return
+        }
+        lastPredictedState = state
         let prediction = solver.predict(state: state, aim: aim, options: .default)
         shotPrediction = prediction
         shotGuide = ShotGuide.recommend(state: state, prediction: prediction)

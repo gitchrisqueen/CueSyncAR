@@ -38,9 +38,38 @@ public struct PlaneGeometryRaycaster: PlaneRaycasting {
 
         let normal = calibration.normal
         let denominator = direction.dot(normal)
-        guard abs(denominator) > 1e-9 else { return nil }
+        // Grazing gate: |denominator| is sin(angle between ray and plane).
+        // Below ~7 degrees a pixel of detector noise slides the intersection
+        // meters along the cloth (observed as phantom/juddering positions
+        // when the device rests on the rail) — treat as "cannot see cloth".
+        guard abs(denominator) > Self.minimumIncidenceSine else { return nil }
         let t = (calibration.origin - origin).dot(normal) / denominator
         guard t > 0 else { return nil }
         return origin + direction * t
+    }
+
+    /// sin(7°) — rays flatter than this against the table are rejected.
+    static let minimumIncidenceSine = 0.12
+
+    /// Forward projection (world → normalized image point), the inverse of
+    /// `raycastToTablePlane`'s unprojection. Nil when the frame has no
+    /// intrinsics or the point is behind the camera. Used to decide whether
+    /// a tracked ball SHOULD be visible in the current frame (visibility-
+    /// gated track misses: an out-of-view ball must not decay).
+    public func projectToImage(worldPoint: Vec3, frame: CapturedFrame) -> Vec2? {
+        guard let k = frame.intrinsics else { return nil }
+        // Rigid inverse applied inline: camera coords are the offset from
+        // the camera origin projected onto the camera's basis vectors.
+        let transform = frame.cameraTransform
+        let offset = worldPoint - transform.translation
+        let pc = Vec3(offset.dot(transform.axis(0)),
+                      offset.dot(transform.axis(1)),
+                      offset.dot(transform.axis(2)))
+        guard pc.z < -1e-6 else { return nil } // camera looks along -z
+        let xn = pc.x / -pc.z
+        let yn = pc.y / -pc.z
+        let px = k.principalX + k.focalX * xn
+        let py = k.principalY - k.focalY * yn
+        return Vec2(px / k.imageWidth, py / k.imageHeight)
     }
 }

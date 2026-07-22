@@ -17,6 +17,11 @@ import Foundation
 public protocol PlaneRaycasting: Sendable {
     /// `point` is in normalized image coordinates (0...1, top-left origin).
     func raycastToTablePlane(imagePoint: Vec2, frame: CapturedFrame) -> Vec3?
+    /// Forward projection (world → normalized image point). Optional
+    /// capability: implementations that can't invert their raycast return
+    /// nil, and callers must treat "unknown" as "assume visible".
+    func projectToImage(worldPoint: Vec3, frame: CapturedFrame) -> Vec2?
+
 }
 
 public struct PerceptionConfig: Sendable, Equatable {
@@ -41,4 +46,8 @@ public struct PerceptionConfig: Sendable, Equatable {
     }
 
     public static let `default` = PerceptionConfig()
+}
+
+public extension PlaneRaycasting {
+    func projectToImage(worldPoint: Vec3, frame: CapturedFrame) -> Vec2? { nil }
 }

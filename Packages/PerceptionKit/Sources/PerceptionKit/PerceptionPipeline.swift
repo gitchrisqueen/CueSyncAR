@@ -134,7 +134,24 @@ public actor PerceptionPipeline {
                                        position: table,
                                        confidence: detection.confidence)
             }
-            let balls = tracker.update(observations: observations)
+            // Visibility-gated misses: an unmatched track only decays when
+            // its spot on the cloth is actually inside this frame's view
+            // (with an edge margin — boxes clip near edges). Balls are
+            // static objects; pointing the camera elsewhere, or resting the
+            // device on the rail, must never erase the known layout.
+            let balls = tracker.update(observations: observations) { position in
+                let world = calibration.tableToWorld(position)
+                // Grazing view (device resting on the rail): sightlines run
+                // nearly parallel to the cloth, detections can't project —
+                // we cannot judge absence, so nothing decays.
+                let sightline = (world - frame.cameraTransform.translation).normalized
+                guard abs(sightline.dot(calibration.normal))
+                        > PlaneGeometryRaycaster.minimumIncidenceSine else { return false }
+                guard let image = raycaster.projectToImage(
+                    worldPoint: world, frame: frame) else { return true }
+                return image.x > 0.05 && image.x < 0.95
+                    && image.y > 0.05 && image.y < 0.95
+            }
             let state = TableState(table: Table(size: calibration.size),
                                    balls: balls,
                                    timestamp: frame.timestamp)

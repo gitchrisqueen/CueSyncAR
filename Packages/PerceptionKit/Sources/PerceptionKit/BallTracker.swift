@@ -84,7 +84,10 @@ public struct TrackerConfig: Sendable, Equatable {
     public var gatingDistance: Double
     /// Frames a new track must persist before it is reported.
     public var appearanceFrames: Int
-    /// Consecutive missed frames before a track is dropped.
+    /// Consecutive VISIBLE misses before a track is dropped. Misses only
+    /// accrue while the track's position is actually in view (visibility-
+    /// gated track management): a ball is a static object — walking the
+    /// camera away must never erase it.
     public var disappearanceFrames: Int
     /// Kalman noise parameters (m²).
     public var processNoise: Double
@@ -94,7 +97,7 @@ public struct TrackerConfig: Sendable, Equatable {
 
     public init(gatingDistance: Double = 0.08,
                 appearanceFrames: Int = 3,
-                disappearanceFrames: Int = 10,
+                disappearanceFrames: Int = 30,
                 processNoise: Double = 4e-5,
                 measurementNoise: Double = 4e-4,
                 maxKindVotes: Int = 15) {
@@ -119,7 +122,12 @@ public struct BallTracker: Sendable {
     }
 
     /// Ingest one frame of observations; returns the confirmed balls.
-    public mutating func update(observations: [BallObservation]) -> [Ball] {
+    /// `isVisible` reports whether a table-space position is inside the
+    /// camera's current view — unmatched tracks OUTSIDE the view are
+    /// frozen, not penalized (best practice from MOT track management:
+    /// an object can only be declared gone where you actually looked).
+    public mutating func update(observations: [BallObservation],
+                                isVisible: (Vec2) -> Bool = { _ in true }) -> [Ball] {
         // Greedy association: consider all (track, observation) pairs within
         // the gate, closest first; each side is used at most once. With
         // per-frame motion far below ball spacing this preserves identities
@@ -145,9 +153,30 @@ public struct BallTracker: Sendable {
             apply(observations[pair.obsIndex], toTrackAt: pair.trackIndex)
         }
 
-        // Unmatched tracks miss a frame.
+        // Unmatched tracks. A track that lost the competition for a ball to
+        // ANOTHER track inside the gate is a duplicate (spawned when a fast
+        // ball outran association) — absorb it into the winner immediately.
+        // Everything else misses a frame only where the camera can actually
+        // see (out-of-view static balls persist untouched).
+        var absorbed: [Int] = []
         for index in tracks.indices where !usedTracks.contains(index) {
-            tracks[index].consecutiveMisses += 1
+            if let winner = tracks.indices.first(where: { candidate in
+                candidate != index && usedTracks.contains(candidate)
+                    && tracks[candidate].position.distance(to: tracks[index].position)
+                        < config.gatingDistance
+            }) {
+                for (kind, votes) in tracks[index].kindVotes {
+                    let merged = (tracks[winner].kindVotes[kind] ?? 0) + votes
+                    tracks[winner].kindVotes[kind] = min(merged, config.maxKindVotes)
+                }
+                tracks[winner].hits += tracks[index].hits
+                absorbed.append(index)
+            } else if isVisible(tracks[index].position) {
+                tracks[index].consecutiveMisses += 1
+            }
+        }
+        for index in absorbed.sorted(by: >) {
+            tracks.remove(at: index)
         }
         tracks.removeAll { $0.consecutiveMisses >= config.disappearanceFrames }
 

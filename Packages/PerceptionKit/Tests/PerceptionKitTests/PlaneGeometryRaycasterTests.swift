@@ -1,4 +1,5 @@
 import CueSyncCore
+import CueSyncTestSupport
 import Foundation
 import TableSpace
 import Testing
@@ -81,4 +82,55 @@ struct PlaneGeometryRaycasterTests {
         #expect(raycaster.raycastToTablePlane(
             imagePoint: Vec2(0.5, 0.5), frame: frame(upwardCamera, intrinsics: intrinsics)) == nil)
     }
+    @Test func rejectsGrazingRays() {
+        // Camera at cloth height looking almost parallel to the plane
+        // (device resting on the rail): intersection would be meters away
+        // per pixel of noise — must return nil, not garbage.
+        let calibration = TableCalibration(origin: .zero,
+                                           xAxis: Vec3(1, 0, 0),
+                                           yAxis: Vec3(0, 0, -1),
+                                           size: .nineFoot)
+        let raycaster = PlaneGeometryRaycaster(calibration: calibration)
+        // Identity pose looks along -z with the plane normal +y: a ray
+        // through the principal point runs exactly parallel to the cloth.
+        let frame = CapturedFrame(
+            timestamp: 0,
+            cameraTransform: .identity,
+            image: FixtureImageBuffer(),
+            intrinsics: CameraIntrinsics(focalX: 1000, focalY: 1000,
+                                         principalX: 640, principalY: 360,
+                                         imageWidth: 1280, imageHeight: 720))
+        #expect(raycaster.raycastToTablePlane(imagePoint: Vec2(0.5, 0.5),
+                                              frame: frame) == nil)
+        // A pixel barely below center is still a grazing (<7°) ray.
+        #expect(raycaster.raycastToTablePlane(imagePoint: Vec2(0.5, 0.55),
+                                              frame: frame) == nil)
+    }
+
+    @Test func forwardProjectionRoundTripsUnprojection() throws {
+        let calibration = TableCalibration(origin: Vec3(0, -1, 0),
+                                           xAxis: Vec3(1, 0, 0),
+                                           yAxis: Vec3(0, 0, -1),
+                                           size: .nineFoot)
+        let raycaster = PlaneGeometryRaycaster(calibration: calibration)
+        // Camera 1 m above the cloth origin looking straight down is a
+        // degenerate yaw; use identity pose with the plane 1 m below.
+        let frame = CapturedFrame(
+            timestamp: 0,
+            cameraTransform: .identity,
+            image: FixtureImageBuffer(),
+            intrinsics: CameraIntrinsics(focalX: 1000, focalY: 1000,
+                                         principalX: 640, principalY: 360,
+                                         imageWidth: 1280, imageHeight: 720))
+        // A point well below the horizon hits the plane at a steep-enough
+        // angle; its projection must return to the same image point.
+        let image = Vec2(0.62, 0.85)
+        let world = try #require(raycaster.raycastToTablePlane(imagePoint: image,
+                                                              frame: frame))
+        let roundTrip = try #require(raycaster.projectToImage(worldPoint: world,
+                                                              frame: frame))
+        #expect(abs(roundTrip.x - image.x) < 1e-9)
+        #expect(abs(roundTrip.y - image.y) < 1e-9)
+    }
+
 }

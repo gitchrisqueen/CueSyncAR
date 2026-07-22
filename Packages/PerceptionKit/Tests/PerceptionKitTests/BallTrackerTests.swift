@@ -154,4 +154,40 @@ struct VisionBoxMappingTests {
         let full = VisionBoxMapping.topLeftRect(fromVisionX: 0, y: 0, width: 1, height: 1)
         #expect(full == NormalizedRect(x: 0, y: 0, width: 1, height: 1))
     }
+    @Test func outOfViewTracksDoNotDecay() {
+        var tracker = BallTracker(config: TrackerConfig(appearanceFrames: 1,
+                                                        disappearanceFrames: 3))
+        let obs = BallObservation(kind: .cue, position: Vec2(0.5, 0.2), confidence: 0.9)
+        _ = tracker.update(observations: [obs])
+        // Camera looks elsewhere for far longer than the disappearance
+        // budget — the static ball must survive untouched.
+        for _ in 0..<20 {
+            let balls = tracker.update(observations: [], isVisible: { _ in false })
+            #expect(balls.count == 1)
+        }
+        // Back in view with no matching detection: NOW it decays.
+        for _ in 0..<3 {
+            _ = tracker.update(observations: [], isVisible: { _ in true })
+        }
+        #expect(tracker.update(observations: []).isEmpty)
+    }
+
+    @Test func duplicateTrackBeatenToItsBallIsAbsorbed() {
+        var tracker = BallTracker(config: TrackerConfig(gatingDistance: 0.08,
+                                                        appearanceFrames: 1))
+        // Two tracks spawn a gate-width apart (the fast-ball duplicate).
+        _ = tracker.update(observations: [
+            BallObservation(kind: .cue, position: Vec2(0, 0), confidence: 0.9),
+            BallObservation(kind: .unknown, position: Vec2(0.06, 0), confidence: 0.9)
+        ])
+        // One real ball between them: one track wins the association, the
+        // other sits inside the winner's gate — absorbed, not decayed.
+        let balls = tracker.update(observations: [
+            BallObservation(kind: .cue, position: Vec2(0.03, 0), confidence: 0.9)
+        ])
+        #expect(balls.count == 1)
+        // The merged track carries the combined vote history.
+        #expect(balls[0].kind == .cue)
+    }
+
 }

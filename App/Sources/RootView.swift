@@ -415,6 +415,9 @@ struct ARCameraView: View {
         var planeDetectionStarted = false
         var relocalizationDeadline: Date?
         var lastMirrorPublishAt = Date.distantPast
+        // Re-rendering an identical layout every tick churns RealityKit
+        // entities for nothing (and can flicker) — render only on change.
+        var lastRenderedLayout: OverlayLayout?
         if CalibrationStore.load() != nil {
             coordinator.enablePlaneDetection(
                 restoringWorldMapAt: CalibrationStore.hasWorldMap
@@ -477,20 +480,26 @@ struct ARCameraView: View {
                     }
                     if let state = model.tableState,
                        let calibration = model.tableCalibration {
+                        let layout: OverlayLayout
                         if let prediction = model.shotPrediction {
-                            overlayRenderer?.render(OverlayLayout.compose(
+                            layout = OverlayLayout.compose(
                                 state: state, prediction: prediction,
                                 calibration: calibration,
-                                calledPocket: model.calledPocket))
+                                calledPocket: model.calledPocket)
                         } else {
                             // No shot line yet (usually: no cue ball) —
                             // still render the tracked-ball rings so the
                             // user sees what the app sees and where to
                             // tap to designate the cue ball.
-                            overlayRenderer?.render(OverlayLayout.ballsOnly(
-                                state: state, calibration: calibration))
+                            layout = OverlayLayout.ballsOnly(
+                                state: state, calibration: calibration)
                         }
-                    } else {
+                        if layout != lastRenderedLayout {
+                            lastRenderedLayout = layout
+                            overlayRenderer?.render(layout)
+                        }
+                    } else if lastRenderedLayout != nil {
+                        lastRenderedLayout = nil
                         overlayRenderer?.clear()
                     }
                 }
