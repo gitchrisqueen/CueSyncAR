@@ -185,7 +185,39 @@ public struct BallTracker: Sendable {
             tracks.append(makeTrack(for: obs))
         }
 
+        mergePhysicalOverlaps()
         return confirmedBalls()
+    }
+
+    /// Two ball centers can never sit closer than one ball diameter — a
+    /// pair of tracks inside ~0.8 diameters is one ball seen twice (the
+    /// detector occasionally emits overlapping boxes, keeping BOTH tracks
+    /// matched so competition absorption never fires). The better-
+    /// established track absorbs the other.
+    private mutating func mergePhysicalOverlaps() {
+        let overlapDistance = Ball.standardRadius * 1.6
+        var index = 0
+        while index < tracks.count {
+            var other = index + 1
+            while other < tracks.count {
+                if tracks[index].position.distance(to: tracks[other].position)
+                    < overlapDistance {
+                    let (keep, drop) = tracks[index].hits >= tracks[other].hits
+                        ? (index, other) : (other, index)
+                    for (kind, votes) in tracks[drop].kindVotes {
+                        let merged = (tracks[keep].kindVotes[kind] ?? 0) + votes
+                        tracks[keep].kindVotes[kind] = min(merged, config.maxKindVotes)
+                    }
+                    tracks[keep].hits += tracks[drop].hits
+                    tracks.remove(at: drop)
+                    if drop < index { index -= 1 }
+                    other = index + 1
+                } else {
+                    other += 1
+                }
+            }
+            index += 1
+        }
     }
 
     private mutating func apply(_ obs: BallObservation, toTrackAt index: Int) {

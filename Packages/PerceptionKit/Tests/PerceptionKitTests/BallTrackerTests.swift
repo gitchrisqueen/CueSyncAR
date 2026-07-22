@@ -190,4 +190,18 @@ struct VisionBoxMappingTests {
         #expect(balls[0].kind == .cue)
     }
 
+    @Test func physicallyOverlappingTracksCollapseEvenWhenBothMatch() {
+        var tracker = BallTracker(config: TrackerConfig(appearanceFrames: 1))
+        // The detector emits two overlapping boxes for one ball every
+        // frame (~1.5 cm apart) — both tracks stay matched, so only the
+        // physical-overlap rule can collapse them.
+        for _ in 0..<5 {
+            let balls = tracker.update(observations: [
+                BallObservation(kind: .cue, position: Vec2(0.30, 0.10), confidence: 0.8),
+                BallObservation(kind: .unknown, position: Vec2(0.315, 0.11), confidence: 0.5)
+            ])
+            #expect(balls.count == 1)
+        }
+    }
+
 }
