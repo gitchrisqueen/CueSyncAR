@@ -1,0 +1,124 @@
+{
+  "name": "thirtyDegreeCut",
+  "description": "Object offset perpendicular by half the collision radius gives an exact 30-degree cut; cue departs along the tangent, object along the impact line.",
+  "derivation": [
+    "Object at (0.5, R/2) with R = 2r = 0.05715; perpendicular offset R/2 -> sin(theta) = 1/2, theta = 30 deg.",
+    "Ghost center G = (0.5 - R*cos30, 0) = (0.450507, 0).",
+    "Impact normal n = (cos30, sin30); speed at contact v1 = sqrt(1 - 2*0.5*0.450507) ~= 0.741278.",
+    "Object: dir = n, speed = v1*cos30*0.96 ~= 0.616287, rolls v^2/(2a) ~= 0.379810 m.",
+    "Cue: tangent dir (sin30, -cos30) = (0.5, -0.866025), speed = v1*sin30 ~= 0.370639, rolls ~= 0.137373 m."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": 1,
+      "kind": "1",
+      "position": [
+        0.5,
+        0.028575
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      0.0,
+      0.0
+    ],
+    "direction": [
+      1,
+      0
+    ]
+  },
+  "options": {
+    "initialSpeed": 1.0,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          0.0,
+          0.0
+        ],
+        "end": [
+          0.4505066481737191,
+          0.0
+        ],
+        "entrySpeed": 1.0
+      },
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          0.4505066481737191,
+          0.0
+        ],
+        "end": [
+          0.5191933171520035,
+          -0.1189688004730542
+        ],
+        "entrySpeed": 0.370639093939872
+      },
+      {
+        "ball": 1,
+        "kind": "roll",
+        "start": [
+          0.5,
+          0.028575
+        ],
+        "end": [
+          0.8289249395479034,
+          0.21847990239116247
+        ],
+        "entrySpeed": 0.6162871122961491
+      }
+    ],
+    "events": [
+      {
+        "type": "ballBall",
+        "moving": 0,
+        "struck": 1,
+        "contact": [
+          0.4505066481737191,
+          0.0
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 0,
+        "point": [
+          0.5191933171520035,
+          -0.1189688004730542
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 1,
+        "point": [
+          0.8289249395479034,
+          0.21847990239116247
+        ]
+      }
+    ],
+    "pocketedBalls": []
+  }
+}

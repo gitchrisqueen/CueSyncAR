@@ -1,0 +1,71 @@
+{
+  "name": "straightRollToRest",
+  "description": "Cue ball alone, rolled east at 1 m/s; friction stops it after exactly 1 m.",
+  "derivation": [
+    "Stop distance d = v^2/(2a) = 1.0^2/(2*0.5) = 1.0 m.",
+    "Rest point = (-0.5, 0) + (1, 0)*1.0 = (0.5, 0).",
+    "No rails/pockets/balls on the path: single roll segment, single rest event."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        -0.5,
+        0.0
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      -0.5,
+      0.0
+    ],
+    "direction": [
+      1,
+      0
+    ]
+  },
+  "options": {
+    "initialSpeed": 1.0,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          -0.5,
+          0.0
+        ],
+        "end": [
+          0.5,
+          0.0
+        ],
+        "entrySpeed": 1.0
+      }
+    ],
+    "events": [
+      {
+        "type": "rest",
+        "ball": 0,
+        "point": [
+          0.5,
+          0.0
+        ]
+      }
+    ],
+    "pocketedBalls": []
+  }
+}

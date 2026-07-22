@@ -1,0 +1,79 @@
+{
+  "name": "nearMissObjectBall",
+  "description": "Aim line passes 0.06 m from the object center - just over the 0.05715 m collision radius - so no contact occurs and the object ball stays untouched.",
+  "derivation": [
+    "Collision requires perpendicular distance < r1 + r2 = 0.05715 m; here it is 0.36 - 0.30 = 0.06 m.",
+    "Cue rolls v^2/(2a) = 1.0 m from (-1.0, 0.3) and rests at (0.0, 0.3).",
+    "Expected: exactly one segment and one rest event; nothing for ball 1."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        -1.0,
+        0.3
+      ]
+    },
+    {
+      "id": 1,
+      "kind": "1",
+      "position": [
+        0.0,
+        0.36
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      -1.0,
+      0.3
+    ],
+    "direction": [
+      1,
+      0
+    ]
+  },
+  "options": {
+    "initialSpeed": 1.0,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          -1.0,
+          0.3
+        ],
+        "end": [
+          0.0,
+          0.3
+        ],
+        "entrySpeed": 1.0
+      }
+    ],
+    "events": [
+      {
+        "type": "rest",
+        "ball": 0,
+        "point": [
+          0.0,
+          0.3
+        ]
+      }
+    ],
+    "pocketedBalls": []
+  }
+}

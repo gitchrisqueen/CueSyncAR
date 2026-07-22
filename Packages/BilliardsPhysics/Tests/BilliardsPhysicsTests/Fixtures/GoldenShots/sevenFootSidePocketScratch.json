@@ -1,0 +1,83 @@
+{
+  "name": "sevenFootSidePocketScratch",
+  "description": "Same physics on a 7-ft table (playing field 1.98 x 0.99 m): straight scratch into the top side pocket.",
+  "derivation": [
+    "Pocket center (0, 0.495); from (0, -0.2) capture at t = 0.695 - 0.058 = 0.637 m.",
+    "The 7-ft reflection line at y = 0.495 - r = 0.466425 means the rail t = 0.666425 m; capture wins.",
+    "Entry (0, 0.437); entry speed sqrt(1.44 - 0.637) ~= 0.896103."
+  ],
+  "table": {
+    "size": "sevenFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        0.0,
+        -0.2
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      0.0,
+      -0.2
+    ],
+    "direction": [
+      0,
+      1
+    ]
+  },
+  "options": {
+    "initialSpeed": 1.2,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          0.0,
+          -0.2
+        ],
+        "end": [
+          0.0,
+          0.437
+        ],
+        "entrySpeed": 1.2
+      },
+      {
+        "ball": 0,
+        "kind": "intoPocket",
+        "start": [
+          0.0,
+          0.437
+        ],
+        "end": [
+          0.0,
+          0.495
+        ],
+        "entrySpeed": 0.8961026726887941
+      }
+    ],
+    "events": [
+      {
+        "type": "pocket",
+        "ball": 0,
+        "pocket": "sideTop"
+      }
+    ],
+    "pocketedBalls": [
+      0
+    ]
+  }
+}

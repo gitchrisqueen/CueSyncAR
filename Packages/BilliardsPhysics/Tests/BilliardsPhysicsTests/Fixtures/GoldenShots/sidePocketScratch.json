@@ -1,0 +1,83 @@
+{
+  "name": "sidePocketScratch",
+  "description": "Cue from table center straight into the top side pocket.",
+  "derivation": [
+    "Pocket center (0, 0.635), capture radius 0.058: capture at t = 0.635 - 0.058 = 0.577 m.",
+    "Reflection line at 0.606425 m is beyond capture -> pocket wins.",
+    "Entry (0, 0.577); entry speed sqrt(1.44 - 0.577) = sqrt(0.863) ~= 0.928978."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      0.0,
+      0.0
+    ],
+    "direction": [
+      0,
+      1
+    ]
+  },
+  "options": {
+    "initialSpeed": 1.2,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          0.0,
+          0.0
+        ],
+        "end": [
+          0.0,
+          0.577
+        ],
+        "entrySpeed": 1.2
+      },
+      {
+        "ball": 0,
+        "kind": "intoPocket",
+        "start": [
+          0.0,
+          0.577
+        ],
+        "end": [
+          0.0,
+          0.635
+        ],
+        "entrySpeed": 0.9289779329994874
+      }
+    ],
+    "events": [
+      {
+        "type": "pocket",
+        "ball": 0,
+        "pocket": "sideTop"
+      }
+    ],
+    "pocketedBalls": [
+      0
+    ]
+  }
+}

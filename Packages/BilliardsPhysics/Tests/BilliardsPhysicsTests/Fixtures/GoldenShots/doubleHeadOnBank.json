@@ -1,0 +1,114 @@
+{
+  "name": "doubleHeadOnBank",
+  "description": "Hard shot along the long axis: two perpendicular cushion bounces (right rail, then left rail), then rest. Verifies energy loss compounds as e^2 across bounces.",
+  "derivation": [
+    "Right rail after 1.241425 m: speed sqrt(6.76 - 1.241425) ~= 2.349165, returns at 0.75x ~= 1.761874.",
+    "Left rail after another 2*1.241425 = 2.48285 m: speed sqrt(3.104198 - 2.48285) ~= 0.788257, returns at 0.75x ~= 0.591192.",
+    "Rolls v^2/(2a) ~= 0.349508 m to rest at ~(-0.891917, 0).",
+    "No pockets lie on y = 0, so the path is pure rail physics."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      0.0,
+      0.0
+    ],
+    "direction": [
+      1,
+      0
+    ]
+  },
+  "options": {
+    "initialSpeed": 2.6,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          0.0,
+          0.0
+        ],
+        "end": [
+          1.241425,
+          0.0
+        ],
+        "entrySpeed": 2.6
+      },
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          1.241425,
+          0.0
+        ],
+        "end": [
+          -1.241425,
+          0.0
+        ],
+        "entrySpeed": 1.7618735588855405
+      },
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          -1.241425,
+          0.0
+        ],
+        "end": [
+          -0.8919165039062498,
+          0.0
+        ],
+        "entrySpeed": 0.5911924357548481
+      }
+    ],
+    "events": [
+      {
+        "type": "cushion",
+        "ball": 0,
+        "point": [
+          1.241425,
+          0.0
+        ]
+      },
+      {
+        "type": "cushion",
+        "ball": 0,
+        "point": [
+          -1.241425,
+          0.0
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 0,
+        "point": [
+          -0.8919165039062498,
+          0.0
+        ]
+      }
+    ],
+    "pocketedBalls": []
+  }
+}

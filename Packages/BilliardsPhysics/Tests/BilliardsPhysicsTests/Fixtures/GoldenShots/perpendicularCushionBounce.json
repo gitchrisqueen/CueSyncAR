@@ -1,0 +1,93 @@
+{
+  "name": "perpendicularCushionBounce",
+  "description": "Dead-perpendicular rail hit: ball returns along its own line at cushionRestitution times the impact speed.",
+  "derivation": [
+    "From (0.3, 0) straight up: reflection line at y = 0.606425, travel 0.606425 m.",
+    "Speed at rail = sqrt(1.3^2 - 0.606425) = sqrt(1.083575) ~= 1.040949 m/s.",
+    "Head-on: v_out = -e*v_in, speed = 0.75*1.040949 ~= 0.780712, direction (0, -1).",
+    "Rolls back v^2/(2a) = 0.609511 m -> rest at (0.3, -0.003086)."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        0.3,
+        0.0
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      0.3,
+      0.0
+    ],
+    "direction": [
+      0,
+      1
+    ]
+  },
+  "options": {
+    "initialSpeed": 1.3,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          0.3,
+          0.0
+        ],
+        "end": [
+          0.3,
+          0.606425
+        ],
+        "entrySpeed": 1.3
+      },
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          0.3,
+          0.606425
+        ],
+        "end": [
+          0.3,
+          -0.003085937499999969
+        ],
+        "entrySpeed": 0.7807118146281635
+      }
+    ],
+    "events": [
+      {
+        "type": "cushion",
+        "ball": 0,
+        "point": [
+          0.3,
+          0.606425
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 0,
+        "point": [
+          0.3,
+          -0.003085937499999969
+        ]
+      }
+    ],
+    "pocketedBalls": []
+  }
+}

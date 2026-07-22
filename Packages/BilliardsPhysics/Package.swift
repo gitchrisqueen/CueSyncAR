@@ -14,6 +14,7 @@ let package = Package(
     targets: [
         .target(name: "BilliardsPhysics", dependencies: ["CueSyncCore"]),
         .testTarget(name: "BilliardsPhysicsTests",
-                    dependencies: ["BilliardsPhysics", "CueSyncTestSupport"])
+                    dependencies: ["BilliardsPhysics", "CueSyncTestSupport"],
+                    resources: [.copy("Fixtures")])
     ]
 )

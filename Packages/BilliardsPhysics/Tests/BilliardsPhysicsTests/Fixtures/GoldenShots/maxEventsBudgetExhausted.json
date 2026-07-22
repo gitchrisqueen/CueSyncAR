@@ -1,0 +1,79 @@
+{
+  "name": "maxEventsBudgetExhausted",
+  "description": "With maxEvents = 1, the shot is truncated right after its first cushion: the solver closes the polyline with a rest event at the bounce point and adds no further segments.",
+  "derivation": [
+    "First cushion at x = 1.241425 (event #1). Post-bounce speed 0.75*sqrt(9 - 1.241425) ~= 2.089 m/s is well above rest,",
+    "but the budget is exhausted, so the prediction ends with rest at the cushion point.",
+    "Expected: one roll segment, then [cushion, rest] both at (1.241425, 0)."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      0.0,
+      0.0
+    ],
+    "direction": [
+      1,
+      0
+    ]
+  },
+  "options": {
+    "initialSpeed": 3.0,
+    "maxEvents": 1
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          0.0,
+          0.0
+        ],
+        "end": [
+          1.241425,
+          0.0
+        ],
+        "entrySpeed": 3.0
+      }
+    ],
+    "events": [
+      {
+        "type": "cushion",
+        "ball": 0,
+        "point": [
+          1.241425,
+          0.0
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 0,
+        "point": [
+          1.241425,
+          0.0
+        ]
+      }
+    ],
+    "pocketedBalls": []
+  }
+}

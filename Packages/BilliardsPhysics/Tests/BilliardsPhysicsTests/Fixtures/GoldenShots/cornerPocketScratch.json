@@ -1,0 +1,85 @@
+{
+  "name": "cornerPocketScratch",
+  "description": "Cue aimed dead-center at the top-right corner mouth: capture circle wins the race against both rail reflection lines; shot is a scratch.",
+  "derivation": [
+    "Aim from (0.635, 0.3175) along (2,1)/sqrt5 straight at pocket center (1.27, 0.635); distance |(0.635, 0.3175)| ~= 0.709952 m.",
+    "Capture at t = 0.709952 - captureRadius 0.075 = 0.634952 m (perp = 0).",
+    "Rail lines are farther: t_x ~= 0.678004, t_y ~= 0.646056 -> pocket event first.",
+    "Entry point ~(1.202918, 0.601459); entry speed sqrt(1.2^2 - 0.634952) ~= 0.897245.",
+    "intoPocket segment ends at the mouth center (1.27, 0.635); pocketedBalls = [cue] (scratch)."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        0.635,
+        0.3175
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      0.635,
+      0.3175
+    ],
+    "direction": [
+      2,
+      1
+    ]
+  },
+  "options": {
+    "initialSpeed": 1.2,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          0.635,
+          0.3175
+        ],
+        "end": [
+          1.2029179606750058,
+          0.6014589803375029
+        ],
+        "entrySpeed": 1.2
+      },
+      {
+        "ball": 0,
+        "kind": "intoPocket",
+        "start": [
+          1.2029179606750058,
+          0.6014589803375029
+        ],
+        "end": [
+          1.27,
+          0.635
+        ],
+        "entrySpeed": 0.8972449036599859
+      }
+    ],
+    "events": [
+      {
+        "type": "pocket",
+        "ball": 0,
+        "pocket": "cornerTopRight"
+      }
+    ],
+    "pocketedBalls": [
+      0
+    ]
+  }
+}

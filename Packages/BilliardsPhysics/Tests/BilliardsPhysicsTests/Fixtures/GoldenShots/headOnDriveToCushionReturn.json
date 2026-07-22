@@ -1,0 +1,131 @@
+{
+  "name": "headOnDriveToCushionReturn",
+  "description": "Harder head-on hit: the object ball reaches the far rail, bounces straight back at 0.75x, and rests without re-contacting the stationary cue ball.",
+  "derivation": [
+    "Contact as in headOnStopShot: t = 0.44285 m; speed there sqrt(2.25 - 0.44285) ~= 1.344303; cue stuns to rest at (-0.05715, 0).",
+    "Object departs at 0.96x ~= 1.290531; its stop distance 1.665469 m exceeds the rail distance 1.241425 m.",
+    "Rail speed sqrt(1.665469 - 1.241425) ~= 0.651187; returns at 0.75x ~= 0.488390, direction (-1, 0).",
+    "Rolls back v^2/(2a) ~= 0.238525 m to rest at ~(1.002900, 0)."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        -0.5,
+        0.0
+      ]
+    },
+    {
+      "id": 1,
+      "kind": "1",
+      "position": [
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      -0.5,
+      0.0
+    ],
+    "direction": [
+      1,
+      0
+    ]
+  },
+  "options": {
+    "initialSpeed": 1.5,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          -0.5,
+          0.0
+        ],
+        "end": [
+          -0.05714999999999998,
+          0.0
+        ],
+        "entrySpeed": 1.5
+      },
+      {
+        "ball": 1,
+        "kind": "roll",
+        "start": [
+          0.0,
+          0.0
+        ],
+        "end": [
+          1.241425,
+          0.0
+        ],
+        "entrySpeed": 1.290530681541512
+      },
+      {
+        "ball": 1,
+        "kind": "roll",
+        "start": [
+          1.241425,
+          0.0
+        ],
+        "end": [
+          1.0029000025,
+          0.0
+        ],
+        "entrySpeed": 0.48839021028272034
+      }
+    ],
+    "events": [
+      {
+        "type": "ballBall",
+        "moving": 0,
+        "struck": 1,
+        "contact": [
+          -0.05714999999999998,
+          0.0
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 0,
+        "point": [
+          -0.05714999999999998,
+          0.0
+        ]
+      },
+      {
+        "type": "cushion",
+        "ball": 1,
+        "point": [
+          1.241425,
+          0.0
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 1,
+        "point": [
+          1.0029000025,
+          0.0
+        ]
+      }
+    ],
+    "pocketedBalls": []
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "name": "fortyFiveCushionBounce",
+  "description": "45-degree approach to the top rail exits along (0.8, -0.6): tangential velocity preserved, normal scaled by cushion restitution 0.75 (3-4-5 triangle).",
+  "derivation": [
+    "Path from (-0.9, 0) along (1,1)/sqrt2 meets the reflection line y = 0.635 - r = 0.606425 after t = 0.606425*sqrt2 ~= 0.857614 m at (-0.293575, 0.606425).",
+    "Speed there: sqrt(1.4^2 - 2*0.5*0.857614) ~= 1.049945 m/s.",
+    "Reflection: vx preserved, vy -> -0.75*vy, so exit direction is (1, -0.75)/|.| = (0.8, -0.6) exactly.",
+    "Exit speed |v_out| = v_hit*sqrt(1 + 0.75^2)/sqrt2 ~= 0.928029; rolls v^2/(2a) ~= 0.861239 m to rest at ~(0.395416, 0.089682).",
+    "Checks angle-of-reflection + energy loss at a rail: tan(exit) = e * tan(entry)."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        -0.9,
+        0.0
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      -0.9,
+      0.0
+    ],
+    "direction": [
+      1,
+      1
+    ]
+  },
+  "options": {
+    "initialSpeed": 1.4,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          -0.9,
+          0.0
+        ],
+        "end": [
+          -0.29357500000000003,
+          0.606425
+        ],
+        "entrySpeed": 1.4
+      },
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          -0.29357500000000003,
+          0.606425
+        ],
+        "end": [
+          0.3954159627736846,
+          0.08968177791973653
+        ],
+        "entrySpeed": 0.9280294733827724
+      }
+    ],
+    "events": [
+      {
+        "type": "cushion",
+        "ball": 0,
+        "point": [
+          -0.29357500000000003,
+          0.606425
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 0,
+        "point": [
+          0.3954159627736846,
+          0.08968177791973653
+        ]
+      }
+    ],
+    "pocketedBalls": []
+  }
+}

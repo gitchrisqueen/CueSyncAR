@@ -1,0 +1,70 @@
+{
+  "name": "rollsPastSidePocketMouth",
+  "description": "Path parallel to the top rail passes 0.06 m from the side-pocket center - just outside its 0.058 m capture radius - and is not captured.",
+  "derivation": [
+    "Perpendicular distance from the aim line y = 0.575 to sideTop (0, 0.635) is 0.06 m > captureRadius 0.058 m.",
+    "Cue rolls v^2/(2a) = 1.0 m and rests at (0.0, 0.575), directly under the mouth."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        -1.0,
+        0.575
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      -1.0,
+      0.575
+    ],
+    "direction": [
+      1,
+      0
+    ]
+  },
+  "options": {
+    "initialSpeed": 1.0,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          -1.0,
+          0.575
+        ],
+        "end": [
+          0.0,
+          0.575
+        ],
+        "entrySpeed": 1.0
+      }
+    ],
+    "events": [
+      {
+        "type": "rest",
+        "ball": 0,
+        "point": [
+          0.0,
+          0.575
+        ]
+      }
+    ],
+    "pocketedBalls": []
+  }
+}

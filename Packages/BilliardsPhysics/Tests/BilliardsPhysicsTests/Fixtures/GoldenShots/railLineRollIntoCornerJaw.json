@@ -1,0 +1,84 @@
+{
+  "name": "railLineRollIntoCornerJaw",
+  "description": "Ball rolling flush along the top-rail reflection line is captured by the corner jaw before reaching the end-rail reflection line (documented capture-wins-the-race property).",
+  "derivation": [
+    "Path y = 0.606425 (the top reflection line), heading +x from x = 1.0.",
+    "Corner mouth (1.27, 0.635): perpendicular offset 0.635 - 0.606425 = 0.028575 m < 0.075 m.",
+    "Capture at t = 0.27 - sqrt(0.075^2 - 0.028575^2) ~= 0.200657 m, before the end-rail line at 0.241425 m.",
+    "Entry speed sqrt(0.8^2 - 0.200657) ~= 0.662830."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        1.0,
+        0.606425
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      1.0,
+      0.606425
+    ],
+    "direction": [
+      1,
+      0
+    ]
+  },
+  "options": {
+    "initialSpeed": 0.8,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          1.0,
+          0.606425
+        ],
+        "end": [
+          1.2006568721862072,
+          0.606425
+        ],
+        "entrySpeed": 0.8
+      },
+      {
+        "ball": 0,
+        "kind": "intoPocket",
+        "start": [
+          1.2006568721862072,
+          0.606425
+        ],
+        "end": [
+          1.27,
+          0.635
+        ],
+        "entrySpeed": 0.6628296370967376
+      }
+    ],
+    "events": [
+      {
+        "type": "pocket",
+        "ball": 0,
+        "pocket": "cornerTopRight"
+      }
+    ],
+    "pocketedBalls": [
+      0
+    ]
+  }
+}

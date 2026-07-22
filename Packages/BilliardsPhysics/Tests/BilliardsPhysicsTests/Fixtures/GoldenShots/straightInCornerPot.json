@@ -1,0 +1,132 @@
+{
+  "name": "straightInCornerPot",
+  "description": "Straight-in (full-ball) pot: object driven dead at the corner mouth along (2,1)/sqrt5; cue stuns out at the ghost point; bystander ball untouched.",
+  "derivation": [
+    "Object at (1.0, 0.5); pocket (1.27, 0.635); line direction u = (2,1)/sqrt5.",
+    "Ghost point G = object - 2r*u; cue placed 0.5 m behind G on the same line, so contact travel t = 0.5 m.",
+    "Speed at contact sqrt(2^2 - 0.5) ~= 1.870829; head-on -> cue tangent speed = 0, rests at G.",
+    "Object speed = 1.870829*0.96 ~= 1.795996 along u; pocket capture at t = |(0.27, 0.135)| - 0.075 ~= 0.226869 m,",
+    "which beats the rails (t_x ~= 0.269921, t_y ~= 0.237974) -> pocketed cornerTopRight; entry speed ~= 1.731684.",
+    "Bystander at (-1.0, -0.4) is far from every path: no segments or events for ball 2."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        0.5016698905343968,
+        0.2508349452671984
+      ]
+    },
+    {
+      "id": 1,
+      "kind": "1",
+      "position": [
+        1.0,
+        0.5
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "2",
+      "position": [
+        -1.0,
+        -0.4
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      0.5016698905343968,
+      0.2508349452671984
+    ],
+    "direction": [
+      0.8944271909999159,
+      0.4472135954999579
+    ]
+  },
+  "options": {
+    "initialSpeed": 2.0,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          0.5016698905343968,
+          0.2508349452671984
+        ],
+        "end": [
+          0.9488834860343547,
+          0.47444174301717734
+        ],
+        "entrySpeed": 2.0
+      },
+      {
+        "ball": 1,
+        "kind": "roll",
+        "start": [
+          1.0,
+          0.5
+        ],
+        "end": [
+          1.2029179606750062,
+          0.6014589803375031
+        ],
+        "entrySpeed": 1.7959955456514916
+      },
+      {
+        "ball": 1,
+        "kind": "intoPocket",
+        "start": [
+          1.2029179606750062,
+          0.6014589803375031
+        ],
+        "end": [
+          1.27,
+          0.635
+        ],
+        "entrySpeed": 1.7316843889801419
+      }
+    ],
+    "events": [
+      {
+        "type": "ballBall",
+        "moving": 0,
+        "struck": 1,
+        "contact": [
+          0.9488834860343547,
+          0.47444174301717734
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 0,
+        "point": [
+          0.9488834860343547,
+          0.47444174301717734
+        ]
+      },
+      {
+        "type": "pocket",
+        "ball": 1,
+        "pocket": "cornerTopRight"
+      }
+    ],
+    "pocketedBalls": [
+      1
+    ]
+  }
+}

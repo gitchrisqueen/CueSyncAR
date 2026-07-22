@@ -1,0 +1,201 @@
+{
+  "name": "threeBallComboRekiss",
+  "description": "All-head-on three-ball chain: cue -> A -> B, B banks off the right rail and re-kisses the now-stationary A, which rolls to a second rest. Exercises queue ordering and the rest-ball re-entering the static snapshot.",
+  "derivation": [
+    "Cue (-0.6,0) at 2 m/s hits A(0,0): t = 0.6 - 2r = 0.54285; contact (-0.05715, 0); speed sqrt(4 - 0.54285) ~= 1.859341; cue stuns to rest.",
+    "A departs at 0.96*1.859341 ~= 1.784968; hits B(0.4, 0) after t = 0.4 - 2r = 0.34285 at contact (0.34285, 0); speed there ~= 1.686197; A stuns to rest at (0.34285, 0).",
+    "B departs at 0.96*1.686197 ~= 1.618749; reaches the right reflection line x = 1.241425 after 0.841425 m at ~1.333763 m/s; bounces back at 0.75x ~= 1.000322 m/s.",
+    "B (moving -x) re-hits A: contact when B center is at 0.34285 + 2r = 0.4 (its own start point!), after 0.841425 m, at ~0.399023 m/s; B stuns to rest at (0.4, 0).",
+    "A takes 0.96*0.399023 ~= 0.383062 m/s, rolls v^2/(2a) ~= 0.146736 m from (0.34285, 0) to rest at ~(0.196114, 0).",
+    "(Numbers in the JSON are exact IEEE doubles; the commentary rounds to 6 dp.)"
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        -0.6,
+        0.0
+      ]
+    },
+    {
+      "id": 1,
+      "kind": "1",
+      "position": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "2",
+      "position": [
+        0.4,
+        0.0
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      -0.6,
+      0.0
+    ],
+    "direction": [
+      1,
+      0
+    ]
+  },
+  "options": {
+    "initialSpeed": 2.0,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          -0.6,
+          0.0
+        ],
+        "end": [
+          -0.057150000000000034,
+          0.0
+        ],
+        "entrySpeed": 2.0
+      },
+      {
+        "ball": 1,
+        "kind": "roll",
+        "start": [
+          0.0,
+          0.0
+        ],
+        "end": [
+          0.34285000000000004,
+          0.0
+        ],
+        "entrySpeed": 1.7849676299585937
+      },
+      {
+        "ball": 2,
+        "kind": "roll",
+        "start": [
+          0.4,
+          0.0
+        ],
+        "end": [
+          1.241425,
+          0.0
+        ],
+        "entrySpeed": 1.6187488686958207
+      },
+      {
+        "ball": 2,
+        "kind": "roll",
+        "start": [
+          1.241425,
+          0.0
+        ],
+        "end": [
+          0.40000000000000013,
+          0.0
+        ],
+        "entrySpeed": 1.0003220137515716
+      },
+      {
+        "ball": 1,
+        "kind": "roll",
+        "start": [
+          0.34285000000000004,
+          0.0
+        ],
+        "end": [
+          0.1961136486897668,
+          0.0
+        ],
+        "entrySpeed": 0.38306181134411355
+      }
+    ],
+    "events": [
+      {
+        "type": "ballBall",
+        "moving": 0,
+        "struck": 1,
+        "contact": [
+          -0.057150000000000034,
+          0.0
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 0,
+        "point": [
+          -0.057150000000000034,
+          0.0
+        ]
+      },
+      {
+        "type": "ballBall",
+        "moving": 1,
+        "struck": 2,
+        "contact": [
+          0.34285000000000004,
+          0.0
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 1,
+        "point": [
+          0.34285000000000004,
+          0.0
+        ]
+      },
+      {
+        "type": "cushion",
+        "ball": 2,
+        "point": [
+          1.241425,
+          0.0
+        ]
+      },
+      {
+        "type": "ballBall",
+        "moving": 2,
+        "struck": 1,
+        "contact": [
+          0.40000000000000013,
+          0.0
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 2,
+        "point": [
+          0.40000000000000013,
+          0.0
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 1,
+        "point": [
+          0.1961136486897668,
+          0.0
+        ]
+      }
+    ],
+    "pocketedBalls": []
+  }
+}

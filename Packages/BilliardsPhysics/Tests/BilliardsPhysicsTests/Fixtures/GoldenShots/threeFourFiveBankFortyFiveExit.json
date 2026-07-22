@@ -1,0 +1,93 @@
+{
+  "name": "threeFourFiveBankFortyFiveExit",
+  "description": "A 3-4-5 approach (dir (0.6, 0.8)) turns into an exact 45-degree exit because the normal component scales by 0.75: 0.8*0.75 = 0.6 = the tangential component.",
+  "derivation": [
+    "From (-0.5, 0.1) along (0.6, 0.8): rail hit after t = (0.606425 - 0.1)/0.8 = 0.633031 m at (-0.120181, 0.606425).",
+    "Side-pocket clearance: perpendicular distance to (0, 0.635) is sqrt(0.006241) ~= 0.079 m > 0.058 m.",
+    "Speed at rail sqrt(2.25 - 0.633031) ~= 1.271601; v_out = (0.6, -0.6)*1.271601 -> direction (1,-1)/sqrt2, speed ~= 1.078989.",
+    "Rolls v^2/(2a) ~= 1.164218 m to rest at ~(0.703045, -0.216801)."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        -0.5,
+        0.1
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      -0.5,
+      0.1
+    ],
+    "direction": [
+      0.6,
+      0.8
+    ]
+  },
+  "options": {
+    "initialSpeed": 1.5,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          -0.5,
+          0.1
+        ],
+        "end": [
+          -0.12018125000000007,
+          0.606425
+        ],
+        "entrySpeed": 1.5
+      },
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          -0.12018125000000007,
+          0.606425
+        ],
+        "end": [
+          0.7030448390260495,
+          -0.21680108902604978
+        ],
+        "entrySpeed": 1.078989110232351
+      }
+    ],
+    "events": [
+      {
+        "type": "cushion",
+        "ball": 0,
+        "point": [
+          -0.12018125000000007,
+          0.606425
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 0,
+        "point": [
+          0.7030448390260495,
+          -0.21680108902604978
+        ]
+      }
+    ],
+    "pocketedBalls": []
+  }
+}

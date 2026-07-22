@@ -1,0 +1,110 @@
+{
+  "name": "headOnStopShot",
+  "description": "Full ball hit: cue stuns dead at the ghost-ball point; object takes the normal component scaled by ball-ball restitution.",
+  "derivation": [
+    "Ghost-ball contact when centers are 2r = 0.05715 apart: travel t = 0.5 - 0.05715 = 0.44285 m.",
+    "Speed at contact v1 = sqrt(1^2 - 2*0.5*0.44285) = sqrt(0.55715) ~= 0.746425 m/s.",
+    "Head-on (cos(theta) = 1): cue tangent speed = 0 -> rests at the contact point (-0.05715, 0).",
+    "Object speed = v1*0.96 ~= 0.716568 m/s; rolls d = v^2/(2a) = 0.513469 m -> rest at (0.513469, 0)."
+  ],
+  "table": {
+    "size": "nineFoot"
+  },
+  "config": {
+    "rollingDeceleration": 0.5,
+    "cushionRestitution": 0.75,
+    "ballBallRestitution": 0.96,
+    "restSpeed": 0.05
+  },
+  "balls": [
+    {
+      "id": 0,
+      "kind": "cue",
+      "position": [
+        -0.5,
+        0.0
+      ]
+    },
+    {
+      "id": 1,
+      "kind": "1",
+      "position": [
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "aim": {
+    "origin": [
+      -0.5,
+      0.0
+    ],
+    "direction": [
+      1,
+      0
+    ]
+  },
+  "options": {
+    "initialSpeed": 1.0,
+    "maxEvents": 8
+  },
+  "tolerance": 1e-09,
+  "expected": {
+    "segments": [
+      {
+        "ball": 0,
+        "kind": "roll",
+        "start": [
+          -0.5,
+          0.0
+        ],
+        "end": [
+          -0.05714999999999998,
+          0.0
+        ],
+        "entrySpeed": 1.0
+      },
+      {
+        "ball": 1,
+        "kind": "roll",
+        "start": [
+          0.0,
+          0.0
+        ],
+        "end": [
+          0.5134694400000002,
+          0.0
+        ],
+        "entrySpeed": 0.7165678195397838
+      }
+    ],
+    "events": [
+      {
+        "type": "ballBall",
+        "moving": 0,
+        "struck": 1,
+        "contact": [
+          -0.05714999999999998,
+          0.0
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 0,
+        "point": [
+          -0.05714999999999998,
+          0.0
+        ]
+      },
+      {
+        "type": "rest",
+        "ball": 1,
+        "point": [
+          0.5134694400000002,
+          0.0
+        ]
+      }
+    ],
+    "pocketedBalls": []
+  }
+}
