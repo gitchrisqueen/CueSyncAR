@@ -204,6 +204,73 @@ final class SessionModel {
         }
     }
 
+    // MARK: Debug mirror (remote table-side debugging)
+
+    /// LAN HTTP server exposing the rendered screen + tracking state, so a
+    /// browser on the Mac can watch the iPad propped at the table (no cable).
+    @ObservationIgnored private(set) var debugMirror: DebugMirrorServer?
+    private(set) var debugMirrorURL: String?
+
+    func toggleDebugMirror() {
+        if let server = debugMirror {
+            server.stop()
+            debugMirror = nil
+            debugMirrorURL = nil
+            showTapFeedback("Debug mirror off")
+            return
+        }
+        do {
+            let server = try DebugMirrorServer()
+            debugMirror = server
+            let host = DebugMirrorServer.deviceIPAddress() ?? "<device-ip>"
+            debugMirrorURL = "http://\(host):\(DebugMirrorServer.port)"
+            Self.log.info("debug mirror at \(self.debugMirrorURL ?? "?", privacy: .public)")
+        } catch {
+            Self.log.error("debug mirror failed: \(String(describing: error), privacy: .public)")
+            showTapFeedback("Mirror failed to start (port in use?)")
+        }
+    }
+
+    /// Publish the newest rendered frame + a state snapshot (~1 Hz).
+    func publishMirrorFrame(_ jpeg: Data?) {
+        guard let server = debugMirror else { return }
+        server.update(jpeg: jpeg, stateJSON: mirrorStateJSON())
+    }
+
+    private func mirrorStateJSON() -> Data? {
+        var state: [String: Any] = [
+            "liveTracking": isLiveTracking,
+            "onDeviceDetection": usingOnDeviceDetection,
+            "calibrationLocked": calibration.isLocked,
+            "designatedCueBall": designatedCueBallID != nil,
+            "aimSource": String(describing: aimSource),
+            "calledShotOnLine": calledShotOnLine
+        ]
+        if let size = tableCalibration?.size {
+            state["tableSize"] = String(format: "%.2f x %.2f m",
+                                        size.playField.width, size.playField.height)
+        }
+        if let balls = tableState?.balls {
+            state["ballCount"] = balls.count
+            state["balls"] = balls.map { ball -> [String: Any] in
+                ["kind": String(describing: ball.kind),
+                 "x": (ball.position.x * 100).rounded() / 100,
+                 "y": (ball.position.y * 100).rounded() / 100,
+                 "confidence": (ball.confidence * 100).rounded() / 100]
+            }
+        }
+        if let guide = shotGuide {
+            state["shotGuide"] = guide.headline
+        }
+        state["hasPrediction"] = shotPrediction != nil
+        if let calledPocket { state["calledPocket"] = String(describing: calledPocket) }
+        if let sessionEvent { state["sessionEvent"] = sessionEvent }
+        if let error = previewStats.lastError { state["lastError"] = error }
+        if let tapFeedback { state["tapFeedback"] = tapFeedback }
+        return try? JSONSerialization.data(withJSONObject: state,
+                                           options: [.sortedKeys])
+    }
+
     func designateCueBall(near tablePoint: Vec2, maxDistance: Double = 0.25) {
         guard let balls = tableState?.balls, !balls.isEmpty else {
             Self.log.info("designateCueBall: no tracked balls (tableState \(self.tableState == nil ? "nil" : "empty", privacy: .public))")

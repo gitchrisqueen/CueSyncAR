@@ -40,6 +40,10 @@ targets:
     sources:
       - App/Sources
       - App/Resources/Assets.xcassets
+      # Core ML model must go through the SOURCES phase (Xcode compiles
+      # .mlpackage -> .mlmodelc); a plain resource copy ships it uncompiled.
+      - path: App/Resources/BallDetector.mlpackage
+        buildPhase: sources
     dependencies:
       - package: CueSyncCore
       - package: BilliardsPhysics
@@ -61,6 +65,7 @@ targets:
         UIRequiredDeviceCapabilities: [arkit]
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         # Secrets surfaced from App/Config/Secrets.xcconfig (untracked).

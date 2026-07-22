@@ -98,6 +98,14 @@ struct RootView: View {
                         .foregroundStyle(.primary)
                         .transition(.opacity)
                 }
+                if let mirrorURL = model.debugMirrorURL {
+                    Text("Mirror: \(mirrorURL)")
+                        .font(.caption.monospaced())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .foregroundStyle(.green)
+                }
                 Spacer()
                 if model.isLiveTracking, let guide = model.shotGuide {
                     HStack {
@@ -165,6 +173,7 @@ struct RootView: View {
             if !model.usingFrontCamera {
                 calibrateButton
             }
+            mirrorButton
             modelPicker
             if model.selectedModel != nil {
                 Text("\(model.previewStats.latencyMilliseconds) ms")
@@ -180,6 +189,27 @@ struct RootView: View {
                 .accessibilityLabel("Nudge detection box rotation")
             }
         }
+    }
+
+    /// Debug mirror toggle: serves the live screen + tracking state to any
+    /// browser on the same Wi-Fi (the iPad usually sits at the table, out
+    /// of reach of the Mac and its USB cable).
+    private var mirrorButton: some View {
+        Button {
+            model.toggleDebugMirror()
+        } label: {
+            Label("Debug mirror",
+                  systemImage: model.debugMirrorURL == nil
+                      ? "dot.radiowaves.left.and.right"
+                      : "dot.radiowaves.left.and.right")
+                .labelStyle(.iconOnly)
+                .foregroundStyle(model.debugMirrorURL == nil
+                                 ? Color.primary : Color.green)
+        }
+        .accessibilityLabel(model.debugMirrorURL == nil
+                            ? "Start debug mirror"
+                            : "Stop debug mirror")
+        .accessibilityIdentifier("debug-mirror-button")
     }
 
     /// Toggle between the AR back camera and the plain front-camera
@@ -384,6 +414,7 @@ struct ARCameraView: View {
         // never reconfigures the session.
         var planeDetectionStarted = false
         var relocalizationDeadline: Date?
+        var lastMirrorPublishAt = Date.distantPast
         if CalibrationStore.load() != nil {
             coordinator.enablePlaneDetection(
                 restoringWorldMapAt: CalibrationStore.hasWorldMap
@@ -474,6 +505,14 @@ struct ARCameraView: View {
                    let frame = await coordinator.nextFrame() {
                     model.ingestPreviewFrame(frame)
                 }
+            }
+            // Debug mirror: ship the rendered screen (camera + overlays)
+            // to any browser on the LAN at ~1 Hz while enabled.
+            if model.debugMirror != nil,
+               Date().timeIntervalSince(lastMirrorPublishAt) >= 1.0 {
+                lastMirrorPublishAt = Date()
+                let jpeg = await coordinator.snapshotJPEG()
+                model.publishMirrorFrame(jpeg)
             }
             try? await Task.sleep(for: .milliseconds(150))
         }

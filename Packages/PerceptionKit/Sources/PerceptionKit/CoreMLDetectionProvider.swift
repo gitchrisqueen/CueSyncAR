@@ -27,8 +27,16 @@ public enum VisionBoxMapping {
 
 #if canImport(Vision) && canImport(CoreML) && canImport(CoreVideo)
 import CoreML
-import CoreVideo
-import Vision
+@preconcurrency import CoreVideo
+@preconcurrency import Vision
+
+/// Carries a non-Sendable value onto the inference queue. Safe here by
+/// construction: each boxed value is used by exactly one closure at a time
+/// (VNCoreMLModel is immutable after creation; each pixel buffer is a deep
+/// copy owned by its frame).
+private struct UncheckedSendable<Value>: @unchecked Sendable {
+    let value: Value
+}
 
 /// Apple-platform image buffer carrying the camera pixel buffer.
 public struct PixelBufferImage: ImageBufferProviding, @unchecked Sendable {
@@ -75,18 +83,18 @@ public final class CoreMLDetectionProvider: DetectionProviding, @unchecked Senda
         guard let image = frame.image as? PixelBufferImage else {
             throw CoreMLDetectionError.unsupportedFrame
         }
-        let buffer = image.pixelBuffer
-        let model = visionModel
+        let buffer = UncheckedSendable(value: image.pixelBuffer)
+        let model = UncheckedSendable(value: visionModel)
         return try await withCheckedThrowingContinuation { continuation in
             inferenceQueue.async {
                 do {
-                    let request = VNCoreMLRequest(model: model)
+                    let request = VNCoreMLRequest(model: model.value)
                     // scaleFill matches training: the dataset version was
                     // generated with "Stretch to 640x640", so inference
                     // must stretch the same way; box coords map straight
                     // back to the full image.
                     request.imageCropAndScaleOption = .scaleFill
-                    let handler = VNImageRequestHandler(cvPixelBuffer: buffer,
+                    let handler = VNImageRequestHandler(cvPixelBuffer: buffer.value,
                                                         orientation: .up)
                     try handler.perform([request])
                     let observations = request.results as? [VNRecognizedObjectObservation] ?? []

@@ -266,6 +266,18 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
         continuation.resume(returning: captured)
     }
 
+    /// Snapshot the RENDERED view (camera background + RealityKit overlay
+    /// entities) as JPEG — the debug mirror's frame source. Captures what
+    /// the user actually sees, unlike raw camera frames.
+    public func snapshotJPEG(compressionQuality: CGFloat = 0.5) async -> Data? {
+        await withCheckedContinuation { continuation in
+            arView.snapshot(saveToHDR: false) { image in
+                continuation.resume(
+                    returning: image?.jpegData(compressionQuality: compressionQuality))
+            }
+        }
+    }
+
     /// The camera's current pose (camera-to-world), for aim derivation at
     /// UI cadence without pulling a full frame.
     public var currentCameraTransform: Transform3D? {

@@ -14,8 +14,14 @@ import SwiftUI
 
 #if canImport(AVFoundation) && !targetEnvironment(simulator)
 import ARExperience
-import AVFoundation
+@preconcurrency import AVFoundation
 import PerceptionKit
+
+/// Carries the capture session onto its serial configuration queue. Safe by
+/// construction: all session mutation happens on `sessionQueue`.
+private struct UncheckedSendable<Value>: @unchecked Sendable {
+    let value: Value
+}
 
 struct FrontCameraPreviewView: UIViewRepresentable {
     @Environment(SessionModel.self) private var model
@@ -60,7 +66,9 @@ final class FrontCameraCaptureView: UIView {
     func start() {
         previewLayer.session = session
         previewLayer.videoGravity = .resizeAspectFill
-        sessionQueue.async { [session, delegateProxy] in
+        let box = UncheckedSendable(value: session)
+        sessionQueue.async { [box, delegateProxy] in
+            let session = box.value
             guard session.inputs.isEmpty,
                   let device = AVCaptureDevice.default(.builtInWideAngleCamera,
                                                        for: .video, position: .front),
@@ -82,8 +90,9 @@ final class FrontCameraCaptureView: UIView {
     }
 
     func stop() {
-        sessionQueue.async { [session] in
-            session.stopRunning()
+        let box = UncheckedSendable(value: session)
+        sessionQueue.async { [box] in
+            box.value.stopRunning()
         }
     }
 }

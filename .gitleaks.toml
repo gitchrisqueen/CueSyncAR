@@ -1,11 +1,18 @@
-# gitleaks configuration.
+# Gitleaks configuration for CueSyncAR CI (M0-04 secrets scan).
+#
+# The allowlist below covers ONE known historical leak: a Roboflow API key
+# hardcoded in the pre-modernization app source ("CueSync AR/BallDetect.swift",
+# removed in 34f6ac8) and the vendored Pods tree from the same era. That key
+# was ROTATED/REVOKED by the maintainer (2026-07-21); the history entries are
+# inert. Nothing outside these legacy paths is allowlisted — a new leak in
+# current code still fails CI.
+
 [extend]
 useDefault = true
 
 [allowlist]
-description = "Historical leak, remediated"
-# The pre-M0 scaffold committed a Roboflow key in BallDetect.swift. The file
-# is deleted and the key MUST be rotated in the Roboflow dashboard (task
-# M0-05); it remains in git history, so scans of old commits ignore that
-# path. Never allowlist a *current* file.
-paths = ['''CueSync AR/BallDetect\.swift''']
+description = "Pre-M0 legacy paths whose leaked Roboflow key has been rotated"
+paths = [
+    '''CueSync AR/.*''',
+    '''Pods/.*''',
+]

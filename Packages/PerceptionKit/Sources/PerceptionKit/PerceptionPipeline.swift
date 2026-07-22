@@ -127,7 +127,9 @@ public actor PerceptionPipeline {
             #if canImport(os)
             if frameCount == 1 || frameCount % 40 == 0 {
                 let kinds = balls.map { String(describing: $0.kind) }.joined(separator: ",")
-                Self.log.info("frame #\(self.frameCount): detections=\(detections.count) projected=\(observations.count) confirmed=\(balls.count) kinds=[\(kinds, privacy: .public)]")
+                let summary = "detections=\(detections.count) projected=\(observations.count)"
+                    + " confirmed=\(balls.count) kinds=[\(kinds)]"
+                Self.log.info("frame #\(self.frameCount): \(summary, privacy: .public)")
                 // Ball table positions — sanity-check the projection math
                 // against the real cloth layout.
                 if !balls.isEmpty {

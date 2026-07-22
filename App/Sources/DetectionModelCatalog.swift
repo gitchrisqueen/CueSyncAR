@@ -29,7 +29,7 @@ enum DetectionModelCatalog {
         // Table detection: not needed for MVP calibration (ARKit plane +
         // corners does that) — included to observe whether it could later
         // auto-propose rail corners (M3-02 enhancement).
-        //RoboflowModelRef(slug: "pool-table-detection", version: 6,
-        //                 label: "leonardo — TABLE detection")
+        // RoboflowModelRef(slug: "pool-table-detection", version: 6,
+        //                  label: "leonardo — TABLE detection")
     ]
 }
