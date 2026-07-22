@@ -86,8 +86,12 @@ struct CushionTests {
         #expect(outDir.x > 0)
         #expect(outDir.y < 0)
 
-        // Restitution: |vy| scaled by e, vx preserved → tan of exit angle = e·tan(entry).
-        let expectedOut = Vec2(direction.x, -direction.y * config.cushionRestitution).normalized
+        // Rail model: |vy| (normal) scaled by the COR e, |vx| (tangential)
+        // scaled by the retention factor f. With f < e the rebound is
+        // steeper than the mirror (banks play short at speed — Alciatore,
+        // "bank shots go short with more speed").
+        let expectedOut = Vec2(direction.x * config.cushionTangentialRetention,
+                               -direction.y * config.cushionRestitution).normalized
         #expect(abs(outDir.x - expectedOut.x) < 1e-9)
         #expect(abs(outDir.y - expectedOut.y) < 1e-9)
     }

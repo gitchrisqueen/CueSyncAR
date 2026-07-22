@@ -213,14 +213,32 @@ final class SessionModel {
     /// Raw detector labels from the latest pipeline frame (debug mirror).
     @ObservationIgnored private(set) var latestDetectionLabels: [String] = []
 
+    private static let mirrorPreferenceKey = "debugMirrorEnabled"
+
     func toggleDebugMirror() {
         if let server = debugMirror {
             server.stop()
             debugMirror = nil
             debugMirrorURL = nil
+            UserDefaults.standard.set(false, forKey: Self.mirrorPreferenceKey)
             showTapFeedback("Debug mirror off")
             return
         }
+        startDebugMirror()
+        UserDefaults.standard.set(debugMirror != nil, forKey: Self.mirrorPreferenceKey)
+    }
+
+    /// Bring the mirror up if the preference allows (default ON): the
+    /// device usually sits at the table out of reach, so the mirror must
+    /// survive app relaunches without a hand touching the screen.
+    func startDebugMirrorIfEnabled() {
+        guard debugMirror == nil,
+              UserDefaults.standard.object(forKey: Self.mirrorPreferenceKey) as? Bool ?? true
+        else { return }
+        startDebugMirror()
+    }
+
+    private func startDebugMirror() {
         do {
             let server = try DebugMirrorServer()
             debugMirror = server
@@ -450,6 +468,13 @@ final class SessionModel {
     /// UI cadence — solver is sub-ms). The detected cue stick wins when
     /// it's addressing the ball; the device-pose sighting model is the
     /// fallback so aiming always works without a stick in frame.
+    /// Guide predictions use a firm-shot speed so trajectories reach the
+    /// rails and show their ricochets (a 2 m/s lag-speed default dies
+    /// mid-table — the user sees a line that just stops). 3.5 m/s with
+    /// the effective cloth deceleration crosses the table several times;
+    /// the 8-event budget still bounds the polyline.
+    private static let guideOptions = SolverOptions(initialSpeed: 3.5)
+
     @ObservationIgnored private var lastAimNilLogAt: Date = .distantPast
     /// Aim stabilization state (see AimStabilizer): smoothing + deadband.
     @ObservationIgnored private var aimStabilizer = AimStabilizer()
@@ -535,7 +560,8 @@ final class SessionModel {
             return
         }
         lastPredictedState = state
-        let prediction = solver.predict(state: state, aim: aim, options: .default)
+        let prediction = solver.predict(state: state, aim: aim,
+                                        options: Self.guideOptions)
         shotPrediction = prediction
         shotGuide = ShotGuide.recommend(state: state, prediction: prediction)
         calledShotOnLine = calledPocket.map { called in
@@ -581,6 +607,7 @@ final class SessionModel {
     func bootstrap() async {
         await registry.register(AnalyticSolver() as any TrajectorySolving)
         await registry.register(AppSecrets() as any SecretsProviding)
+        startDebugMirrorIfEnabled()
         // M2-01 winner, bundled: YOLOv11n on the pool-ball-agzev fork,
         // mAP50 0.896 / mAP50-95 0.765 (Linux fine-tune, epoch 19).
         // The MVP works offline on this model; the hosted picker remains

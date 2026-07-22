@@ -1,7 +1,8 @@
 {
   "name": "customConfigCushionBounce",
-  "description": "Non-standard config (a = 1.0, cushion e = 0.5): the 45-degree approach exits along (2,-1)/sqrt5 and friction is twice as strong.",
+  "description": "Non-standard config (a = 1.0, cushion e = 0.5, tangential retention 1.0): retention 1.0 restores the ideal mirror-tangential model, so the 45-degree approach exits along (2,-1)/sqrt5 and friction is twice as strong. Pins the retention knob's decode + legacy-mirror behavior.",
   "derivation": [
+    "cushionTangentialRetention = 1.0: tangential component preserved (ideal mirror), only the normal scales by e = 0.5.",
     "Same geometry as fortyFiveCushionBounce: rail hit at (-0.293575, 0.606425) after 0.857614 m.",
     "Stop distance is now v^2/(2a) = 1.96/2 = 0.98 m, so the rail is reached with speed sqrt(1.96 - 2*0.857614) ~= 0.494743.",
     "e = 0.5: exit direction (1, -0.5)/|.| = (2,-1)/sqrt5; exit speed ~= 0.391129.",
@@ -14,7 +15,8 @@
     "rollingDeceleration": 1.0,
     "cushionRestitution": 0.5,
     "ballBallRestitution": 0.9,
-    "restSpeed": 0.05
+    "restSpeed": 0.05,
+    "cushionTangentialRetention": 1.0
   },
   "balls": [
     {

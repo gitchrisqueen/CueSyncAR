@@ -10,8 +10,10 @@
 //    spheres: the struck ball departs along the center line with the normal
 //    component of velocity; the moving ball continues along the tangent line
 //    with the tangential component (stun — no follow/draw in MVP).
-//  - Cushions reflect the velocity component normal to the rail, scaled by a
-//    restitution coefficient.
+//  - Cushions reverse the velocity component normal to the rail scaled by a
+//    restitution coefficient, and scale the tangential component by a
+//    retention factor (< restitution ⇒ rebound steeper than mirror; real
+//    banks play "short" at speed).
 //  - A moving ball whose center passes within a pocket's capture radius is
 //    pocketed.
 //
@@ -25,26 +27,60 @@ import CueSyncCore
 import Foundation
 
 public struct PhysicsConfig: Sendable, Equatable, Codable {
-    /// Constant rolling deceleration, m/s². Empirical cloth value for MVP.
+    /// Constant rolling deceleration, m/s². An *effective* cloth value: pure
+    /// rolling resistance is ~0.1 m/s² (μr ≈ 0.01, Alciatore TP A.4), but the
+    /// MVP folds the brief high-friction sliding phase (μ ≈ 0.2 → ~2 m/s²
+    /// before natural roll) into one constant, landing in the 0.25–0.5 m/s²
+    /// band that matches observed table-length rollouts (a 2 m/s lag crosses
+    /// ~1.5–2 table lengths and dies, not the 20 m that 0.1 m/s² predicts).
     public var rollingDeceleration: Double
-    /// Speed multiplier for the normal component after a cushion bounce.
+    /// Speed multiplier for the velocity component *normal* to a cushion
+    /// after a bounce (effective cushion COR; real rails measure ~0.6–0.85).
     public var cushionRestitution: Double
-    /// Energy-transfer efficiency of a ball-ball impact.
+    /// Fraction of the along-impact-line speed transferred to the struck
+    /// ball. Equals (1 + e)/2 for true ball-ball COR e; phenolic balls have
+    /// e ≈ 0.92–0.96, so the transfer fraction is 0.96–0.98.
     public var ballBallRestitution: Double
     /// Below this speed (m/s) a ball is considered at rest.
     public var restSpeed: Double
+    /// Speed multiplier for the velocity component *tangent* to a cushion
+    /// after a bounce (cloth/rail friction, ~0.7–0.9). With retention below
+    /// cushionRestitution the rebound leaves the rail steeper than a mirror
+    /// (angle from the rail normal shrinks) — real banks play "short".
+    /// 1.0 restores the ideal mirror model.
+    public var cushionTangentialRetention: Double
 
     public init(rollingDeceleration: Double = 0.5,
                 cushionRestitution: Double = 0.75,
                 ballBallRestitution: Double = 0.96,
-                restSpeed: Double = 0.05) {
+                restSpeed: Double = 0.05,
+                cushionTangentialRetention: Double = 0.7) {
         self.rollingDeceleration = rollingDeceleration
         self.cushionRestitution = cushionRestitution
         self.ballBallRestitution = ballBallRestitution
         self.restSpeed = restSpeed
+        self.cushionTangentialRetention = cushionTangentialRetention
     }
 
     public static let standard = PhysicsConfig()
+
+    // Manual Codable so configs persisted before cushionTangentialRetention
+    // existed (and hand-written fixtures that omit it) decode with the
+    // standard default instead of failing.
+    private enum CodingKeys: String, CodingKey {
+        case rollingDeceleration, cushionRestitution, ballBallRestitution
+        case restSpeed, cushionTangentialRetention
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        rollingDeceleration = try c.decode(Double.self, forKey: .rollingDeceleration)
+        cushionRestitution = try c.decode(Double.self, forKey: .cushionRestitution)
+        ballBallRestitution = try c.decode(Double.self, forKey: .ballBallRestitution)
+        restSpeed = try c.decode(Double.self, forKey: .restSpeed)
+        cushionTangentialRetention = try c.decodeIfPresent(
+            Double.self, forKey: .cushionTangentialRetention) ?? 0.7
+    }
 }
 
 public struct AnalyticSolver: TrajectorySolving {
@@ -129,7 +165,13 @@ public struct AnalyticSolver: TrajectorySolving {
                     let speedAtHit = ball.speed(after: t, config: config)
                     let vIn = ball.direction * speedAtHit
                     let normalComponent = vIn.dot(normal)
-                    let vOut = vIn - normal * (normalComponent * (1 + config.cushionRestitution))
+                    // Normal component reverses scaled by the cushion COR;
+                    // tangential component is scaled by the retention factor
+                    // (rail/cloth friction). Retention < COR ⇒ rebound is
+                    // steeper than the mirror angle: banks play "short".
+                    let tangential = vIn - normal * normalComponent
+                    let vOut = tangential * config.cushionTangentialRetention
+                        - normal * (normalComponent * config.cushionRestitution)
                     ball.position = hit
                     ball.speed = vOut.length
                     ball.direction = vOut.normalized
@@ -237,20 +279,24 @@ public struct AnalyticSolver: TrajectorySolving {
         }
 
         // Cushions: the ball center reflects off the field inset by its radius.
+        // A negative distance means the center is already at/beyond the
+        // reflection line while still moving outward (detected flush on a
+        // rail, or in a pocket jaw): clamp to an immediate bounce instead of
+        // teleporting the ball backward along its ray.
         let he = table.halfExtents
         let bounds = Vec2(he.x - ball.radius, he.y - ball.radius)
         if ball.direction.x > 1e-12 {
-            consider(.cushion(t: (bounds.x - ball.position.x) / ball.direction.x,
+            consider(.cushion(t: Swift.max(0, (bounds.x - ball.position.x) / ball.direction.x),
                               normal: Vec2(-1, 0)))
         } else if ball.direction.x < -1e-12 {
-            consider(.cushion(t: (-bounds.x - ball.position.x) / ball.direction.x,
+            consider(.cushion(t: Swift.max(0, (-bounds.x - ball.position.x) / ball.direction.x),
                               normal: Vec2(1, 0)))
         }
         if ball.direction.y > 1e-12 {
-            consider(.cushion(t: (bounds.y - ball.position.y) / ball.direction.y,
+            consider(.cushion(t: Swift.max(0, (bounds.y - ball.position.y) / ball.direction.y),
                               normal: Vec2(0, -1)))
         } else if ball.direction.y < -1e-12 {
-            consider(.cushion(t: (-bounds.y - ball.position.y) / ball.direction.y,
+            consider(.cushion(t: Swift.max(0, (-bounds.y - ball.position.y) / ball.direction.y),
                               normal: Vec2(0, 1)))
         }
 

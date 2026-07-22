@@ -1,11 +1,14 @@
 {
-  "name": "threeFourFiveBankFortyFiveExit",
-  "description": "A 3-4-5 approach (dir (0.6, 0.8)) turns into an exact 45-degree exit because the normal component scales by 0.75: 0.8*0.75 = 0.6 = the tangential component.",
+  "name": "threeFourFiveBankShortExit",
+  "description": "A 3-4-5 approach (dir (0.6, 0.8)) into the top rail: normal 0.8 scales by COR 0.75 to 0.6, tangential 0.6 scales by retention 0.7 to 0.42, so the exit runs along (0.42, -0.6) = (7, -10)/sqrt(149) - steeper than the mirror-with-COR 45-degree exit this fixture used to pin (banks play short).",
   "derivation": [
     "From (-0.5, 0.1) along (0.6, 0.8): rail hit after t = (0.606425 - 0.1)/0.8 = 0.633031 m at (-0.120181, 0.606425).",
     "Side-pocket clearance: perpendicular distance to (0, 0.635) is sqrt(0.006241) ~= 0.079 m > 0.058 m.",
-    "Speed at rail sqrt(2.25 - 0.633031) ~= 1.271601; v_out = (0.6, -0.6)*1.271601 -> direction (1,-1)/sqrt2, speed ~= 1.078989.",
-    "Rolls v^2/(2a) ~= 1.164218 m to rest at ~(0.703045, -0.216801)."
+    "Speed at rail sqrt(2.25 - 0.633031) ~= 1.271601; v_in = (0.762961, 1.017281).",
+    "Rail model: v_out = (0.7*0.762961, -0.75*1.017281) = (0.534073, -0.762961) -> direction (7,-10)/sqrt(149), speed ~= 0.931312.",
+    "Exit angle from the rail normal: atan(0.42/0.6) ~= 35.0 deg vs the 45 deg the old mirror-with-COR model produced.",
+    "Rolls v^2/(2a) ~= 0.867343 m to rest at ~(0.377207, -0.104129).",
+    "(Numbers in the JSON are exact IEEE doubles; the commentary rounds to 6 dp.)"
   ],
   "table": {
     "size": "nineFoot"
@@ -14,7 +17,8 @@
     "rollingDeceleration": 0.5,
     "cushionRestitution": 0.75,
     "ballBallRestitution": 0.96,
-    "restSpeed": 0.05
+    "restSpeed": 0.05,
+    "cushionTangentialRetention": 0.7
   },
   "balls": [
     {
@@ -64,10 +68,10 @@
           0.606425
         ],
         "end": [
-          0.7030448390260495,
-          -0.21680108902604978
+          0.37720674818961575,
+          -0.10412928312802272
         ],
-        "entrySpeed": 1.078989110232351
+        "entrySpeed": 0.9313119979362449
       }
     ],
     "events": [
@@ -83,8 +87,8 @@
         "type": "rest",
         "ball": 0,
         "point": [
-          0.7030448390260495,
-          -0.21680108902604978
+          0.37720674818961575,
+          -0.10412928312802272
         ]
       }
     ],

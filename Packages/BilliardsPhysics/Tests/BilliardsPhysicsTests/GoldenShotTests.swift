@@ -32,7 +32,7 @@ private let goldenFixtureNames: [String] = [
     "tooSoftShotEmptyPrediction",
     "sevenFootSidePocketScratch",
     "customConfigCushionBounce",
-    "threeFourFiveBankFortyFiveExit",
+    "threeFourFiveBankShortExit",
     "headOnDriveToCushionReturn",
     "cutShotPotsCorner",
     "doubleHeadOnBank"

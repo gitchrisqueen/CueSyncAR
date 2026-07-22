@@ -1,12 +1,13 @@
 {
   "name": "fortyFiveCushionBounce",
-  "description": "45-degree approach to the top rail exits along (0.8, -0.6): tangential velocity preserved, normal scaled by cushion restitution 0.75 (3-4-5 triangle).",
+  "description": "45-degree approach to the top rail: normal component reverses scaled by cushion restitution 0.75, tangential component scaled by retention 0.7. Retention < restitution makes the rebound STEEPER than the mirror (43.0 degrees from the rail normal instead of 45) - real banks play short (Alciatore, billiards.colostate.edu bank-shot analysis).",
   "derivation": [
     "Path from (-0.9, 0) along (1,1)/sqrt2 meets the reflection line y = 0.635 - r = 0.606425 after t = 0.606425*sqrt2 ~= 0.857614 m at (-0.293575, 0.606425).",
-    "Speed there: sqrt(1.4^2 - 2*0.5*0.857614) ~= 1.049945 m/s.",
-    "Reflection: vx preserved, vy -> -0.75*vy, so exit direction is (1, -0.75)/|.| = (0.8, -0.6) exactly.",
-    "Exit speed |v_out| = v_hit*sqrt(1 + 0.75^2)/sqrt2 ~= 0.928029; rolls v^2/(2a) ~= 0.861239 m to rest at ~(0.395416, 0.089682).",
-    "Checks angle-of-reflection + energy loss at a rail: tan(exit) = e * tan(entry)."
+    "Speed there: sqrt(1.4^2 - 2*0.5*0.857614) ~= 1.049945 m/s; v_in = (0.742424, 0.742424).",
+    "Rail model: vx -> 0.7*vx (tangential retention f), vy -> -0.75*vy (normal COR e): v_out = (0.519697, -0.556818), exit direction (14, -15)/sqrt(421).",
+    "Exit angle from the rail normal: atan(0.7/0.75) ~= 43.025 deg < 45 deg mirror - the bank shortens by ~2 deg because f < e.",
+    "Exit speed |v_out| ~= 0.761663 m/s; rolls v^2/(2a) ~= 0.580131 m to rest at ~(0.102259, 0.182318).",
+    "(Numbers in the JSON are exact IEEE doubles; the commentary rounds to 6 dp.)"
   ],
   "table": {
     "size": "nineFoot"
@@ -15,7 +16,8 @@
     "rollingDeceleration": 0.5,
     "cushionRestitution": 0.75,
     "ballBallRestitution": 0.96,
-    "restSpeed": 0.05
+    "restSpeed": 0.05,
+    "cushionTangentialRetention": 0.7
   },
   "balls": [
     {
@@ -65,10 +67,10 @@
           0.606425
         ],
         "end": [
-          0.3954159627736846,
-          0.08968177791973653
+          0.10225855313269117,
+          0.1823176216435451
         ],
-        "entrySpeed": 0.9280294733827724
+        "entrySpeed": 0.7616629114348699
       }
     ],
     "events": [
@@ -84,8 +86,8 @@
         "type": "rest",
         "ball": 0,
         "point": [
-          0.3954159627736846,
-          0.08968177791973653
+          0.10225855313269117,
+          0.1823176216435451
         ]
       }
     ],
