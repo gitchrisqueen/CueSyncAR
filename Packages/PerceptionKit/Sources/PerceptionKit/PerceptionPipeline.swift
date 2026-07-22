@@ -27,10 +27,15 @@ public struct PerceptionOutput: Sendable {
     /// bounding-box corners, in image order TL, TR, BR, BL — StickAim's
     /// input. Nil when no stick is confidently visible.
     public var stickQuad: [Vec2]?
+    /// Raw detector labels for this frame ("white-ball 82%"), strongest
+    /// first — ground truth for debugging class/kind mapping live.
+    public var detectionLabels: [String]
 
-    public init(state: TableState, stickQuad: [Vec2]? = nil) {
+    public init(state: TableState, stickQuad: [Vec2]? = nil,
+                detectionLabels: [String] = []) {
         self.state = state
         self.stickQuad = stickQuad
+        self.detectionLabels = detectionLabels
     }
 }
 
@@ -102,6 +107,14 @@ public actor PerceptionPipeline {
                 try await detector.prepare()
                 prepared = true
             }
+            // Playing-surface gate: a detection whose box is clipped by the
+            // frame edge, or that matches something OFF the table (window
+            // reflections, balls on a shelf), unprojects to a point far
+            // outside the cloth — observed live as phantom tracks at
+            // (-4.5, -3.3) on a 2.34 m table. A ball can legitimately sit
+            // against a cushion, so allow a small margin beyond half-extents.
+            let bounds = Table(size: calibration.size).halfExtents
+            let margin = Ball.standardRadius * 2
             let detections = try await detector.detect(in: frame)
             let observations = detections.compactMap { detection -> BallObservation? in
                 // Cue-stick detections are not balls — feeding them to the
@@ -115,6 +128,8 @@ public actor PerceptionPipeline {
                     imagePoint: detection.boundingBox.footPoint, frame: frame)
                 else { return nil }
                 let table = calibration.worldToTable(world)
+                guard abs(table.x) <= bounds.x + margin,
+                      abs(table.y) <= bounds.y + margin else { return nil }
                 return BallObservation(kind: detection.ballKind,
                                        position: table,
                                        confidence: detection.confidence)
@@ -140,9 +155,14 @@ public actor PerceptionPipeline {
                 }
             }
             #endif
+            let labels = detections
+                .sorted { $0.confidence > $1.confidence }
+                .prefix(12)
+                .map { "\($0.classLabel) \(Int($0.confidence * 100))%" }
             continuation.yield(PerceptionOutput(state: state,
                                                 stickQuad: stickQuad(in: detections,
-                                                                     frame: frame)))
+                                                                     frame: frame),
+                                                detectionLabels: Array(labels)))
         } catch {
             // A failed frame is dropped; the previous state stands — but
             // NEVER silently: a permanently-failing detector looks like

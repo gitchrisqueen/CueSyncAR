@@ -210,6 +210,8 @@ final class SessionModel {
     /// browser on the Mac can watch the iPad propped at the table (no cable).
     @ObservationIgnored private(set) var debugMirror: DebugMirrorServer?
     private(set) var debugMirrorURL: String?
+    /// Raw detector labels from the latest pipeline frame (debug mirror).
+    @ObservationIgnored private(set) var latestDetectionLabels: [String] = []
 
     func toggleDebugMirror() {
         if let server = debugMirror {
@@ -261,6 +263,9 @@ final class SessionModel {
         }
         if let guide = shotGuide {
             state["shotGuide"] = guide.headline
+        }
+        if !latestDetectionLabels.isEmpty {
+            state["rawDetections"] = latestDetectionLabels
         }
         state["hasPrediction"] = shotPrediction != nil
         if let calledPocket { state["calledPocket"] = String(describing: calledPocket) }
@@ -379,6 +384,7 @@ final class SessionModel {
                     guard let self else { return }
                     self.tableState = self.applyingCueDesignation(output.state)
                     self.stickQuad = output.stickQuad
+                    self.latestDetectionLabels = output.detectionLabels
                     if count == 1 || count % 40 == 0 {
                         let state = self.tableState
                         let summary = "balls=\(state?.balls.count ?? 0)"

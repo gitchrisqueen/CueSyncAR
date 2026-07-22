@@ -560,7 +560,13 @@ private struct PocketCallCatcher: View {
                     }
                 }
                 if let best {
+                    let wasCalled = model.calledPocket == best.id
                     model.togglePocketCall(best.id)
+                    let action = wasCalled ? "cleared" : "called"
+                    let summary = "pocket \(best.id) \(action)"
+                    SessionModel.log.info("tap: \(summary, privacy: .public)")
+                    model.showTapFeedback(wasCalled ? "Pocket call cleared"
+                                          : "Pocket called — sink a ball there")
                     return
                 }
                 // Not a pocket tap: try cue-ball designation — covers cue

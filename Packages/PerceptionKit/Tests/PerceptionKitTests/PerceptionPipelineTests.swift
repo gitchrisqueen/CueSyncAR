@@ -73,6 +73,35 @@ struct PerceptionPipelineTests {
         #expect(state.timestamp == 5.0 / 30)
     }
 
+    @Test func rejectsObservationsProjectingOffTheTable() async throws {
+        let detections = [
+            // On the cloth: kept.
+            Detection2D(classLabel: "white-ball",
+                        boundingBox: NormalizedRect(x: 0.475, y: 0.475, width: 0.05, height: 0.05),
+                        confidence: 0.9),
+            // Box clipped at the frame edge: its foot point unprojects far
+            // beyond the rails (the live "phantom tracks at (-4.5, -3.3)"
+            // failure) — must never reach the tracker.
+            Detection2D(classLabel: "9",
+                        boundingBox: NormalizedRect(x: 0.45, y: 0.9, width: 0.1, height: 2.0),
+                        confidence: 0.9)
+        ]
+        let pipeline = PerceptionPipeline(
+            detector: FixtureDetectionProvider(constant: detections),
+            calibration: calibration,
+            raycaster: LinearFixtureRaycaster(calibration: calibration))
+
+        var iterator = await pipeline.outputs.makeAsyncIterator()
+        var lastState: TableState?
+        for index in 0..<6 {
+            await pipeline.ingest(makeFrame(index))
+            lastState = await iterator.next()?.state
+        }
+        let state = try #require(lastState)
+        #expect(state.balls.count == 1)
+        #expect(state.cueBall != nil)
+    }
+
     @Test func appearanceGateDelaysFirstReport() async throws {
         let detections = [
             Detection2D(classLabel: "white-ball",
