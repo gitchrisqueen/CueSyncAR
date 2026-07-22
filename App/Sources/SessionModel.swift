@@ -276,6 +276,17 @@ final class SessionModel {
                                            options: [.sortedKeys])
     }
 
+    /// Drop every tracked ball and start tracking fresh (long-press during
+    /// live tracking). Calibration stays locked — this is the escape hatch
+    /// for stale tracks after balls were racked/moved en masse.
+    func resetBallTracking() {
+        guard isLiveTracking else { return }
+        stopLiveTracking()
+        startLiveTrackingIfReady()
+        Self.log.info("ball tracking reset by user")
+        showTapFeedback("Ball tracking reset — re-detecting…")
+    }
+
     func designateCueBall(near tablePoint: Vec2, maxDistance: Double = 0.25) {
         guard let balls = tableState?.balls, !balls.isEmpty else {
             let reason = tableState == nil ? "nil" : "empty"

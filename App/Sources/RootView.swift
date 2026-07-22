@@ -590,7 +590,13 @@ private struct PocketCallCatcher: View {
                     model.showTapFeedback("Couldn't find the table under that tap")
                 }
             }
-            .accessibilityLabel("Tap a pocket to call it, or a ball to mark it as the cue ball")
+            .onLongPressGesture(minimumDuration: 0.8) {
+                model.resetBallTracking()
+            }
+            .accessibilityLabel("""
+                Tap a pocket to call it, or a ball to mark it as the cue \
+                ball; long-press to reset ball tracking
+                """)
     }
 }
 

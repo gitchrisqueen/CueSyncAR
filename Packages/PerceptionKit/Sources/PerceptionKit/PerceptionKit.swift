@@ -50,4 +50,11 @@ public struct PerceptionConfig: Sendable, Equatable {
 
 public extension PlaneRaycasting {
     func projectToImage(worldPoint: Vec3, frame: CapturedFrame) -> Vec2? { nil }
+
+    /// Height-aware raycast (see PlaneGeometryRaycaster). Implementations
+    /// without the capability fall back to the cloth-plane raycast.
+    func raycastToTablePlane(imagePoint: Vec2, frame: CapturedFrame,
+                             planeHeightOffset: Double) -> Vec3? {
+        raycastToTablePlane(imagePoint: imagePoint, frame: frame)
+    }
 }

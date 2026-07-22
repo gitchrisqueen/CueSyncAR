@@ -133,4 +133,37 @@ struct PlaneGeometryRaycasterTests {
         #expect(abs(roundTrip.y - image.y) < 1e-9)
     }
 
+    @Test func heightOffsetRaycastLandsOnTheClothBeyondTheFootPoint() throws {
+        let calibration = TableCalibration(origin: Vec3(0, -1, 0),
+                                           xAxis: Vec3(1, 0, 0),
+                                           yAxis: Vec3(0, 0, -1),
+                                           size: .nineFoot)
+        let raycaster = PlaneGeometryRaycaster(calibration: calibration)
+        let frame = CapturedFrame(
+            timestamp: 0,
+            cameraTransform: .identity,
+            image: FixtureImageBuffer(),
+            intrinsics: CameraIntrinsics(focalX: 1000, focalY: 1000,
+                                         principalX: 640, principalY: 360,
+                                         imageWidth: 1280, imageHeight: 720))
+        let image = Vec2(0.62, 0.85)
+        let onCloth = try #require(raycaster.raycastToTablePlane(imagePoint: image,
+                                                                 frame: frame))
+        let viaCenter = try #require(raycaster.raycastToTablePlane(
+            imagePoint: image, frame: frame, planeHeightOffset: 0.05715 / 2))
+        // The result is dropped back to cloth level...
+        #expect(abs(viaCenter.y - (-1)) < 1e-9)
+        // ...and sits CLOSER to the camera than the same pixel's raw cloth
+        // hit: the ray meets the lifted plane earlier. (In the pipeline the
+        // lifted raycast is fed the box CENTER — whose cloth hit lands long,
+        // past the ball — so the lift pulls it back onto the true contact
+        // point, replacing the foot point's shadow-driven short bias.)
+        let cameraGround = Vec3(0, -1, 0)
+        #expect(viaCenter.distance(to: cameraGround) < onCloth.distance(to: cameraGround))
+        // Zero offset degrades to the plain raycast.
+        let zero = try #require(raycaster.raycastToTablePlane(
+            imagePoint: image, frame: frame, planeHeightOffset: 0))
+        #expect(zero.distance(to: onCloth) < 1e-12)
+    }
+
 }

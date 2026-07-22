@@ -33,11 +33,11 @@ struct PerceptionPipelineTests {
 
     @Test func projectsDetectionsGatesConfidenceAndStabilizes() async throws {
         let detections = [
-            // Foot point (0.225, 0.5) → table (-0.6985, 0).
+            // Box center (0.225, 0.475) → table (-0.6985, 0.03175).
             Detection2D(classLabel: "white-ball",
                         boundingBox: NormalizedRect(x: 0.20, y: 0.45, width: 0.05, height: 0.05),
                         confidence: 0.95),
-            // Foot point (0.75, 0.25) → table (0.635, 0.3175).
+            // Box center (0.75, 0.225) → table (0.635, 0.34925).
             Detection2D(classLabel: "8",
                         boundingBox: NormalizedRect(x: 0.725, y: 0.20, width: 0.05, height: 0.05),
                         confidence: 0.90),
@@ -64,10 +64,10 @@ struct PerceptionPipelineTests {
         #expect(state.balls.count == 2)
         let cue = try #require(state.cueBall)
         #expect(abs(cue.position.x - (-0.6985)) < 1e-6)
-        #expect(abs(cue.position.y) < 1e-6)
+        #expect(abs(cue.position.y - 0.03175) < 1e-6)
         let eight = try #require(state.balls.first { $0.kind == .eight })
         #expect(abs(eight.position.x - 0.635) < 1e-6)
-        #expect(abs(eight.position.y - 0.3175) < 1e-6)
+        #expect(abs(eight.position.y - 0.34925) < 1e-6)
         // Table size flows from the calibration.
         #expect(state.table.size == .nineFoot)
         #expect(state.timestamp == 5.0 / 30)

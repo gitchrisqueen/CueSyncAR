@@ -122,10 +122,15 @@ public actor PerceptionPipeline {
                 // half the table). They'll drive stick-based aiming later.
                 guard !detection.isCueStick else { return nil }
                 guard detection.confidence >= config.confidenceFloor else { return nil }
-                // The bounding box's bottom-center is where the ball meets
-                // the cloth — the right point to project onto the plane.
+                // Locate the ball by its SPHERE CENTER: box center ray →
+                // plane lifted one ball radius → dropped to cloth. The box
+                // FOOT point is biased short (boxes include the contact
+                // shadow) and the bias direction follows the camera.
+                let box = detection.boundingBox
+                let center = Vec2(box.x + box.width / 2, box.y + box.height / 2)
                 guard let world = raycaster.raycastToTablePlane(
-                    imagePoint: detection.boundingBox.footPoint, frame: frame)
+                    imagePoint: center, frame: frame,
+                    planeHeightOffset: Ball.standardRadius)
                 else { return nil }
                 let table = calibration.worldToTable(world)
                 guard abs(table.x) <= bounds.x + margin,
@@ -143,10 +148,12 @@ public actor PerceptionPipeline {
                 let world = calibration.tableToWorld(position)
                 // Grazing view (device resting on the rail): sightlines run
                 // nearly parallel to the cloth, detections can't project —
-                // we cannot judge absence, so nothing decays.
+                // we cannot judge absence, so nothing decays. The bar for
+                // JUDGING absence (~3.5°) sits below the bar for TRUSTING a
+                // projection (~7°): otherwise stale tracks in the flat far
+                // half of the view are frozen forever.
                 let sightline = (world - frame.cameraTransform.translation).normalized
-                guard abs(sightline.dot(calibration.normal))
-                        > PlaneGeometryRaycaster.minimumIncidenceSine else { return false }
+                guard abs(sightline.dot(calibration.normal)) > 0.06 else { return false }
                 guard let image = raycaster.projectToImage(
                     worldPoint: world, frame: frame) else { return true }
                 return image.x > 0.05 && image.x < 0.95

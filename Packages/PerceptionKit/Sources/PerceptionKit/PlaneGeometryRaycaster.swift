@@ -25,6 +25,18 @@ public struct PlaneGeometryRaycaster: PlaneRaycasting {
     /// Returns nil when the frame carries no intrinsics or the ray misses
     /// the plane (parallel or behind the camera).
     public func raycastToTablePlane(imagePoint: Vec2, frame: CapturedFrame) -> Vec3? {
+        raycastToTablePlane(imagePoint: imagePoint, frame: frame, planeHeightOffset: 0)
+    }
+
+    /// Raycast against a plane LIFTED `planeHeightOffset` above the cloth,
+    /// with the hit dropped back to cloth level. Passing the ball radius and
+    /// the detection box CENTER locates the ball by its sphere center — the
+    /// geometrically correct, view-independent method. The box FOOT point is
+    /// biased: boxes include the contact shadow, so the bottom edge
+    /// unprojects short of the ball (observed as rings offset toward the
+    /// camera, with the offset direction changing as the device moves).
+    public func raycastToTablePlane(imagePoint: Vec2, frame: CapturedFrame,
+                                    planeHeightOffset: Double) -> Vec3? {
         guard let k = frame.intrinsics else { return nil }
         let px = imagePoint.x * k.imageWidth
         let py = imagePoint.y * k.imageHeight
@@ -43,9 +55,11 @@ public struct PlaneGeometryRaycaster: PlaneRaycasting {
         // meters along the cloth (observed as phantom/juddering positions
         // when the device rests on the rail) — treat as "cannot see cloth".
         guard abs(denominator) > Self.minimumIncidenceSine else { return nil }
-        let t = (calibration.origin - origin).dot(normal) / denominator
+        let liftedOrigin = calibration.origin + normal * planeHeightOffset
+        let t = (liftedOrigin - origin).dot(normal) / denominator
         guard t > 0 else { return nil }
-        return origin + direction * t
+        // Drop the lifted-plane hit straight down to the cloth.
+        return origin + direction * t - normal * planeHeightOffset
     }
 
     /// sin(7°) — rays flatter than this against the table are rejected.
