@@ -49,6 +49,15 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
     /// session (its transform in *this* session's world coordinates).
     /// The app layer combines it with a persisted AnchoredCalibration.
     public private(set) var restoredTableAnchorTransform: Transform3D?
+    /// The live table ARAnchor (placed at lock or restored) — overlay
+    /// content roots under it so ARKit's map refinements carry the
+    /// overlays along instead of leaving them at stale world coordinates.
+    public private(set) var tableAnchor: ARAnchor?
+    /// One shared anchor for the pre-lock corner cluster (anchor best
+    /// practice: reuse a single anchor for nearby content). Tapped corners
+    /// rebase against its ARKit-refreshed position so the rectangle stays
+    /// glued to the cloth while the device moves mid-calibration.
+    public private(set) var calibrationAnchor: ARAnchor?
 
     public override init() {
         // RealityKit owns session configuration (automaticallyConfigureSession
@@ -135,7 +144,39 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
                                            Float(origin.z), 1)
         let anchor = ARAnchor(name: Self.tableAnchorName, transform: transform)
         arView.session.add(anchor: anchor)
+        tableAnchor = anchor
         return Self.transform3D(from: transform)
+    }
+
+    // MARK: - Calibration cluster anchor (pre-lock corner stability)
+
+    /// Drop the shared calibration anchor at the first tapped corner.
+    public func placeCalibrationAnchor(at world: Vec3) {
+        removeCalibrationAnchor()
+        var transform = matrix_identity_float4x4
+        transform.columns.3 = SIMD4<Float>(Float(world.x), Float(world.y),
+                                           Float(world.z), 1)
+        let anchor = ARAnchor(name: "cuesync.calibrationCluster",
+                              transform: transform)
+        arView.session.add(anchor: anchor)
+        calibrationAnchor = anchor
+    }
+
+    public func removeCalibrationAnchor() {
+        if let calibrationAnchor {
+            arView.session.remove(anchor: calibrationAnchor)
+        }
+        calibrationAnchor = nil
+    }
+
+    /// The cluster anchor's CURRENT position — ARKit updates anchors as it
+    /// refines the map; reading through currentFrame picks that up.
+    public var calibrationAnchorPosition: Vec3? {
+        guard let id = calibrationAnchor?.identifier,
+              let anchor = arView.session.currentFrame?.anchors
+                .first(where: { $0.identifier == id }) else { return nil }
+        let t = anchor.transform.columns.3
+        return Vec3(Double(t.x), Double(t.y), Double(t.z))
     }
 
     /// Serialize the current world map (async — ARKit assembles it) so the
@@ -286,12 +327,15 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
 
     public nonisolated func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
         let sawPlane = anchors.contains { $0 is ARPlaneAnchor }
-        let tableTransform = anchors.first { $0.name == Self.tableAnchorName }
-            .map { Self.transform3D(from: $0.transform) }
-        guard sawPlane || tableTransform != nil else { return }
+        let restored = anchors.first { $0.name == Self.tableAnchorName }
+        guard sawPlane || restored != nil else { return }
+        let box = restored.map(AnchorBox.init)
         Task { @MainActor in
             if sawPlane { self.planeAvailable = true }
-            if let tableTransform { self.restoredTableAnchorTransform = tableTransform }
+            if let box {
+                self.restoredTableAnchorTransform = Self.transform3D(from: box.anchor.transform)
+                self.tableAnchor = box.anchor
+            }
         }
     }
 
@@ -324,6 +368,12 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
             self.sessionEvent = message
         }
     }
+}
+
+/// Transfers an ARAnchor reference from ARKit's session queue to the main
+/// actor (ARAnchor itself is not Sendable; the reference is immutable).
+private struct AnchorBox: @unchecked Sendable {
+    let anchor: ARAnchor
 }
 
 /// Lock-protected hand-off slot for the single outstanding frame request.
@@ -380,13 +430,34 @@ public struct ARKitPlaneRaycaster {
 @MainActor
 public final class OverlayRenderer {
     private let root: AnchorEntity
+    /// World position of the root at creation; layout positions arrive in
+    /// world space and are re-expressed relative to this so the anchored
+    /// root can carry them through ARKit's map refinements.
+    private let rootOrigin: Vec3
     /// Strip thickness (m) and lift above the cloth to avoid z-fighting.
     private static let stripWidth = 0.008
     private static let stripLift = 0.002
 
-    public init(arView: ARView) {
-        root = AnchorEntity(world: matrix_identity_float4x4)
+    /// Root under the table's ARAnchor when one exists — anchored content
+    /// follows ARKit's refinements; identity-world content drifts (anchor
+    /// best practice). Falls back to a world-fixed root without one.
+    public init(arView: ARView, tableAnchor: ARAnchor? = nil) {
+        if let tableAnchor {
+            root = AnchorEntity(anchor: tableAnchor)
+            let t = tableAnchor.transform.columns.3
+            rootOrigin = Vec3(Double(t.x), Double(t.y), Double(t.z))
+        } else {
+            root = AnchorEntity(world: matrix_identity_float4x4)
+            rootOrigin = .zero
+        }
         arView.scene.addAnchor(root)
+    }
+
+    /// World → root-local (the anchor was created translation-only).
+    private func local(_ world: Vec3, lift: Double) -> SIMD3<Float> {
+        SIMD3<Float>(Float(world.x - rootOrigin.x),
+                     Float(world.y - rootOrigin.y + lift),
+                     Float(world.z - rootOrigin.z))
     }
 
     public func render(_ layout: OverlayLayout, planeNormalUp: Bool = true) {
@@ -400,9 +471,7 @@ public final class OverlayRenderer {
             var material = UnlitMaterial(color: uiColor(from: strip.color))
             material.blending = .transparent(opacity: .init(floatLiteral: strip.dashed ? 0.7 : 0.95))
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = SIMD3<Float>(Float(strip.midpoint.x),
-                                           Float(strip.midpoint.y) + Float(Self.stripLift),
-                                           Float(strip.midpoint.z))
+            entity.position = local(strip.midpoint, lift: Self.stripLift)
             entity.orientation = simd_quatf(angle: Float(strip.angle),
                                             axis: SIMD3<Float>(0, planeNormalUp ? 1 : -1, 0))
             root.addChild(entity)
@@ -413,9 +482,7 @@ public final class OverlayRenderer {
             var material = UnlitMaterial(color: .white)
             material.blending = .transparent(opacity: 0.35)
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = SIMD3<Float>(Float(ghost.position.x),
-                                           Float(ghost.position.y) + Float(ghost.radius),
-                                           Float(ghost.position.z))
+            entity.position = local(ghost.position, lift: ghost.radius)
             root.addChild(entity)
         }
 
@@ -425,9 +492,7 @@ public final class OverlayRenderer {
             var material = UnlitMaterial(color: uiColor(from: 0x2FA36B))
             material.blending = .transparent(opacity: 0.5)
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = SIMD3<Float>(Float(pocket.position.x),
-                                           Float(pocket.position.y) + Float(Self.stripLift),
-                                           Float(pocket.position.z))
+            entity.position = local(pocket.position, lift: Self.stripLift)
             root.addChild(entity)
         }
 
@@ -441,9 +506,7 @@ public final class OverlayRenderer {
             material.blending = .transparent(
                 opacity: layout.calledPocketSatisfied ? 0.85 : 0.6)
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = SIMD3<Float>(Float(called.position.x),
-                                           Float(called.position.y) + Float(Self.stripLift * 2),
-                                           Float(called.position.z))
+            entity.position = local(called.position, lift: Self.stripLift * 2)
             root.addChild(entity)
         }
     }

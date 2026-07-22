@@ -74,6 +74,13 @@ struct CalibrationOverlayView: View {
                 guard let world = coordinator.raycastHorizontalPlane(
                     screenPoint: location,
                     fallbackPlaneHeight: cornerPlaneHeight) else { return }
+                // First corner drops the shared cluster anchor: all corners
+                // rebase against its ARKit-refreshed position so the
+                // rectangle stays glued while the device moves.
+                if model.pendingCorners.isEmpty {
+                    coordinator.placeCalibrationAnchor(at: world)
+                    model.setCornerAnchorBase(world)
+                }
                 model.placeCorner(world, planeNormal: coordinator.horizontalPlaneNormal())
             }
     }
@@ -164,6 +171,7 @@ struct CalibrationOverlayView: View {
             }
             HUDBar {
                 Button("Cancel", systemImage: "xmark") {
+                    coordinator.removeCalibrationAnchor()
                     model.cancelCalibration()
                 }
                 .labelStyle(.iconOnly)
@@ -171,6 +179,7 @@ struct CalibrationOverlayView: View {
 
                 if !model.pendingCorners.isEmpty || isAdjusting {
                     Button("Restart corners", systemImage: "arrow.counterclockwise") {
+                        coordinator.removeCalibrationAnchor()
                         model.restartCorners()
                     }
                     .labelStyle(.iconOnly)
@@ -200,6 +209,7 @@ struct CalibrationOverlayView: View {
     private func lockTapped() {
         guard model.requestCalibrationLock(),
               let locked = model.tableCalibration else { return }
+        coordinator.removeCalibrationAnchor()
         // Anchor the table origin so ARKit stabilizes tracking around it,
         // persist relative to that anchor, and snapshot the world map for
         // instant relocalization on the next visit (best effort — the map
@@ -207,6 +217,10 @@ struct CalibrationOverlayView: View {
         let anchorTransform = coordinator.placeTableAnchor(origin: locked.origin)
         model.persistCalibration(locked, anchorTransform: anchorTransform)
         Task {
+            // Let ARKit settle after the anchor drop before serializing the
+            // world map — getCurrentWorldMap right at lock hitches the
+            // session (observed as a frozen camera on device).
+            try? await Task.sleep(for: .seconds(3))
             try? await coordinator.saveWorldMap(to: CalibrationStore.worldMapURL)
         }
     }

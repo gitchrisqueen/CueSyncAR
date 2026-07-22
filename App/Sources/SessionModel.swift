@@ -67,6 +67,7 @@ final class SessionModel {
         // lock from relocalizing back over the fresh flow on next launch.
         CalibrationStore.clear()
         pendingCorners = []
+        cornerAnchorBase = nil
         calibration.handle(.resetRequested)
         calibrationVisible = true
     }
@@ -95,7 +96,35 @@ final class SessionModel {
     /// (stays in the flow; the AR layer re-reports the plane on next tick).
     func restartCorners() {
         pendingCorners = []
+        cornerAnchorBase = nil
         calibration.handle(.resetRequested)
+    }
+
+    // MARK: Corner anchor rebasing (mid-calibration drift)
+
+    /// Position of the shared calibration cluster anchor when it was last
+    /// synced. ARKit refines anchors as its map improves; corners rebase by
+    /// the anchor's delta so the rectangle stays glued to the real cloth
+    /// while the device moves mid-calibration.
+    @ObservationIgnored private var cornerAnchorBase: Vec3?
+
+    func setCornerAnchorBase(_ position: Vec3) {
+        cornerAnchorBase = position
+    }
+
+    func rebaseCorners(clusterAnchorAt current: Vec3) {
+        guard let base = cornerAnchorBase else { return }
+        let delta = current - base
+        guard delta.length > 1e-6 else { return }
+        cornerAnchorBase = current
+        if !pendingCorners.isEmpty {
+            pendingCorners = pendingCorners.map { $0 + delta }
+        }
+        if case let .adjusting(corners) = calibration.state {
+            for (index, corner) in corners.enumerated() {
+                calibration.handle(.cornerMoved(index: index, to: corner + delta))
+            }
+        }
     }
 
     func moveCorner(index: Int, to world: Vec3) {
@@ -337,13 +366,18 @@ final class SessionModel {
         // M2-01 winner, bundled: YOLOv11n on the pool-ball-agzev fork,
         // mAP50 0.896 / mAP50-95 0.765 (Linux fine-tune, epoch 19).
         // The MVP works offline on this model; the hosted picker remains
-        // as evaluation tooling.
+        // as evaluation tooling. Loaded OFF the main actor: MLModel init +
+        // Neural Engine specialization can take seconds.
         #if canImport(CoreML)
-        if let url = Bundle.main.url(forResource: "BallDetector",
-                                     withExtension: "mlmodelc"),
-           let model = try? MLModel(contentsOf: url),
-           let onDevice = try? CoreMLDetectionProvider(model: model) {
-            onDeviceProvider = onDevice
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let url = Bundle.main.url(forResource: "BallDetector",
+                                            withExtension: "mlmodelc") else { return }
+            let configuration = MLModelConfiguration()
+            configuration.computeUnits = .all
+            guard let model = try? MLModel(contentsOf: url,
+                                           configuration: configuration),
+                  let onDevice = try? CoreMLDetectionProvider(model: model) else { return }
+            await MainActor.run { self?.onDeviceProvider = onDevice }
         }
         #endif
         phase = .findingTable

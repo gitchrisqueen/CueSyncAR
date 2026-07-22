@@ -51,8 +51,16 @@ public enum CoreMLDetectionError: Error {
 
 /// VNCoreMLModel is immutable after creation and Vision request handlers are
 /// per-call, so the type is safe to share across the pipeline actor boundary.
+///
+/// Inference runs on a DEDICATED serial queue, never on the caller's thread:
+/// `handler.perform` is synchronous, and the first request additionally
+/// triggers Neural Engine model specialization (seconds). Blocking the
+/// pipeline actor with it starves the cooperative thread pool — observed on
+/// device as a frozen camera right after calibration lock.
 public final class CoreMLDetectionProvider: DetectionProviding, @unchecked Sendable {
     private let visionModel: VNCoreMLModel
+    private let inferenceQueue = DispatchQueue(label: "cuesync.coreml.inference",
+                                               qos: .userInitiated)
 
     public init(model: MLModel) throws {
         visionModel = try VNCoreMLModel(for: model)
@@ -67,21 +75,36 @@ public final class CoreMLDetectionProvider: DetectionProviding, @unchecked Senda
         guard let image = frame.image as? PixelBufferImage else {
             throw CoreMLDetectionError.unsupportedFrame
         }
-        let request = VNCoreMLRequest(model: visionModel)
-        request.imageCropAndScaleOption = .scaleFill
-        let handler = VNImageRequestHandler(cvPixelBuffer: image.pixelBuffer,
-                                            orientation: .up)
-        try handler.perform([request])
-        let observations = request.results as? [VNRecognizedObjectObservation] ?? []
-        return observations.compactMap { observation -> Detection2D? in
-            guard let label = observation.labels.first else { return nil }
-            let box = observation.boundingBox
-            return Detection2D(
-                classLabel: label.identifier,
-                boundingBox: VisionBoxMapping.topLeftRect(
-                    fromVisionX: box.origin.x, y: box.origin.y,
-                    width: box.size.width, height: box.size.height),
-                confidence: Double(observation.confidence))
+        let buffer = image.pixelBuffer
+        let model = visionModel
+        return try await withCheckedThrowingContinuation { continuation in
+            inferenceQueue.async {
+                do {
+                    let request = VNCoreMLRequest(model: model)
+                    // scaleFill matches training: the dataset version was
+                    // generated with "Stretch to 640x640", so inference
+                    // must stretch the same way; box coords map straight
+                    // back to the full image.
+                    request.imageCropAndScaleOption = .scaleFill
+                    let handler = VNImageRequestHandler(cvPixelBuffer: buffer,
+                                                        orientation: .up)
+                    try handler.perform([request])
+                    let observations = request.results as? [VNRecognizedObjectObservation] ?? []
+                    let detections = observations.compactMap { observation -> Detection2D? in
+                        guard let label = observation.labels.first else { return nil }
+                        let box = observation.boundingBox
+                        return Detection2D(
+                            classLabel: label.identifier,
+                            boundingBox: VisionBoxMapping.topLeftRect(
+                                fromVisionX: box.origin.x, y: box.origin.y,
+                                width: box.size.width, height: box.size.height),
+                            confidence: Double(observation.confidence))
+                    }
+                    continuation.resume(returning: detections)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
         }
     }
 }

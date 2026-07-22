@@ -404,6 +404,12 @@ struct ARCameraView: View {
                    case .searchingPlane = model.calibration.state {
                     model.calibrationPlaneDetected()
                 }
+                // Rebase tapped corners by the cluster anchor's refined
+                // position so they track ARKit's map corrections.
+                if model.calibrationVisible,
+                   let anchorPosition = coordinator.calibrationAnchorPosition {
+                    model.rebaseCorners(clusterAnchorAt: anchorPosition)
+                }
                 // A saved venue relocalized → jump straight to locked.
                 if let anchorTransform = coordinator.restoredTableAnchorTransform,
                    let saved = CalibrationStore.load() {
@@ -423,7 +429,11 @@ struct ARCameraView: View {
                         model.updateAim(cameraTransform: cameraTransform)
                     }
                     if overlayRenderer == nil {
-                        overlayRenderer = OverlayRenderer(arView: coordinator.arView)
+                        // Root the overlays under the table's ARAnchor so
+                        // ARKit's refinements carry them (drift fix).
+                        overlayRenderer = OverlayRenderer(
+                            arView: coordinator.arView,
+                            tableAnchor: coordinator.tableAnchor)
                     }
                     if let state = model.tableState,
                        let prediction = model.shotPrediction,
@@ -436,9 +446,17 @@ struct ARCameraView: View {
                         overlayRenderer?.clear()
                     }
                 }
-            } else if model.wantsPreviewFrame,
-                      let frame = await coordinator.nextFrame() {
-                model.ingestPreviewFrame(frame)
+            } else {
+                // Unlocked (e.g. recalibrating): tear the renderer down —
+                // its root anchor is gone; a fresh one attaches at next lock.
+                if overlayRenderer != nil {
+                    overlayRenderer?.clear()
+                    overlayRenderer = nil
+                }
+                if model.wantsPreviewFrame,
+                   let frame = await coordinator.nextFrame() {
+                    model.ingestPreviewFrame(frame)
+                }
             }
             try? await Task.sleep(for: .milliseconds(150))
         }
