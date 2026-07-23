@@ -112,3 +112,30 @@ frames, and snapshots all stopped; NO ARKit session event) after ~80k
 frames seen / ~6k delivered / 1215 snapshots — recovered by app relaunch
 (2.2 s relocalization). Strongest T1.4 lead yet: silent capture-pool
 starvation, not an ARKit-reported interruption.
+
+## Autonomous loop follow-up (2026-07-23, later) — stick aim VERIFIED + fixed
+
+Static setup (cue stick laid on the cloth pointing through the cue ball at
+a one-cushion target; cue ball + red object ball).
+
+**T1.1 stick aim — VERIFIED engaging, flicker fixed.** With the cue on the
+table `aimSource` reaches "stick" (the on-table gate fix from `b8c805a`
+holds — no rail lock). But it flickered stick<->devicePose ~50/50: the
+detector emits the stick in bursts (fresh stick projections only ~7% of
+frames; devicePose gaps up to 6 s), and the old fixed 8-frame grace
+(~1.2-2 s at the variable frame-pull rate) lapsed mid-gap. Fixed with a
+2.5 s time-based hold (`0e62a3d`): duty cycle **50% -> 86%** on device,
+fallback only during genuine >2.5 s gaps. Screenshot:
+`2026-07-23-stick-bank-prediction.jpg`.
+
+**Bank prediction captured (numeric, via new mirror `prediction` field
+`bfcd097`).** Predicted CUE-BALL path at guideSpeed 3.5 m/s, table space:
+(-0.05,-0.05) → bottom-rail bank (0.36,-0.56) → (1.14,0.47) → (1.07,0.56)
+→ rest (0.29,-0.47). Cushion contacts pass 10-12 cm from the top-right
+corner pocket; correctly NOT pocketed (>7.5 cm capture radius). Bottom-rail
+reflection geometry is a correct mirror-ish bounce — solver behaving. NOTE
+this is the cue ball's own multi-bank (the red object ball was not tracked
+this session — black-cloth/CPU detection sparsity again), so it is a clean
+cue-ball bank prediction, not a cue→object bank. Predicted-vs-actual for
+this exact path still needs a real shot [HUMAN]; the mirror now logs the
+actual roll opportunistically.
