@@ -895,13 +895,12 @@ final class SessionModel {
             guard let url = Bundle.main.url(forResource: "BallDetector",
                                             withExtension: "mlmodelc") else { return nil }
             let configuration = MLModelConfiguration()
-            // CPU-only for now: the coremltools-9 mlprogram trips
-            // "MLIR pass manager failed" assertions in MPSGraph when the
-            // GPU/ANE graph compiler ingests it (crash at first Vision
-            // request on device). YOLOv11n@640 on CPU is still far faster
-            // than the hosted API. TODO(M2): re-export targeting an older
-            // opset / neuralnetwork backend and restore .all.
-            configuration.computeUnits = .cpuOnly
+            // T1.3: the bundled model is now the iOS16-target (CoreML6
+            // opset) re-export with fp32 pipeline outputs — the iOS15-opset
+            // boundary casts that tripped "MLIR pass manager failed" in
+            // MPSGraph are gone, so GPU/ANE is back on. Rollback if the
+            // crash signature returns: set .cpuOnly and revert the model.
+            configuration.computeUnits = .all
             guard let model = try? MLModel(contentsOf: url,
                                            configuration: configuration),
                   let provider = try? CoreMLDetectionProvider(model: model) else {
