@@ -612,7 +612,7 @@ final class SessionModel {
         aimStabilizer.reset()
         lastAimSource = nil
         lastStickAim = nil
-        stickAimGrace = 0
+        lastStickAimAt = nil
         lastPredictedState = nil
         latestDetectionLabels = []
     }
@@ -649,10 +649,20 @@ final class SessionModel {
     /// Aim stabilization state (see AimStabilizer): smoothing + deadband.
     @ObservationIgnored private var aimStabilizer = AimStabilizer()
     @ObservationIgnored private var lastAimSource: AimSource?
-    /// Last stick-derived aim + remaining grace updates it stays live for
-    /// after the stick drops out of detection (~1.2 s at loop cadence).
+    /// Last stick-derived aim + when it was last freshly detected. The
+    /// on-device detector emits the stick in bursts (measured 2026-07-23 at
+    /// the table: fresh stick projections only ~7% of frames, gaps up to
+    /// ~6 s), so aim is HELD for `stickAimHold` after the last fresh detect
+    /// instead of snapping to the device-pose model and back — the "aim
+    /// jumping" flicker. Time-based, not a frame count: `updateAim`'s call
+    /// rate varies with the frame-pull loop, so a fixed count gave an
+    /// unpredictable hold (~1.2–2 s) that lapsed mid-gap.
     @ObservationIgnored private var lastStickAim: AimRay?
-    @ObservationIgnored private var stickAimGrace = 0
+    @ObservationIgnored private var lastStickAimAt: Date?
+    /// How long a stick aim stays live after its last fresh detection.
+    /// Bridges the measured typical gap without persisting so long that aim
+    /// lingers after the cue is lifted.
+    private static let stickAimHold: TimeInterval = 2.5
     /// State the current prediction was solved against — a changed ball
     /// layout forces a re-solve even inside the aim deadband.
     @ObservationIgnored private var lastPredictedState: TableState?
@@ -700,10 +710,10 @@ final class SessionModel {
                                             cueBall: cue.position) {
             rawAim = stickAim
             lastStickAim = stickAim
-            stickAimGrace = 8
+            lastStickAimAt = Date()
             aimSource = .stick
-        } else if stickAimGrace > 0, let held = lastStickAim {
-            stickAimGrace -= 1
+        } else if let held = lastStickAim, let at = lastStickAimAt,
+                  Date().timeIntervalSince(at) < Self.stickAimHold {
             rawAim = held
             aimSource = .stick
         } else {
