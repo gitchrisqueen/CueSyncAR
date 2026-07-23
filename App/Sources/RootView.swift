@@ -558,11 +558,17 @@ struct ARCameraView: View {
             }
             // Debug mirror: ship the rendered screen (camera + overlays)
             // to any browser on the LAN at ~1 Hz while enabled.
-            if model.debugMirror != nil,
-               Date().timeIntervalSince(lastMirrorPublishAt) >= 1.0 {
-                lastMirrorPublishAt = Date()
-                let jpeg = await coordinator.snapshotJPEG()
-                model.publishMirrorFrame(jpeg)
+            if model.debugMirror != nil {
+                if Date().timeIntervalSince(lastMirrorPublishAt) >= 1.0 {
+                    lastMirrorPublishAt = Date()
+                    let jpeg = await coordinator.snapshotJPEG()
+                    model.publishMirrorFrame(jpeg)
+                } else {
+                    // State refreshes at pipeline cadence (frames stay 1 Hz):
+                    // mid-shot ball positions land in /state.json at ~4-6 Hz,
+                    // enough to reconstruct a rolled path for T1.1.
+                    model.publishMirrorFrame(nil)
+                }
             }
             try? await Task.sleep(for: .milliseconds(150))
         }

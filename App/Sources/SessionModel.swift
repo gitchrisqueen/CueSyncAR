@@ -437,6 +437,12 @@ final class SessionModel {
                  "confidence": (ball.confidence * 100).rounded() / 100]
             }
         }
+        if let quad = stickQuad {
+            // Raw stick footprint (table space) — lets a remote observer
+            // debug why StickAim accepts/rejects without the Xcode console.
+            state["stickQuad"] = quad.map { [($0.x * 100).rounded() / 100,
+                                            ($0.y * 100).rounded() / 100] }
+        }
         if let guide = shotGuide {
             state["shotGuide"] = guide.headline
         }
@@ -895,12 +901,14 @@ final class SessionModel {
             guard let url = Bundle.main.url(forResource: "BallDetector",
                                             withExtension: "mlmodelc") else { return nil }
             let configuration = MLModelConfiguration()
-            // T1.3: the bundled model is now the iOS16-target (CoreML6
-            // opset) re-export with fp32 pipeline outputs — the iOS15-opset
-            // boundary casts that tripped "MLIR pass manager failed" in
-            // MPSGraph are gone, so GPU/ANE is back on. Rollback if the
-            // crash signature returns: set .cpuOnly and revert the model.
-            configuration.computeUnits = .all
+            // Still CPU-only. T1.3 negative result (2026-07-23, crash logs
+            // on file): even the iOS16-target/CoreML6 re-export with fp32
+            // pipeline outputs aborts in MPSGraph's MLIR optimization
+            // passes on iOS 26 the moment GPU/ANE compiles it — the
+            // boundary-cast theory is dead; the bug is in MPSGraph's
+            // ingestion of coremltools-9 mlprograms generally. Next
+            // candidates: iOS17-target export, then fp32 GPU-only.
+            configuration.computeUnits = .cpuOnly
             guard let model = try? MLModel(contentsOf: url,
                                            configuration: configuration),
                   let provider = try? CoreMLDetectionProvider(model: model) else {
