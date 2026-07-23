@@ -43,3 +43,32 @@ import Testing
         #expect(decoded.standardSizeComparison.summary == "9 ft table")
     }
 }
+
+@Suite struct AnchoredMeasuredSizeTests {
+    @Test func measurementSurvivesTheAnchorRoundTrip() throws {
+        let corners = [Vec3(0, 0, 0), Vec3(2.37, 0, 0),
+                       Vec3(2.37, 0, 1.17), Vec3(0, 0, 1.17)]
+        let calibration = try TableCalibration.fromCorners(corners)
+        let anchored = AnchoredCalibration(calibration: calibration,
+                                           anchorTransform: .identity)
+        let restored = anchored.worldCalibration(anchorTransform: .identity)
+        #expect(restored.measuredWidth == calibration.measuredWidth)
+        #expect(restored.standardSizeComparison.summary == "8 ft +3.0 cm")
+    }
+
+    @Test func preT12AnchoredRecordStillDecodes() throws {
+        let anchored = AnchoredCalibration(
+            calibration: TableCalibration(origin: .zero, xAxis: Vec3(1, 0, 0),
+                                          yAxis: Vec3(0, 0, 1), size: .eightFoot),
+            anchorTransform: .identity)
+        var object = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(anchored)) as! [String: Any]
+        object.removeValue(forKey: "measuredWidth")
+        object.removeValue(forKey: "measuredHeight")
+        let decoded = try JSONDecoder().decode(
+            AnchoredCalibration.self,
+            from: JSONSerialization.data(withJSONObject: object))
+        #expect(decoded.measuredWidth == nil)
+        #expect(decoded.worldCalibration(anchorTransform: .identity).size == .eightFoot)
+    }
+}
