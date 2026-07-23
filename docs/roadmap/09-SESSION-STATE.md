@@ -12,7 +12,12 @@ mid-flight detections, so predicted-vs-ACTUAL bank *path* capture is gated
 on detection speed (T1.3) or lag-speed shots, not tracker tuning; (2)
 phantom track lingers ~3.5 s at a shot's origin (BallTracker retires far
 duplicates only within gatingDistance) — queued as task, fix via a
-replay-test-driven change, not a hot-patch. Earlier: AR overlay
+replay-test-driven change (identity handoff, NOT empty-neighborhood
+retirement — that breaks occlusion robustness; see task). Also RESEARCH
+(offline): the T1.3 crash was tested wrong — only `.all` (GPU/MPSGraph)
+was tried, never `.cpuAndNeuralEngine` (the documented crash-avoider +
+correct camera-app unit); next experiment is a one-line compute-unit flip
+behind a crash-safe probe (see ANE section). Earlier: AR overlay
 relocalization-rotation bug
 FIXED (`c0e3ecf`): `OverlayRenderer` now places entities in true world
 space (`setPosition(relativeTo: nil)`) instead of the `world − rootOrigin`
@@ -160,6 +165,40 @@ sandbox container at `/work/best_ios17_fixed.mlpackage` — test ONLY in a
 controlled moment, it may crash-loop the app again); fp32 GPU-only
 (`quantize=32`); file a feedback with Apple. Crash logs archived from the
 device on 2026-07-23 (~00:00 local).
+
+**2026-07-23 RESEARCH — the crash was tested WRONG; a promising untested
+option remains.** Web research (incl. Ultralytics' own CoreML docs and a
+detailed Reddit write-up of the identical crash) established:
+- The `Error: MLIR pass manager failed` abort on **`coremltools` 9.x
+  mlprograms is a KNOWN limitation of the `.all` / `.cpuAndGPU` path** —
+  it's the GPU/MPSGraph compile route that trips Apple's MLIR compiler, an
+  UNCATCHABLE C++ assertion (no `do/catch`, no config flag prevents it).
+- **The device test only ever used `.all`** (`SessionModel.loadBundledDetector`),
+  which INCLUDES the GPU → guaranteed to hit the crashing path. **We never
+  tried `.cpuAndNeuralEngine`.** Ultralytics explicitly recommends
+  `.cpuAndNeuralEngine` as BOTH the crash-avoider AND the right unit for a
+  camera app (don't fight the AR preview for the GPU; `.all` also causes
+  frame-time jitter). ANE routes differently from GPU/MPSGraph and may
+  dodge the MLIR bug entirely — though on some hardware the ANE path can
+  also hit it (device-specific), so it's a genuine unknown to TEST.
+- The fp16-outputs-vs-NMS issue and the iOS16+ FLOAT32 requirement I solved
+  by hand are exactly what Ultralytics' exporter already encodes
+  (`minimum_deployment_target >= iOS16` ⇒ `compute_precision=FLOAT32`
+  because no CoreML NMS spec accepts fp16 input). YOLOv11 uses SiLU (well
+  supported), NOT Mish — so this is not the Mish/Softplus fp16 bug.
+
+**NEXT EXPERIMENT (one-line, do with the device + a human watching):** flip
+`SessionModel.loadBundledDetector` from `.cpuOnly` to
+**`.cpuAndNeuralEngine`** (NOT `.all`) with the CURRENT bundled model — no
+re-export needed. If it runs: un-pin achieved, ANE ~3× CPU, fast-ball
+detection improves. If it still SIGABRTs: the ANE path is also affected on
+this iPad → stay `.cpuOnly`, file Apple feedback. **Before trying it,
+implement a crash-safe probe** (persist an "attempting ANE" flag before the
+first inference, clear it after the first success; on launch, if the flag
+is still set the last run crashed → force `.cpuOnly`). That converts the
+risky test into a self-healing one — no more manual crash-loop recovery.
+Retrained weights + all export variants persist at
+`scratchpad/.../export-work/` (best.pt, best_ios16_fixed, best_ios17_fixed).
 
 ## Device-session working notes (for agents driving the Mac remotely)
 
