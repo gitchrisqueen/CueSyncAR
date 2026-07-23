@@ -112,6 +112,26 @@ images — its CPU output matched the live iPad's rawDetections on the same
 scene, so old-vs-new box diffs on `img/upright/` are a trustworthy proxy;
 final ANE/crash check still needs the device.
 
+**2026-07-23 NEGATIVE RESULT: iOS16 target does NOT fix the crash.** The
+retrained model (val mAP50 0.893) exported at iOS16/CoreML6 with fp32
+pipeline outputs still aborts in
+`MPSGraphExecutable applyOptimizationPassesWithDevice…MLIRName` (SIGABRT,
+crash-looped the app at first inference with `.all`). The boundary-cast
+theory is dead — MPSGraph on iOS 26 chokes on coremltools-9 mlprograms
+generally. The new model SHIPPED anyway on `.cpuOnly` (equal quality,
+fewer false positives). Export mechanics that had to be discovered:
+(1) at iOS16+ coremltools defaults outputs to fp16 which the classic NMS
+pipeline stage rejects — pin `outputs=[ct.TensorType(dtype=np.float32)]×2`
+in the monkeypatch; (2) ultralytics writes the pipeline WRAPPER spec as
+5/6 around a spec-7 mlProgram and the CoreML compiler rejects the package —
+bump `spec.specificationVersion` (and both stage versions) to ≥7
+post-export via load_spec/save_spec. Remaining candidates, in order:
+iOS17/CoreML7 export (built, parity-checked on Mac CPU, staged in the
+sandbox container at `/work/best_ios17_fixed.mlpackage` — test ONLY in a
+controlled moment, it may crash-loop the app again); fp32 GPU-only
+(`quantize=32`); file a feedback with Apple. Crash logs archived from the
+device on 2026-07-23 (~00:00 local).
+
 ## Device-session working notes (for agents driving the Mac remotely)
 
 - Xcode/Terminal are click-only; QuickTime is full-tier. Build = click Run.
