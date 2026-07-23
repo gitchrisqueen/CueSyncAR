@@ -72,3 +72,36 @@ import Testing
         #expect(decoded.worldCalibration(anchorTransform: .identity).size == .eightFoot)
     }
 }
+
+@Suite struct PreferredSizeSnapTests {
+    /// Corners measuring 2.26 x 1.09 — Chris's real 8 ft table, slightly
+    /// under spec, as measured by a careful cushion-nose pin.
+    private var realTableCorners: [Vec3] {
+        [Vec3(0, 0, 0), Vec3(2.26, 0, 0), Vec3(2.26, 0, 1.09), Vec3(0, 0, 1.09)]
+    }
+
+    @Test func repinSnapsToTheSavedSpecNotTheGenericStandard() throws {
+        let spec = TableSize.custom(width: 2.263, height: 1.093)
+        let calibration = try TableCalibration.fromCorners(realTableCorners,
+                                                           preferredSize: spec)
+        #expect(calibration.size == spec)
+        // The raw measurement is still the tap, not the spec.
+        #expect(abs((calibration.measuredWidth ?? 0) - 2.26) < 1e-9)
+    }
+
+    @Test func farOffMeasurementIgnoresTheSpec() throws {
+        // A 7 ft pub table is ~12% off the saved 8 ft-ish spec — the spec
+        // must NOT capture it; the standard inference wins.
+        let corners = [Vec3(0, 0, 0), Vec3(1.98, 0, 0),
+                       Vec3(1.98, 0, 0.99), Vec3(0, 0, 0.99)]
+        let spec = TableSize.custom(width: 2.263, height: 1.093)
+        let calibration = try TableCalibration.fromCorners(corners,
+                                                           preferredSize: spec)
+        #expect(calibration.size == .sevenFoot)
+    }
+
+    @Test func nilSpecKeepsLegacyBehavior() throws {
+        let calibration = try TableCalibration.fromCorners(realTableCorners)
+        #expect(calibration.size == .eightFoot) // 3.3% off -> standard snap
+    }
+}

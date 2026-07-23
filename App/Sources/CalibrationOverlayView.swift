@@ -169,6 +169,17 @@ struct CalibrationOverlayView: View {
                     .background(.ultraThinMaterial, in: Capsule())
                     .foregroundStyle(.red)
             }
+            // Live measured size while adjusting — the user sees what lock
+            // WILL record before committing (T1.2 measurement truth).
+            if let preview = model.calibrationSizePreview {
+                Text(preview)
+                    .font(.caption.monospacedDigit())
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .foregroundStyle(.white)
+                    .accessibilityLabel("Measured table size")
+            }
             HUDBar {
                 Button("Cancel", systemImage: "xmark") {
                     coordinator.removeCalibrationAnchor()

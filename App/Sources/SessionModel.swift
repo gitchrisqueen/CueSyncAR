@@ -76,7 +76,26 @@ final class SessionModel {
         pendingCorners = []
         cornerAnchorBase = nil
         calibration.handle(.resetRequested)
+        // Re-pins of a known table snap to its saved spec, not just the
+        // generic standards (a shallow-angle tap set once locked an 8 ft
+        // table as 7 ft — the spec makes repeat calibrations agree).
+        calibration.preferredSize = CalibrationStore.loadTableSpec()
         calibrationVisible = true
+    }
+
+    /// Live measured size while the user adjusts corners — shown in the
+    /// calibration HUD BEFORE lock so a bad tap is visible immediately.
+    var calibrationSizePreview: String? {
+        guard case .adjusting(let corners) = calibration.state,
+              let preview = try? TableCalibration.fromCorners(
+                corners, preferredSize: calibration.preferredSize) else {
+            return nil
+        }
+        let comparison = preview.standardSizeComparison
+        return String(format: "%.2f × %.2f m — %@",
+                      preview.measuredWidth ?? 0,
+                      preview.measuredHeight ?? 0,
+                      comparison.summary)
     }
 
     func cancelCalibration() {
@@ -153,6 +172,9 @@ final class SessionModel {
             showTapFeedback(String(format: "Locked %.2f × %.2f m — %@",
                                    field.width, field.height, comparison.summary))
             Self.log.notice("calibration locked: \(comparison.summary, privacy: .public) (max delta \(Int(comparison.maxDelta * 1000)) mm)")
+            // Remember this table's size as the user's spec so future
+            // re-pins snap to it (survives venue clears).
+            CalibrationStore.saveTableSpec(locked.size)
         }
         return true
     }
