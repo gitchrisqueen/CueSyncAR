@@ -66,3 +66,49 @@ Everything it needs is now in place: correct 8 ft calibration locked,
 prediction rendering, remote designate/callPocket via `/cmd`, frame
 capture via `/frame.jpg`. Needs the [HUMAN] step: lay a cue along the
 predicted bank path and hold position for one mirror screenshot.
+
+## T1.1 Bank-line ground truth — first data point (same night)
+
+Shot: one-cushion bank of the red 3 toward the far-right corner
+(cornerTopRight in table space), medium speed, shot by Chris. Cue ball
+started (-0.17, -0.02), red at (0.13, -0.29). All coordinates from the
+live tracker over the mirror (state.json at pipeline cadence — the
+per-tick publishing added for this test).
+
+Observed (table space, meters):
+- Red rest position: (1.10, 0.60) — in the jaw of the corner pocket
+  (1.17, 0.585), ~9 cm short. Chris: "just missed".
+- Mid-roll sample at (0.89, 0.58): red reached the far cushion line
+  ~28 cm BEFORE the pocket, then rolled along the rail into the jaw.
+- Cue ball rest: (0.37, -0.16).
+
+Bank-angle comparison (contact point inferred from intended line —
+±5°-ish uncertainty):
+- Ideal mirror exit: ~35° from cushion normal → arrives at the pocket.
+- Actual exit: ~25° — the real cushion shortened the bank by ~10°.
+- AnalyticSolver's current model (cushionRestitution 0.75, tangential
+  retention 0.7) shortens by only ~2° (tan ratio 0.93). Direction of the
+  model error is confirmed; magnitude suggests the tangential/normal
+  ratio should be nearer ~0.66 at medium speed. ONE data point — do not
+  retune from this alone; repeat per the 3-canonical-shots plan.
+
+Instrument findings that block a tighter measurement (fix before rerun):
+1. **Stick-aim rail false positive**: the pipeline's stick pick locked
+   onto the table's far rail edge (classified "cue" at ~74%) — its quad
+   projects OFF the playing surface (y 0.83–1.35 on a 0.585 half-height
+   table), so StickAim correctly rejects and aim never leaves devicePose.
+   Sticks need the same on-table observation gate balls already have,
+   plus "prefer quad nearest the cue ball" over raw confidence.
+2. **No mid-flight tracking**: the entire pre-bank leg produced zero
+   track updates (motion blur at medium speed + ~2–4 Hz CPU cadence);
+   only the slow tail of the roll was sampled. The predicted-vs-actual
+   CONTACT POINT therefore has to be inferred. Higher detection cadence
+   (T1.3's ANE work) or slower calibration shots would fix this.
+3. During Chris's address, his hand/body occlusions dropped the cue-ball
+   track repeatedly; tracks recovered in seconds each time.
+
+Also observed this session: full AR-session freeze (camera, delegate
+frames, and snapshots all stopped; NO ARKit session event) after ~80k
+frames seen / ~6k delivered / 1215 snapshots — recovered by app relaunch
+(2.2 s relocalization). Strongest T1.4 lead yet: silent capture-pool
+starvation, not an ARKit-reported interruption.
