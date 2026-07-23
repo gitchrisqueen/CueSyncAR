@@ -2,8 +2,22 @@
 
 **Purpose:** land the *current working state* in the repo so any fresh agent
 (or human) can resume without a prior chat session. Update this file whenever
-a work session ends or a major finding lands. Last update: **2026-07-22
-(third session)**, branch `claude/T1-tier1-verification`. That session:
+a work session ends or a major finding lands.
+
+**Last update: 2026-07-23 (autonomous loop), branch
+`claude/T1-tier1-verification`.** Stick aim VERIFIED engaging on device and
+its flicker fixed (2.5 s time-based hold; duty 50%→86% — `0e62a3d`); the
+on-table stick gate (`b8c805a`) holds. Mirror now exposes the predicted
+trajectory (`prediction` field: path + cushion/rest/pocket in table space —
+`bfcd097`), so bank ground truth is numerically loggable. First numeric
+bank prediction captured (docs/validation). App healthy on the `.cpuOnly`
+known-good build; no new crashes. STILL OPEN and needing a human at the
+table: object ball often untracked on black cloth at CPU cadence (detection
+sparsity — same root as T1.3); predicted-vs-ACTUAL bank still needs real
+shots [HUMAN]; T1.4 freeze not reproduced this session. Prior context from
+the third session below.
+
+That session:
 `Tools/DetectionEval` offline eval CLI (runs the bundled model on stills via
 the app's provider — EXIF-aware; `img/` has real-table photos, `img/upright/`
 rotated copies); T1.2 (cushion-nose HUD copy, StandardSizeComparison + raw
