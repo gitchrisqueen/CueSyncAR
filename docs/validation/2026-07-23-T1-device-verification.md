@@ -139,3 +139,43 @@ this session — black-cloth/CPU detection sparsity again), so it is a clean
 cue-ball bank prediction, not a cue→object bank. Predicted-vs-actual for
 this exact path still needs a real shot [HUMAN]; the mirror now logs the
 actual roll opportunistically.
+
+## AR overlay relocalization-rotation bug — FIXED (2026-07-23)
+
+Overlays (ball rings, trajectory strips, ghost ball, pocket markers)
+floated off the cloth and rotated about the table center after
+relocalization (every relaunch), though correct at a fresh corner-pin.
+
+Root cause: `OverlayRenderer.render` positioned entities with the
+translation-only shortcut `local(world) = world − rootOrigin` and parented
+them to the table ARAnchor. That equals true world position only at
+identity anchor yaw (fresh lock); the relocalized anchor carries the
+session's arbitrary yaw, which RealityKit re-applies to every child.
+
+Fix (`c0e3ecf`): drop `rootOrigin`; place entities in true world space via
+`setPosition(_:relativeTo: nil)`. Strip ORIENTATION deliberately kept LOCAL
+to the anchor (not world) — `strip.angle` is a table-space heading and the
+anchor rotates with the table, so the anchor yaw supplies the correct
+world heading post-reloc; a world-space yaw would under-rotate strips.
+
+Verified on device via the mirror, RELOCALIZED path (reloc 2.2 s):
+- before: `2026-07-23-overlay-reloc-before.jpg` — orange trajectory lines
+  float up into the window glass, well off the cloth.
+- after: `2026-07-23-overlay-reloc-after.jpg` — lines lie flat on the felt
+  at correct angles; zoomed crop confirms the cue-ball ring sits on the
+  cue ball.
+Fresh-lock rendering unchanged by construction (world placement == old
+local placement at identity yaw). Residual: a few-cm line-start vs
+ball-center offset remains — that is the pre-existing foot-point/calibration
+offset (session-state "remaining polish"), a separate issue from this
+rotation bug. Package tests green (device-only RealityKit code).
+
+## Note on the 2 shots Chris took (recording gap)
+
+The autonomous loop had already STOPPED when Chris took a couple of shots,
+and no 5 Hz recorder was running, so the mid-roll ACTUAL paths were NOT
+captured — only current rest positions are known from the live mirror
+(cue ball ~(-0.04, 0.31); red near the bottom-right corner in frames).
+Predicted-vs-actual for those shots is lost. FIX FOR NEXT TIME: leave a
+background state recorder running whenever Chris is at the table, or have
+him say "shooting now" so a recorder is armed first.
