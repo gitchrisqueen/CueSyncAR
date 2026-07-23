@@ -2,10 +2,15 @@
 
 **Purpose:** land the *current working state* in the repo so any fresh agent
 (or human) can resume without a prior chat session. Update this file whenever
-a work session ends or a major finding lands. Last update: **2026-07-22**,
-branch `claude/M3-02-calibration-flow` (all local branches — `main`,
-`claude/ar-billiards-2026-roadmap-n1asv8`, this one — point at the same
-consolidated commit; push all three from SourceTree, each fast-forwards).
+a work session ends or a major finding lands. Last update: **2026-07-22
+(third session)**, branch `claude/T1-tier1-verification`. That session:
+`Tools/DetectionEval` offline eval CLI (runs the bundled model on stills via
+the app's provider — EXIF-aware; `img/` has real-table photos, `img/upright/`
+rotated copies); T1.2 (cushion-nose HUD copy, StandardSizeComparison + raw
+pre-snap size on TableCalibration, relocalization stopwatch, mirror keys
+`sizeVsStandard`/`relocalizationSeconds`) and T1.4 instrumentation
+(FrameDiagnostics counters + `frameDiag` in the mirror state) landed
+code-complete, `needs-device-run`; T1.3 retraining/export findings below.
 
 ## Where the project stands
 
@@ -91,6 +96,21 @@ GPU-only fallback: `quantize=32` fp32 variant (ANE is fp16-only). After
 swapping the model in, remove the `.cpuOnly` pin and verify boxes on device.
 Training artifacts: dataset fork `cqc/pool-ball-agzev-tekpn` (Roboflow);
 best.pt regenerable per `docs/model-testing.md` (freeze=10, 640px, ~epoch 19).
+
+**2026-07-22 late (T1.3 execution findings):** the fork has the DATASET
+only — `version(1).model` is nil, so there are no downloadable weights
+anywhere; best.pt must be RETRAINED before every re-export (25 epochs
+YOLOv11n freeze=10 on the 1000/284/141 split ≈ 1.5 h on CPU). Chris's Mac
+is **Intel x86_64**: torch wheels stop at 2.2.2 there, so the whole recipe
+runs in Docker (`python:3.12-slim` linux/amd64 + `apt-get install libgl1
+libglib2.0-0 libxcb1` + `pip 'numpy<2'` — ultralytics 8.3.40 still calls
+`np.trapz`). Export driver: the container script monkeypatches
+`ct.convert` exactly per the recipe above.
+Parity gate before any swap: `Tools/DetectionEval` (macOS CLI) runs the
+bundled model through the app's real `CoreMLDetectionProvider` on still
+images — its CPU output matched the live iPad's rawDetections on the same
+scene, so old-vs-new box diffs on `img/upright/` are a trustworthy proxy;
+final ANE/crash check still needs the device.
 
 ## Device-session working notes (for agents driving the Mac remotely)
 
