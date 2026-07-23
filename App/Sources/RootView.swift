@@ -457,7 +457,9 @@ struct ARCameraView: View {
                     ? CalibrationStore.worldMapURL : nil)
             planeDetectionStarted = true
             relocalizationDeadline = Date().addingTimeInterval(15)
+            model.markRelocalizationStart()
         }
+        var lastDiagnosticsAt = Date.distantPast
         while !Task.isCancelled {
             // A stale world map can keep ARKit relocalizing forever
             // (tracking limited, overlays degraded). Give it 15 s, then
@@ -466,8 +468,14 @@ struct ARCameraView: View {
                 relocalizationDeadline = nil
                 if coordinator.restoredTableAnchorTransform == nil,
                    !model.calibration.isLocked {
+                    model.markRelocalizationTimeout()
                     coordinator.enablePlaneDetection()
                 }
+            }
+            // T1.4: publish frame-flow counters at 0.2 Hz (mirror + log).
+            if Date().timeIntervalSince(lastDiagnosticsAt) >= 5 {
+                lastDiagnosticsAt = Date()
+                model.updateFrameDiagnostics(coordinator.frameDiagnostics())
             }
             model.sessionEvent = coordinator.sessionEvent
             if model.calibrationVisible, !planeDetectionStarted {

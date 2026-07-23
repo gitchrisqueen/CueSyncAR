@@ -27,12 +27,20 @@ public struct TableCalibration: Sendable, Equatable, Codable {
     /// World-space unit vector of the table-space +y axis (short axis).
     public var yAxis: Vec3
     public var size: TableSize
+    /// Raw measured long axis at lock time (pre-snap), meters. Nil on
+    /// calibrations persisted before this field existed (decodes absent).
+    public var measuredWidth: Double?
+    /// Raw measured short axis at lock time (pre-snap), meters.
+    public var measuredHeight: Double?
 
-    public init(origin: Vec3, xAxis: Vec3, yAxis: Vec3, size: TableSize) {
+    public init(origin: Vec3, xAxis: Vec3, yAxis: Vec3, size: TableSize,
+                measuredWidth: Double? = nil, measuredHeight: Double? = nil) {
         self.origin = origin
         self.xAxis = xAxis.normalized
         self.yAxis = yAxis.normalized
         self.size = size
+        self.measuredWidth = measuredWidth
+        self.measuredHeight = measuredHeight
     }
 
     /// Plane normal (right-handed: x × y).
@@ -109,6 +117,18 @@ public struct TableCalibration: Sendable, Equatable, Codable {
         let y = yRaw.normalized
 
         let centroid = (c0 + c1 + c2 + c3) * 0.25
-        return TableCalibration(origin: centroid, xAxis: x, yAxis: y, size: size)
+        return TableCalibration(origin: centroid, xAxis: x, yAxis: y, size: size,
+                                measuredWidth: width, measuredHeight: height)
+    }
+
+    /// How the measured field compares to the nearest standard size —
+    /// falls back to the snapped size for pre-T1.2 calibrations (delta 0).
+    public var standardSizeComparison: StandardSizeComparison {
+        if let measuredWidth, let measuredHeight {
+            StandardSizeComparison(measuredWidth: measuredWidth,
+                                   measuredHeight: measuredHeight)
+        } else {
+            StandardSizeComparison(size: size)
+        }
     }
 }

@@ -141,6 +141,16 @@ final class SessionModel {
         calibration.handle(.lockRequested)
         guard calibration.isLocked else { return false }
         calibrationVisible = false
+        // T1.2 measurement truth: surface how far the measured field sits
+        // from the nearest standard size the moment it locks — a big delta
+        // means mis-tapped corners (outer rail instead of cushion nose).
+        if let locked = tableCalibration {
+            let comparison = locked.standardSizeComparison
+            let field = locked.size.playField
+            showTapFeedback(String(format: "Locked %.2f × %.2f m — %@",
+                                   field.width, field.height, comparison.summary))
+            Self.log.notice("calibration locked: \(comparison.summary, privacy: .public) (max delta \(Int(comparison.maxDelta * 1000)) mm)")
+        }
         return true
     }
 
@@ -154,7 +164,52 @@ final class SessionModel {
     /// A saved venue relocalized — jump to locked (unless the user already
     /// locked a fresh calibration this session; the controller ignores it).
     func restoreCalibration(_ restored: TableCalibration) {
+        let wasLocked = calibration.isLocked
         calibration.handle(.restored(restored))
+        // T1.2 relocalization timing: verified bar is locked within 15 s of
+        // seeing the table; the mirror surfaces the measured number.
+        if !wasLocked, calibration.isLocked, let started = relocalizationStartedAt {
+            let seconds = Date().timeIntervalSince(started)
+            relocalizationSeconds = seconds
+            relocalizationStartedAt = nil
+            showTapFeedback(String(format: "Table restored in %.1f s", seconds))
+            Self.log.notice("relocalized in \(String(format: "%.2f", seconds), privacy: .public) s")
+        }
+    }
+
+    // MARK: T1.2/T1.4 instrumentation
+
+    /// When the session began attempting world-map relocalization.
+    private var relocalizationStartedAt: Date?
+    /// How long the last successful relocalization took (nil = none yet).
+    private(set) var relocalizationSeconds: Double?
+
+    /// The AR layer calls this the moment it starts a session with a saved
+    /// world map, starting the relocalization stopwatch.
+    func markRelocalizationStart() {
+        relocalizationStartedAt = Date()
+        relocalizationSeconds = nil
+    }
+
+    /// Relocalization gave up (deadline hit) — log it so slow venues are
+    /// visible in the console and the stopwatch doesn't misattribute a
+    /// later manual lock.
+    func markRelocalizationTimeout() {
+        guard let started = relocalizationStartedAt else { return }
+        relocalizationStartedAt = nil
+        Self.log.notice("relocalization timed out after \(Int(Date().timeIntervalSince(started))) s — falling back to fresh tracking")
+    }
+
+    /// Latest ARFrame-flow counters from the coordinator (T1.4), published
+    /// to the mirror so retention hunts don't need the Xcode console.
+    private(set) var frameDiagnostics: FrameDiagnostics?
+
+    func updateFrameDiagnostics(_ diagnostics: FrameDiagnostics) {
+        let previous = frameDiagnostics
+        frameDiagnostics = diagnostics
+        // Log on change only (the loop polls every few seconds regardless).
+        guard diagnostics != previous else { return }
+        Self.log.info("frames seen \(diagnostics.framesSeen) delivered \(diagnostics.framesDelivered) copyFail \(diagnostics.copyFailures) snapshots \(diagnostics.snapshotsCompleted) (avg \(Int(diagnostics.averageSnapshotMilliseconds)) ms, inflight \(diagnostics.snapshotsInFlight))")
     }
 
     // MARK: Live tracking (M3-05: pipeline → solver → overlay)
@@ -328,9 +383,24 @@ final class SessionModel {
             "aimSource": String(describing: aimSource),
             "calledShotOnLine": calledShotOnLine
         ]
-        if let size = tableCalibration?.size {
+        if let calibration = tableCalibration {
+            let size = calibration.size
             state["tableSize"] = String(format: "%.2f x %.2f m",
                                         size.playField.width, size.playField.height)
+            state["sizeVsStandard"] = calibration.standardSizeComparison.summary
+        }
+        if let relocalizationSeconds {
+            state["relocalizationSeconds"] = (relocalizationSeconds * 10).rounded() / 10
+        }
+        if let diag = frameDiagnostics {
+            state["frameDiag"] = [
+                "seen": diag.framesSeen,
+                "delivered": diag.framesDelivered,
+                "copyFailures": diag.copyFailures,
+                "snapshots": diag.snapshotsCompleted,
+                "snapshotAvgMs": Int(diag.averageSnapshotMilliseconds),
+                "snapshotsInFlight": diag.snapshotsInFlight
+            ]
         }
         if let balls = tableState?.balls {
             state["ballCount"] = balls.count

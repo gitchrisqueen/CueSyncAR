@@ -39,6 +39,10 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
 
     public let arView: ARView
     private let pendingRequest = FrameRequestBox()
+    /// T1.4 instrumentation: counters for the ARFrame-retention hunt. The
+    /// delegate (session queue) and snapshot path (main actor) both write;
+    /// the app layer reads a snapshot ~every few seconds and logs it.
+    private let diagnostics = DiagnosticsBox()
     /// Human-readable session health (errors, interruptions, tracking
     /// limits) for the HUD. Nil when everything is nominal.
     public private(set) var sessionEvent: String?
@@ -233,6 +237,7 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
     // MARK: - ARSessionDelegate
 
     public nonisolated func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        diagnostics.add(\.framesSeen)
         // No pending request → drop the frame without touching its buffers.
         guard let continuation = pendingRequest.take() else { return }
         let transform = Transform3D(columns: (0..<4).map { column in
@@ -247,9 +252,11 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
         // warnings, then a stopped camera. Copy cost is trivial at the
         // preview's ≤2 Hz pull rate.
         guard let copiedBuffer = Self.copyPixelBuffer(frame.capturedImage) else {
+            diagnostics.add(\.copyFailures)
             continuation.resume(returning: nil)
             return
         }
+        diagnostics.add(\.framesDelivered)
         // Intrinsics travel with the frame so consumers (pipeline raycasts)
         // can unproject image points without touching ARKit.
         let k = frame.camera.intrinsics
@@ -270,12 +277,29 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
     /// entities) as JPEG — the debug mirror's frame source. Captures what
     /// the user actually sees, unlike raw camera frames.
     public func snapshotJPEG(compressionQuality: CGFloat = 0.5) async -> Data? {
-        await withCheckedContinuation { continuation in
+        // Prime retention suspect (T1.4): RealityKit's snapshot pipeline
+        // retains drawables/frames internally. Count + time every call so a
+        // device run can correlate snapshot cadence with the "retaining N
+        // ARFrames" warning; in-flight count exposes pile-ups when snapshot
+        // completion falls behind the mirror's 1 Hz request rate.
+        diagnostics.add(\.snapshotsInFlight)
+        let started = ContinuousClock.now
+        defer {
+            diagnostics.add(\.snapshotsInFlight, delta: -1)
+            diagnostics.recordSnapshot(milliseconds: (ContinuousClock.now - started)
+                .totalMilliseconds)
+        }
+        return await withCheckedContinuation { continuation in
             arView.snapshot(saveToHDR: false) { image in
                 continuation.resume(
                     returning: image?.jpegData(compressionQuality: compressionQuality))
             }
         }
+    }
+
+    /// Read-and-continue snapshot of the T1.4 counters.
+    public nonisolated func frameDiagnostics() -> FrameDiagnostics {
+        diagnostics.snapshot()
     }
 
     /// The camera's current pose (camera-to-world), for aim derivation at
@@ -379,6 +403,63 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
         Task { @MainActor in
             self.sessionEvent = message
         }
+    }
+}
+
+/// T1.4 counters: how camera frames flow (or pile up) through the delegate
+/// and the mirror snapshot path. Values are cumulative since session start.
+public struct FrameDiagnostics: Sendable, Equatable {
+    /// Delegate `didUpdate` callbacks observed (≈ camera FPS × uptime).
+    public var framesSeen = 0
+    /// Frames deep-copied and handed to a `nextFrame()` caller.
+    public var framesDelivered = 0
+    /// Deep-copy allocation failures (should stay 0; growth = memory pressure).
+    public var copyFailures = 0
+    /// Completed `arView.snapshot` calls (the mirror's frame source).
+    public var snapshotsCompleted = 0
+    /// Snapshot calls currently outstanding — sustained >1 means snapshot
+    /// completion is slower than the mirror cadence (retention suspect).
+    public var snapshotsInFlight = 0
+    /// Total wall-clock spent in completed snapshot calls.
+    public var snapshotTotalMilliseconds = 0.0
+
+    public init() {}
+
+    public var averageSnapshotMilliseconds: Double {
+        snapshotsCompleted > 0 ? snapshotTotalMilliseconds / Double(snapshotsCompleted) : 0
+    }
+}
+
+/// Lock-protected counter storage shared by the ARKit session queue (frame
+/// delegate) and the main actor (snapshot path, reads).
+private final class DiagnosticsBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values = FrameDiagnostics()
+
+    func add(_ keyPath: WritableKeyPath<FrameDiagnostics, Int>, delta: Int = 1) {
+        lock.lock()
+        defer { lock.unlock() }
+        values[keyPath: keyPath] += delta
+    }
+
+    func recordSnapshot(milliseconds: Double) {
+        lock.lock()
+        defer { lock.unlock() }
+        values.snapshotsCompleted += 1
+        values.snapshotTotalMilliseconds += milliseconds
+    }
+
+    func snapshot() -> FrameDiagnostics {
+        lock.lock()
+        defer { lock.unlock() }
+        return values
+    }
+}
+
+private extension Duration {
+    var totalMilliseconds: Double {
+        Double(components.seconds) * 1000
+            + Double(components.attoseconds) / 1e15
     }
 }
 
