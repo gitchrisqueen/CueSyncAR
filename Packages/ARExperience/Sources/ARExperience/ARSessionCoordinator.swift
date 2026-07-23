@@ -523,10 +523,6 @@ public struct ARKitPlaneRaycaster {
 @MainActor
 public final class OverlayRenderer {
     private let root: AnchorEntity
-    /// World position of the root at creation; layout positions arrive in
-    /// world space and are re-expressed relative to this so the anchored
-    /// root can carry them through ARKit's map refinements.
-    private let rootOrigin: Vec3
     /// Strip thickness (m) and lift above the cloth to avoid z-fighting.
     private static let stripWidth = 0.008
     private static let stripLift = 0.002
@@ -537,20 +533,31 @@ public final class OverlayRenderer {
     public init(arView: ARView, tableAnchor: ARAnchor? = nil) {
         if let tableAnchor {
             root = AnchorEntity(anchor: tableAnchor)
-            let t = tableAnchor.transform.columns.3
-            rootOrigin = Vec3(Double(t.x), Double(t.y), Double(t.z))
         } else {
             root = AnchorEntity(world: matrix_identity_float4x4)
-            rootOrigin = .zero
         }
         arView.scene.addAnchor(root)
     }
 
-    /// World → root-local (the anchor was created translation-only).
-    private func local(_ world: Vec3, lift: Double) -> SIMD3<Float> {
-        SIMD3<Float>(Float(world.x - rootOrigin.x),
-                     Float(world.y - rootOrigin.y + lift),
-                     Float(world.z - rootOrigin.z))
+    /// A layout world point lifted off the cloth. Entities are positioned in
+    /// true WORLD space (`setPosition(relativeTo: nil)`), so RealityKit
+    /// resolves the anchor-local transform itself — correct for ANY anchor
+    /// rotation. The old `world − rootOrigin` translation shortcut assumed
+    /// the anchor had identity yaw; that holds at a fresh corner-lock but
+    /// NOT after relocalization, where the restored anchor carries the
+    /// session's arbitrary yaw and RealityKit re-applied it to every child,
+    /// rotating the whole overlay about the table center (the "floating off
+    /// the cloth after relaunch" bug).
+    private func worldPoint(_ world: Vec3, lift: Double) -> SIMD3<Float> {
+        SIMD3<Float>(Float(world.x), Float(world.y + lift), Float(world.z))
+    }
+
+    /// Parent to the anchored root, THEN set the world position — parenting
+    /// first lets RealityKit resolve world→anchor-local against the current
+    /// anchor transform.
+    private func place(_ entity: ModelEntity, at world: SIMD3<Float>) {
+        root.addChild(entity)
+        entity.setPosition(world, relativeTo: nil)
     }
 
     public func render(_ layout: OverlayLayout, planeNormalUp: Bool = true) {
@@ -569,8 +576,7 @@ public final class OverlayRenderer {
             var material = UnlitMaterial(color: color)
             material.blending = .transparent(opacity: ball.isCue ? 0.9 : 0.45)
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = local(ball.position, lift: Self.stripLift)
-            root.addChild(entity)
+            place(entity, at: worldPoint(ball.position, lift: Self.stripLift))
         }
 
         for strip in layout.strips {
@@ -581,10 +587,16 @@ public final class OverlayRenderer {
             var material = UnlitMaterial(color: uiColor(from: strip.color))
             material.blending = .transparent(opacity: .init(floatLiteral: strip.dashed ? 0.7 : 0.95))
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = local(strip.midpoint, lift: Self.stripLift)
+            place(entity, at: worldPoint(strip.midpoint, lift: Self.stripLift))
+            // Orientation stays LOCAL to the anchor (not relativeTo: nil):
+            // strip.angle is a TABLE-space heading, and the table anchor
+            // rotates with the table, so the anchor's yaw carries the strip
+            // to the correct world heading after relocalization. Setting a
+            // world-space yaw here would drop that yaw and under-rotate
+            // strips post-reloc. (Local == world at fresh lock, where this
+            // already rendered correctly.)
             entity.orientation = simd_quatf(angle: Float(strip.angle),
                                             axis: SIMD3<Float>(0, planeNormalUp ? 1 : -1, 0))
-            root.addChild(entity)
         }
 
         if let ghost = layout.ghostBall {
@@ -592,8 +604,7 @@ public final class OverlayRenderer {
             var material = UnlitMaterial(color: .white)
             material.blending = .transparent(opacity: 0.35)
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = local(ghost.position, lift: ghost.radius)
-            root.addChild(entity)
+            place(entity, at: worldPoint(ghost.position, lift: ghost.radius))
         }
 
         for pocket in layout.highlightedPockets {
@@ -602,8 +613,7 @@ public final class OverlayRenderer {
             var material = UnlitMaterial(color: uiColor(from: 0x2FA36B))
             material.blending = .transparent(opacity: 0.5)
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = local(pocket.position, lift: Self.stripLift)
-            root.addChild(entity)
+            place(entity, at: worldPoint(pocket.position, lift: Self.stripLift))
         }
 
         // Called pocket (M6-02): amber ring while aiming, felt green when
@@ -616,8 +626,7 @@ public final class OverlayRenderer {
             material.blending = .transparent(
                 opacity: layout.calledPocketSatisfied ? 0.85 : 0.6)
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = local(called.position, lift: Self.stripLift * 2)
-            root.addChild(entity)
+            place(entity, at: worldPoint(called.position, lift: Self.stripLift * 2))
         }
     }
 
