@@ -4,8 +4,15 @@
 (or human) can resume without a prior chat session. Update this file whenever
 a work session ends or a major finding lands.
 
-**Last update: 2026-07-23 (autonomous loop), branch
-`claude/T1-tier1-verification`.** Stick aim VERIFIED engaging on device and
+**Last update: 2026-07-23 (post-loop), branch
+`claude/T1-tier1-verification`.** AR overlay relocalization-rotation bug
+FIXED (`c0e3ecf`): `OverlayRenderer` now places entities in true world
+space (`setPosition(relativeTo: nil)`) instead of the `world − rootOrigin`
+shortcut that ignored the relocalized anchor's yaw — overlays no longer
+float off the cloth after relaunch; strip orientation kept anchor-local on
+purpose (table-space heading + anchor rotates with the table). Before/after
+frames in docs/validation. App on the known-good `.cpuOnly` build. Earlier
+this session (autonomous loop): stick aim VERIFIED engaging on device and
 its flicker fixed (2.5 s time-based hold; duty 50%→86% — `0e62a3d`); the
 on-table stick gate (`b8c805a`) holds. Mirror now exposes the predicted
 trajectory (`prediction` field: path + cushion/rest/pocket in table space —
