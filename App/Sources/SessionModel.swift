@@ -70,6 +70,9 @@ final class SessionModel {
         // stored one is wrong (or the table moved). Prevents a stale bad
         // lock from relocalizing back over the fresh flow on next launch.
         CalibrationStore.clear()
+        // Manual recalibration abandons any pending relocalization — stop
+        // the stopwatch so a later restore can't misreport.
+        relocalizationStartedAt = nil
         pendingCorners = []
         cornerAnchorBase = nil
         calibration.handle(.resetRequested)
@@ -191,13 +194,14 @@ final class SessionModel {
         relocalizationSeconds = nil
     }
 
-    /// Relocalization gave up (deadline hit) — log it so slow venues are
-    /// visible in the console and the stopwatch doesn't misattribute a
-    /// later manual lock.
+    /// The 15 s relocalization deadline passed. Log it but KEEP the
+    /// stopwatch running: ARKit retains the loaded world map across the
+    /// fallback reconfigure and often relocalizes late (~2 min observed on
+    /// the black-cloth table) — that late number is exactly the
+    /// measurement T1.2 exists to capture.
     func markRelocalizationTimeout() {
         guard let started = relocalizationStartedAt else { return }
-        relocalizationStartedAt = nil
-        Self.log.notice("relocalization timed out after \(Int(Date().timeIntervalSince(started))) s — falling back to fresh tracking")
+        Self.log.notice("relocalization deadline (15 s) passed after \(Int(Date().timeIntervalSince(started))) s — plane detection reenabled, stopwatch still running")
     }
 
     /// Latest ARFrame-flow counters from the coordinator (T1.4), published
