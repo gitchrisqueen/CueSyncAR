@@ -60,4 +60,21 @@ public enum StickAim {
         guard direction.length > 1e-9 else { return nil }
         return AimRay(origin: cueBall, direction: direction.normalized)
     }
+
+    /// Whether a projected stick quad plausibly belongs to a stick ON the
+    /// table. Device finding (2026-07-23 bank-shot session): the detector
+    /// classifies the table's RAIL EDGE as "cue" with high confidence, and
+    /// its quad projects entirely beyond the cushions — picking sticks by
+    /// raw confidence then locks aim onto the rail forever. A real aiming
+    /// stick always has its tip end over the cloth (the butt legitimately
+    /// overhangs the near rail), so: accept when at least one corner lies
+    /// within the playing field plus `margin` meters.
+    public static func quadOnTable(_ quad: [Vec2],
+                                   halfExtents: Vec2,
+                                   margin: Double = 0.05) -> Bool {
+        quad.contains { corner in
+            abs(corner.x) <= halfExtents.x + margin
+                && abs(corner.y) <= halfExtents.y + margin
+        }
+    }
 }

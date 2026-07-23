@@ -201,23 +201,36 @@ public actor PerceptionPipeline {
         }
     }
 
-    /// Project the strongest stick detection's box corners onto the table
-    /// plane (image order TL, TR, BR, BL) for StickAim.
+    /// Project stick detections' box corners onto the table plane (image
+    /// order TL, TR, BR, BL) and return the strongest candidate whose quad
+    /// is plausibly ON the table — rail edges also classify as "cue" and
+    /// project beyond the cushions, and picking by confidence alone locked
+    /// aim onto the rail (2026-07-23 device session).
     private func stickQuad(in detections: [Detection2D],
                            frame: CapturedFrame) -> [Vec2]? {
-        guard let stick = detections.filter({ $0.isCueStick && $0.confidence >= 0.3 })
-            .max(by: { $0.confidence < $1.confidence }) else { return nil }
-        let box = stick.boundingBox
-        let corners = [
-            Vec2(box.x, box.y),
-            Vec2(box.x + box.width, box.y),
-            Vec2(box.x + box.width, box.y + box.height),
-            Vec2(box.x, box.y + box.height)
-        ]
-        let projected = corners.compactMap { corner -> Vec2? in
-            raycaster.raycastToTablePlane(imagePoint: corner, frame: frame)
-                .map(calibration.worldToTable)
+        let halfExtents = Table(size: calibration.size).halfExtents
+        let candidates = detections
+            .filter { $0.isCueStick && $0.confidence >= 0.3 }
+            .sorted { $0.confidence > $1.confidence }
+            .prefix(4)
+        for stick in candidates {
+            let box = stick.boundingBox
+            let corners = [
+                Vec2(box.x, box.y),
+                Vec2(box.x + box.width, box.y),
+                Vec2(box.x + box.width, box.y + box.height),
+                Vec2(box.x, box.y + box.height)
+            ]
+            let projected = corners.compactMap { corner -> Vec2? in
+                raycaster.raycastToTablePlane(imagePoint: corner, frame: frame)
+                    .map(calibration.worldToTable)
+            }
+            guard projected.count == 4,
+                  StickAim.quadOnTable(projected, halfExtents: halfExtents) else {
+                continue
+            }
+            return projected
         }
-        return projected.count == 4 ? projected : nil
+        return nil
     }
 }
