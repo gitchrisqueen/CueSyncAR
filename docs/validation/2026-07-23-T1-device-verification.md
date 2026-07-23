@@ -179,3 +179,40 @@ captured — only current rest positions are known from the live mirror
 Predicted-vs-actual for those shots is lost. FIX FOR NEXT TIME: leave a
 background state recorder running whenever Chris is at the table, or have
 him say "shooting now" so a recorder is armed first.
+
+## Chris's shot session (2026-07-23) — 4 shots, two code findings
+
+Recorded 4 shots at ~5 Hz over the mirror. Detail:
+`2026-07-23-shot-tracking-evidence.txt`.
+
+**FINDING 1 — the detector is blind to a ball at shot speed (blocks T1.1
+path capture).** Every shot is a start-rest → end-rest TELEPORT with zero
+mid-flight samples. Raw detections during flight show only the stationary
+object ball / stick — never the moving cue ball along its path. At ~5-9 Hz
+detection with motion blur on black cloth, a ball moving ~0.3-0.4 m per
+frame is simply never detected in transit. CONSEQUENCE: predicted-vs-ACTUAL
+*path* (and thus cushion-by-cushion bank validation) cannot be captured
+this way regardless of tracker tuning — it is gated on detection speed
+(the ANE/model work, T1.3) or on shooting at lag speed so the ball stays
+detectable. Only start/end rest positions are recoverable at shot speed.
+
+**FINDING 2 — phantom track lingers at the shot origin (~3.5 s).** When the
+cue ball is struck it reappears as a NEW track at the destination while the
+ORIGINAL track stays frozen at the origin — two "cue balls" for ~3.5 s
+(shot 1: origin (-0.27,-0.03) held from t=21.4 to t=25.0 while the real
+ball rested at (-0.83,0.55)). Cause: the tracker's competition-absorption
+(`BallTracker.update`) only retires a far duplicate when the winning track
+is within `gatingDistance` (0.08 m); a shot puts the new track ~0.8 m away,
+so the old one instead coasts for `disappearanceFrames` (30 ≈ 3.5 s) as an
+in-view unobserved track. On device this shows a phantom ring (and a stale
+prediction line) at the origin after every firm shot.
+
+DECISION: Finding 2 is a real, fixable tracker bug, but the fix (faster
+retirement of a track whose neighborhood is provably empty, WITHOUT
+regressing occlusion robustness or the existing phantom-twin/overlap
+merges) is a nuanced change to a carefully-tuned multi-mechanism tracker.
+Per the project's own tracker-tuning caution and the M2-05 replay-suite
+plan, it should be done deliberately with a replay TEST built from a
+captured fixture (assert: no track persists >~1 s at a position the ball
+has demonstrably left), not hot-patched. Queued as a task with this repro.
+Finding 1 reinforces prioritizing T1.3 (on-device detection speed).
