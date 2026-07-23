@@ -4,8 +4,16 @@
 (or human) can resume without a prior chat session. Update this file whenever
 a work session ends or a major finding lands.
 
-**Last update: 2026-07-23 (post-loop), branch
-`claude/T1-tier1-verification`.** AR overlay relocalization-rotation bug
+**Last update: 2026-07-23 (post-loop, shot session), branch
+`claude/T1-tier1-verification`.** Chris shot 4 balls through the mirror →
+two findings (docs/validation): (1) the on-device detector is BLIND to a
+ball at shot speed — every shot is a start→end teleport with zero
+mid-flight detections, so predicted-vs-ACTUAL bank *path* capture is gated
+on detection speed (T1.3) or lag-speed shots, not tracker tuning; (2)
+phantom track lingers ~3.5 s at a shot's origin (BallTracker retires far
+duplicates only within gatingDistance) — queued as task, fix via a
+replay-test-driven change, not a hot-patch. Earlier: AR overlay
+relocalization-rotation bug
 FIXED (`c0e3ecf`): `OverlayRenderer` now places entities in true world
 space (`setPosition(relativeTo: nil)`) instead of the `world − rootOrigin`
 shortcut that ignored the relocalized anchor's yaw — overlays no longer
