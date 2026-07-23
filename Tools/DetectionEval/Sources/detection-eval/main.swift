@@ -101,8 +101,20 @@ enum EvalError: Error, CustomStringConvertible {
 
 func loadCGImage(at path: String) throws -> CGImage {
     let url = URL(fileURLWithPath: path)
-    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-          let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+        throw EvalError.imageLoad(path)
+    }
+    // Apply EXIF orientation (iPhone camera JPEGs are stored sensor-native
+    // with a rotation tag; the model must see the upright pixels).
+    let options: [CFString: Any] = [
+        kCGImageSourceCreateThumbnailWithTransform: true,
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceThumbnailMaxPixelSize: 8192,
+    ]
+    if let upright = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) {
+        return upright
+    }
+    guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
         throw EvalError.imageLoad(path)
     }
     return image
