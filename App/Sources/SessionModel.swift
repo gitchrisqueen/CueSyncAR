@@ -455,6 +455,31 @@ final class SessionModel {
         state["guideSpeed"] = guideSpeed
         state["mode"] = practiceMode.rawValue
         state["hasPrediction"] = shotPrediction != nil
+        if let prediction = shotPrediction, !prediction.segments.isEmpty {
+            // Predicted path + events in table space — makes bank-line
+            // ground truth (T1.1) numerically loggable from the mirror,
+            // no eyeballing the rendered frame. Rounded to cm.
+            func pt(_ v: Vec2) -> [Double] {
+                [(v.x * 100).rounded() / 100, (v.y * 100).rounded() / 100]
+            }
+            var path = [pt(prediction.segments[0].start)]
+            path.append(contentsOf: prediction.segments.map { pt($0.end) })
+            var predictionDict: [String: Any] = ["path": path]
+            let cushions = prediction.events.compactMap { event -> [Double]? in
+                if case .cushion(_, let point) = event { return pt(point) }
+                return nil
+            }
+            if !cushions.isEmpty { predictionDict["cushions"] = cushions }
+            if let rest = prediction.events.compactMap({ event -> [Double]? in
+                if case .rest(_, let point) = event { return pt(point) }
+                return nil
+            }).first { predictionDict["rest"] = rest }
+            if let pocket = prediction.events.compactMap({ event -> String? in
+                if case .pocket(_, let pocket) = event { return String(describing: pocket) }
+                return nil
+            }).first { predictionDict["pocketed"] = pocket }
+            state["prediction"] = predictionDict
+        }
         if let calledPocket { state["calledPocket"] = String(describing: calledPocket) }
         if let sessionEvent { state["sessionEvent"] = sessionEvent }
         if let error = previewStats.lastError { state["lastError"] = error }
