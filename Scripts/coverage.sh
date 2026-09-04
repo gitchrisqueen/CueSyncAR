@@ -29,6 +29,7 @@ for manifest in "$ROOT"/Packages/*/Package.swift; do
   pkg="$(dirname "$manifest")"; name="$(basename "$pkg")"
   [ -n "$ONLY" ] && [ "$ONLY" != "$name" ] && continue
   echo "==> $name" >&2
+  mkdir -p "$pkg/.build"
   swift test --package-path "$pkg" --enable-code-coverage >/dev/null 2>"$pkg/.build/coverage-test.log" || { echo "tests FAILED in $name (see $pkg/.build/coverage-test.log)" >&2; status=1; continue; }
   prof="$pkg/.build/debug/codecov/default.profdata"
   bin="$(ls -d "$pkg"/.build/debug/*.xctest 2>/dev/null | head -1)"
