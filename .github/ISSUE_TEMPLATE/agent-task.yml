@@ -1,0 +1,34 @@
+name: Agent task
+description: A bounded task the autonomous runner can pick up (label it agent:ready when it is).
+title: "M?-??: <deliverable>"
+labels: []
+body:
+  - type: textarea
+    id: context
+    attributes: { label: Context, description: What problem this solves and where it sits in docs/roadmap. }
+    validations: { required: true }
+  - type: textarea
+    id: scope
+    attributes: { label: Scope, description: Packages/files the change may touch. }
+    validations: { required: true }
+  - type: textarea
+    id: out
+    attributes: { label: Out of scope, description: What a well-meaning agent would add but must not. }
+  - type: textarea
+    id: acceptance
+    attributes: { label: Acceptance, description: Checklist of observable results. }
+    validations: { required: true }
+  - type: dropdown
+    id: verify
+    attributes:
+      label: Verification
+      description: Which virtual-environment check proves it (also add the matching verify:* label).
+      options: [ "verify:unit", "verify:synthetic", "verify:replay", "verify:snapshot", "verify:sim-smoke", "verify:device" ]
+    validations: { required: true }
+  - type: input
+    id: metric
+    attributes: { label: Metric and threshold, placeholder: "e.g. replay golden-S1 position RMS ≤ 2.0 cm; recall ≥ 15/16" }
+    validations: { required: true }
+  - type: textarea
+    id: device
+    attributes: { label: Device follow-up, description: Checklist rows the owner runs at the table, or "none". }

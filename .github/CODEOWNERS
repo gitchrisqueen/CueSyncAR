@@ -1,0 +1,18 @@
+# Tier-B surfaces: the owner reviews and merges these. (Rulesets enforce; this file documents and
+# auto-requests review. Deliberately no `*` catch-all: a runner PR must not need an approval it
+# cannot obtain for tier-A code.)
+/.github/                      @gitchrisqueen
+/.claude/                      @gitchrisqueen
+/.mcp.json                     @gitchrisqueen
+/Scripts/agent-runner/         @gitchrisqueen
+/Scripts/verify/               @gitchrisqueen
+/Packages/CueSyncCore/         @gitchrisqueen
+/App/Config/                   @gitchrisqueen
+/App/Resources/                @gitchrisqueen
+/project.yml                   @gitchrisqueen
+/.gitleaks.toml                @gitchrisqueen
+/.swiftlint.yml                @gitchrisqueen
+/README.md                     @gitchrisqueen
+/CLAUDE.md                     @gitchrisqueen
+/CONTRIBUTING.md               @gitchrisqueen
+/docs/                         @gitchrisqueen

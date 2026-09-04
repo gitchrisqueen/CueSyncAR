@@ -14,15 +14,17 @@ this repo without stepping on humans or each other.
 
 ## Rule 1 — Claim before you code
 
-Claim a task by a **tiny, immediate PR-less commit to `main`'s task board is
-not possible for agents**, so claims are branch-based: create and push branch
-`claude/<task-id>-<slug>` (e.g. `claude/M1-02-physics-solver`). A pushed
-branch matching a task ID **is** the claim. Before starting, fetch and check
-`git ls-remote --heads origin 'claude/<task-id>-*'` — if a claim branch exists
-and has commits newer than ~24 h, pick another task. Stale claims (> 24 h idle)
-may be taken over; note the takeover in the PR description. In your PR, tick
-the task checkbox in `06-MILESTONES.md` from `[ ]`/`[~]` to `[x]` so the merge
-that completes the work also updates the board atomically.
+Two ways of working coexist:
+
+- **Headless runner (default since 2026-09):** GitHub Issues are the board. An issue labelled
+  `agent:ready` by the owner is claimed by the runner flipping it to `agent:working`; the branch
+  is `claude/issue-<N>-<slug>`; the PR says `closes #N`. See `docs/agent-runner.md` for the
+  labels, tiers, budgets and the Decision Comment protocol. Do not tick checkboxes in
+  06-MILESTONES.md — that file links to the issues.
+- **Interactive session:** claim by pushing `claude/<task-id>-<slug>` for a task that has NO
+  issue yet, or comment on the issue and label it `agent:working` yourself. Check
+  `gh issue list --label agent:working` and `git ls-remote --heads origin 'claude/*'` before
+  starting; a claim idle > 24 h may be taken over (say so in the PR).
 
 ## Rule 2 — One task, one branch, one PR
 

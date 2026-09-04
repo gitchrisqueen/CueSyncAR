@@ -1,0 +1,10 @@
+# milestone	title	labels	body-file
+M2	M2-07: Phantom track at shot origin — replay test + tracker fix	agent:ready,priority:high,verify:unit,perception	b1-phantom-track.md
+M2	M2-08: SessionReplay package, processFrame, deterministic scripted golden bundle	agent:ready,priority:high,verify:replay,perception,infra	b2-session-replay.md
+M2	M2-09: Re-derive calibration from the live table anchor each tick	agent:ready,priority:high,verify:replay,perception,ar	b3-anchor-calibration.md
+M2	M2-10: Synthetic ground-truth harness (four projection cases)	agent:ready,priority:medium,verify:synthetic,perception	c-synthetic-harness.md
+M2	M2-04: On-device session recorder + pull script	agent:ready,priority:high,verify:unit,needs-device-run,ar	d-session-recorder.md
+M3	M3-07: Simulator replay mode, ProjectedOverlay, rendered-marker metric, XCUITest smoke	agent:ready,priority:medium,verify:sim-smoke,ar,ui	e-replay-mode.md
+M2	M2-11: Offline slow-mo shot tracker + physics reference comparison	agent:ready,priority:low,verify:unit,physics	f-shot-tracker.md
+M2	M2-05: Ingest the first real-table bundles and promote the golden replay	agent:blocked,priority:high,verify:replay,needs-table-session,perception	m2-04-capture-tool-fixtures.md
+M4	M4-04: Settings screen with persistence	agent:ready,priority:low,verify:unit,ui	m4-04-settings.md
