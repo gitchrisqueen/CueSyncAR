@@ -70,10 +70,32 @@ final class SessionModel {
         // stored one is wrong (or the table moved). Prevents a stale bad
         // lock from relocalizing back over the fresh flow on next launch.
         CalibrationStore.clear()
+        // Manual recalibration abandons any pending relocalization — stop
+        // the stopwatch so a later restore can't misreport.
+        relocalizationStartedAt = nil
         pendingCorners = []
         cornerAnchorBase = nil
         calibration.handle(.resetRequested)
+        // Re-pins of a known table snap to its saved spec, not just the
+        // generic standards (a shallow-angle tap set once locked an 8 ft
+        // table as 7 ft — the spec makes repeat calibrations agree).
+        calibration.preferredSize = CalibrationStore.loadTableSpec()
         calibrationVisible = true
+    }
+
+    /// Live measured size while the user adjusts corners — shown in the
+    /// calibration HUD BEFORE lock so a bad tap is visible immediately.
+    var calibrationSizePreview: String? {
+        guard case .adjusting(let corners) = calibration.state,
+              let preview = try? TableCalibration.fromCorners(
+                corners, preferredSize: calibration.preferredSize) else {
+            return nil
+        }
+        let comparison = preview.standardSizeComparison
+        return String(format: "%.2f × %.2f m — %@",
+                      preview.measuredWidth ?? 0,
+                      preview.measuredHeight ?? 0,
+                      comparison.summary)
     }
 
     func cancelCalibration() {
@@ -141,6 +163,19 @@ final class SessionModel {
         calibration.handle(.lockRequested)
         guard calibration.isLocked else { return false }
         calibrationVisible = false
+        // T1.2 measurement truth: surface how far the measured field sits
+        // from the nearest standard size the moment it locks — a big delta
+        // means mis-tapped corners (outer rail instead of cushion nose).
+        if let locked = tableCalibration {
+            let comparison = locked.standardSizeComparison
+            let field = locked.size.playField
+            showTapFeedback(String(format: "Locked %.2f × %.2f m — %@",
+                                   field.width, field.height, comparison.summary))
+            Self.log.notice("calibration locked: \(comparison.summary, privacy: .public) (max delta \(Int(comparison.maxDelta * 1000)) mm)")
+            // Remember this table's size as the user's spec so future
+            // re-pins snap to it (survives venue clears).
+            CalibrationStore.saveTableSpec(locked.size)
+        }
         return true
     }
 
@@ -154,7 +189,53 @@ final class SessionModel {
     /// A saved venue relocalized — jump to locked (unless the user already
     /// locked a fresh calibration this session; the controller ignores it).
     func restoreCalibration(_ restored: TableCalibration) {
+        let wasLocked = calibration.isLocked
         calibration.handle(.restored(restored))
+        // T1.2 relocalization timing: verified bar is locked within 15 s of
+        // seeing the table; the mirror surfaces the measured number.
+        if !wasLocked, calibration.isLocked, let started = relocalizationStartedAt {
+            let seconds = Date().timeIntervalSince(started)
+            relocalizationSeconds = seconds
+            relocalizationStartedAt = nil
+            showTapFeedback(String(format: "Table restored in %.1f s", seconds))
+            Self.log.notice("relocalized in \(String(format: "%.2f", seconds), privacy: .public) s")
+        }
+    }
+
+    // MARK: T1.2/T1.4 instrumentation
+
+    /// When the session began attempting world-map relocalization.
+    private var relocalizationStartedAt: Date?
+    /// How long the last successful relocalization took (nil = none yet).
+    private(set) var relocalizationSeconds: Double?
+
+    /// The AR layer calls this the moment it starts a session with a saved
+    /// world map, starting the relocalization stopwatch.
+    func markRelocalizationStart() {
+        relocalizationStartedAt = Date()
+        relocalizationSeconds = nil
+    }
+
+    /// The 15 s relocalization deadline passed. Log it but KEEP the
+    /// stopwatch running: ARKit retains the loaded world map across the
+    /// fallback reconfigure and often relocalizes late (~2 min observed on
+    /// the black-cloth table) — that late number is exactly the
+    /// measurement T1.2 exists to capture.
+    func markRelocalizationTimeout() {
+        guard let started = relocalizationStartedAt else { return }
+        Self.log.notice("relocalization deadline (15 s) passed after \(Int(Date().timeIntervalSince(started))) s — plane detection reenabled, stopwatch still running")
+    }
+
+    /// Latest ARFrame-flow counters from the coordinator (T1.4), published
+    /// to the mirror so retention hunts don't need the Xcode console.
+    private(set) var frameDiagnostics: FrameDiagnostics?
+
+    func updateFrameDiagnostics(_ diagnostics: FrameDiagnostics) {
+        let previous = frameDiagnostics
+        frameDiagnostics = diagnostics
+        // Log on change only (the loop polls every few seconds regardless).
+        guard diagnostics != previous else { return }
+        Self.log.info("frames seen \(diagnostics.framesSeen) delivered \(diagnostics.framesDelivered) copyFail \(diagnostics.copyFailures) snapshots \(diagnostics.snapshotsCompleted) (avg \(Int(diagnostics.averageSnapshotMilliseconds)) ms, inflight \(diagnostics.snapshotsInFlight))")
     }
 
     // MARK: Live tracking (M3-05: pipeline → solver → overlay)
@@ -328,9 +409,24 @@ final class SessionModel {
             "aimSource": String(describing: aimSource),
             "calledShotOnLine": calledShotOnLine
         ]
-        if let size = tableCalibration?.size {
+        if let calibration = tableCalibration {
+            let size = calibration.size
             state["tableSize"] = String(format: "%.2f x %.2f m",
                                         size.playField.width, size.playField.height)
+            state["sizeVsStandard"] = calibration.standardSizeComparison.summary
+        }
+        if let relocalizationSeconds {
+            state["relocalizationSeconds"] = (relocalizationSeconds * 10).rounded() / 10
+        }
+        if let diag = frameDiagnostics {
+            state["frameDiag"] = [
+                "seen": diag.framesSeen,
+                "delivered": diag.framesDelivered,
+                "copyFailures": diag.copyFailures,
+                "snapshots": diag.snapshotsCompleted,
+                "snapshotAvgMs": Int(diag.averageSnapshotMilliseconds),
+                "snapshotsInFlight": diag.snapshotsInFlight
+            ]
         }
         if let balls = tableState?.balls {
             state["ballCount"] = balls.count
@@ -340,6 +436,12 @@ final class SessionModel {
                  "y": (ball.position.y * 100).rounded() / 100,
                  "confidence": (ball.confidence * 100).rounded() / 100]
             }
+        }
+        if let quad = stickQuad {
+            // Raw stick footprint (table space) — lets a remote observer
+            // debug why StickAim accepts/rejects without the Xcode console.
+            state["stickQuad"] = quad.map { [($0.x * 100).rounded() / 100,
+                                            ($0.y * 100).rounded() / 100] }
         }
         if let guide = shotGuide {
             state["shotGuide"] = guide.headline
@@ -353,6 +455,31 @@ final class SessionModel {
         state["guideSpeed"] = guideSpeed
         state["mode"] = practiceMode.rawValue
         state["hasPrediction"] = shotPrediction != nil
+        if let prediction = shotPrediction, !prediction.segments.isEmpty {
+            // Predicted path + events in table space — makes bank-line
+            // ground truth (T1.1) numerically loggable from the mirror,
+            // no eyeballing the rendered frame. Rounded to cm.
+            func pt(_ v: Vec2) -> [Double] {
+                [(v.x * 100).rounded() / 100, (v.y * 100).rounded() / 100]
+            }
+            var path = [pt(prediction.segments[0].start)]
+            path.append(contentsOf: prediction.segments.map { pt($0.end) })
+            var predictionDict: [String: Any] = ["path": path]
+            let cushions = prediction.events.compactMap { event -> [Double]? in
+                if case .cushion(_, let point) = event { return pt(point) }
+                return nil
+            }
+            if !cushions.isEmpty { predictionDict["cushions"] = cushions }
+            if let rest = prediction.events.compactMap({ event -> [Double]? in
+                if case .rest(_, let point) = event { return pt(point) }
+                return nil
+            }).first { predictionDict["rest"] = rest }
+            if let pocket = prediction.events.compactMap({ event -> String? in
+                if case .pocket(_, let pocket) = event { return String(describing: pocket) }
+                return nil
+            }).first { predictionDict["pocketed"] = pocket }
+            state["prediction"] = predictionDict
+        }
         if let calledPocket { state["calledPocket"] = String(describing: calledPocket) }
         if let sessionEvent { state["sessionEvent"] = sessionEvent }
         if let error = previewStats.lastError { state["lastError"] = error }
@@ -510,7 +637,7 @@ final class SessionModel {
         aimStabilizer.reset()
         lastAimSource = nil
         lastStickAim = nil
-        stickAimGrace = 0
+        lastStickAimAt = nil
         lastPredictedState = nil
         latestDetectionLabels = []
     }
@@ -547,10 +674,20 @@ final class SessionModel {
     /// Aim stabilization state (see AimStabilizer): smoothing + deadband.
     @ObservationIgnored private var aimStabilizer = AimStabilizer()
     @ObservationIgnored private var lastAimSource: AimSource?
-    /// Last stick-derived aim + remaining grace updates it stays live for
-    /// after the stick drops out of detection (~1.2 s at loop cadence).
+    /// Last stick-derived aim + when it was last freshly detected. The
+    /// on-device detector emits the stick in bursts (measured 2026-07-23 at
+    /// the table: fresh stick projections only ~7% of frames, gaps up to
+    /// ~6 s), so aim is HELD for `stickAimHold` after the last fresh detect
+    /// instead of snapping to the device-pose model and back — the "aim
+    /// jumping" flicker. Time-based, not a frame count: `updateAim`'s call
+    /// rate varies with the frame-pull loop, so a fixed count gave an
+    /// unpredictable hold (~1.2–2 s) that lapsed mid-gap.
     @ObservationIgnored private var lastStickAim: AimRay?
-    @ObservationIgnored private var stickAimGrace = 0
+    @ObservationIgnored private var lastStickAimAt: Date?
+    /// How long a stick aim stays live after its last fresh detection.
+    /// Bridges the measured typical gap without persisting so long that aim
+    /// lingers after the cue is lifted.
+    private static let stickAimHold: TimeInterval = 2.5
     /// State the current prediction was solved against — a changed ball
     /// layout forces a re-solve even inside the aim deadband.
     @ObservationIgnored private var lastPredictedState: TableState?
@@ -598,10 +735,10 @@ final class SessionModel {
                                             cueBall: cue.position) {
             rawAim = stickAim
             lastStickAim = stickAim
-            stickAimGrace = 8
+            lastStickAimAt = Date()
             aimSource = .stick
-        } else if stickAimGrace > 0, let held = lastStickAim {
-            stickAimGrace -= 1
+        } else if let held = lastStickAim, let at = lastStickAimAt,
+                  Date().timeIntervalSince(at) < Self.stickAimHold {
             rawAim = held
             aimSource = .stick
         } else {
@@ -799,12 +936,13 @@ final class SessionModel {
             guard let url = Bundle.main.url(forResource: "BallDetector",
                                             withExtension: "mlmodelc") else { return nil }
             let configuration = MLModelConfiguration()
-            // CPU-only for now: the coremltools-9 mlprogram trips
-            // "MLIR pass manager failed" assertions in MPSGraph when the
-            // GPU/ANE graph compiler ingests it (crash at first Vision
-            // request on device). YOLOv11n@640 on CPU is still far faster
-            // than the hosted API. TODO(M2): re-export targeting an older
-            // opset / neuralnetwork backend and restore .all.
+            // Still CPU-only. T1.3 negative result (2026-07-23, crash logs
+            // on file): even the iOS16-target/CoreML6 re-export with fp32
+            // pipeline outputs aborts in MPSGraph's MLIR optimization
+            // passes on iOS 26 the moment GPU/ANE compiles it — the
+            // boundary-cast theory is dead; the bug is in MPSGraph's
+            // ingestion of coremltools-9 mlprograms generally. Next
+            // candidates: iOS17-target export, then fp32 GPU-only.
             configuration.computeUnits = .cpuOnly
             guard let model = try? MLModel(contentsOf: url,
                                            configuration: configuration),

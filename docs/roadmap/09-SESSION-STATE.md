@@ -2,14 +2,53 @@
 
 **Purpose:** land the *current working state* in the repo so any fresh agent
 (or human) can resume without a prior chat session. Update this file whenever
-a work session ends or a major finding lands. Last update: **2026-07-22**,
-branch `claude/M3-02-calibration-flow` (all local branches — `main`,
-`claude/ar-billiards-2026-roadmap-n1asv8`, this one — point at the same
-consolidated commit; push all three from SourceTree, each fast-forwards).
+a work session ends or a major finding lands.
+
+**Last update: 2026-07-23 (post-loop, shot session), branch
+`claude/T1-tier1-verification`.** The operator shot 4 balls through the mirror →
+two findings (docs/validation): (1) the on-device detector is BLIND to a
+ball at shot speed — every shot is a start→end teleport with zero
+mid-flight detections, so predicted-vs-ACTUAL bank *path* capture is gated
+on detection speed (T1.3) or lag-speed shots, not tracker tuning; (2)
+phantom track lingers ~3.5 s at a shot's origin (BallTracker retires far
+duplicates only within gatingDistance) — queued as task, fix via a
+replay-test-driven change (identity handoff, NOT empty-neighborhood
+retirement — that breaks occlusion robustness; see task). Also RESEARCH
+(offline): the T1.3 crash was tested wrong — only `.all` (GPU/MPSGraph)
+was tried, never `.cpuAndNeuralEngine` (the documented crash-avoider +
+correct camera-app unit); next experiment is a one-line compute-unit flip
+behind a crash-safe probe (see ANE section). Earlier: AR overlay
+relocalization-rotation bug
+FIXED (`c0e3ecf`): `OverlayRenderer` now places entities in true world
+space (`setPosition(relativeTo: nil)`) instead of the `world − rootOrigin`
+shortcut that ignored the relocalized anchor's yaw — overlays no longer
+float off the cloth after relaunch; strip orientation kept anchor-local on
+purpose (table-space heading + anchor rotates with the table). Before/after
+frames in docs/validation. App on the known-good `.cpuOnly` build. Earlier
+this session (autonomous loop): stick aim VERIFIED engaging on device and
+its flicker fixed (2.5 s time-based hold; duty 50%→86% — `0e62a3d`); the
+on-table stick gate (`b8c805a`) holds. Mirror now exposes the predicted
+trajectory (`prediction` field: path + cushion/rest/pocket in table space —
+`bfcd097`), so bank ground truth is numerically loggable. First numeric
+bank prediction captured (docs/validation). App healthy on the `.cpuOnly`
+known-good build; no new crashes. STILL OPEN and needing a human at the
+table: object ball often untracked on black cloth at CPU cadence (detection
+sparsity — same root as T1.3); predicted-vs-ACTUAL bank still needs real
+shots [HUMAN]; T1.4 freeze not reproduced this session. Prior context from
+the third session below.
+
+That session:
+`Tools/DetectionEval` offline eval CLI (runs the bundled model on stills via
+the app's provider — EXIF-aware; `img/` has real-table photos, `img/upright/`
+rotated copies); T1.2 (cushion-nose HUD copy, StandardSizeComparison + raw
+pre-snap size on TableCalibration, relocalization stopwatch, mirror keys
+`sizeVsStandard`/`relocalizationSeconds`) and T1.4 instrumentation
+(FrameDiagnostics counters + `frameDiag` in the mirror state) landed
+code-complete, `needs-device-run`; T1.3 retraining/export findings below.
 
 ## Where the project stands
 
-Working on device (iPhone 16 Pro "CDQ iPhone", iPad "Christopher's iPad (2)"):
+Working on device (iPhone 16 Pro, iPad 9th gen):
 
 - AR camera feed, calibration flow (tap 4 corners → drag → lock, custom sizes
   allowed with 8% snap to standard), ARWorldMap persistence + relocalization,
@@ -91,6 +130,75 @@ GPU-only fallback: `quantize=32` fp32 variant (ANE is fp16-only). After
 swapping the model in, remove the `.cpuOnly` pin and verify boxes on device.
 Training artifacts: dataset fork `cqc/pool-ball-agzev-tekpn` (Roboflow);
 best.pt regenerable per `docs/model-testing.md` (freeze=10, 640px, ~epoch 19).
+
+**2026-07-22 late (T1.3 execution findings):** the fork has the DATASET
+only — `version(1).model` is nil, so there are no downloadable weights
+anywhere; best.pt must be RETRAINED before every re-export (25 epochs
+YOLOv11n freeze=10 on the 1000/284/141 split ≈ 1.5 h on CPU). The development Mac
+is **Intel x86_64**: torch wheels stop at 2.2.2 there, so the whole recipe
+runs in Docker (`python:3.12-slim` linux/amd64 + `apt-get install libgl1
+libglib2.0-0 libxcb1` + `pip 'numpy<2'` — ultralytics 8.3.40 still calls
+`np.trapz`). Export driver: the container script monkeypatches
+`ct.convert` exactly per the recipe above.
+Parity gate before any swap: `Tools/DetectionEval` (macOS CLI) runs the
+bundled model through the app's real `CoreMLDetectionProvider` on still
+images — its CPU output matched the live iPad's rawDetections on the same
+scene, so old-vs-new box diffs on `img/upright/` are a trustworthy proxy;
+final ANE/crash check still needs the device.
+
+**2026-07-23 NEGATIVE RESULT: iOS16 target does NOT fix the crash.** The
+retrained model (val mAP50 0.893) exported at iOS16/CoreML6 with fp32
+pipeline outputs still aborts in
+`MPSGraphExecutable applyOptimizationPassesWithDevice…MLIRName` (SIGABRT,
+crash-looped the app at first inference with `.all`). The boundary-cast
+theory is dead — MPSGraph on iOS 26 chokes on coremltools-9 mlprograms
+generally. The new model SHIPPED anyway on `.cpuOnly` (equal quality,
+fewer false positives). Export mechanics that had to be discovered:
+(1) at iOS16+ coremltools defaults outputs to fp16 which the classic NMS
+pipeline stage rejects — pin `outputs=[ct.TensorType(dtype=np.float32)]×2`
+in the monkeypatch; (2) ultralytics writes the pipeline WRAPPER spec as
+5/6 around a spec-7 mlProgram and the CoreML compiler rejects the package —
+bump `spec.specificationVersion` (and both stage versions) to ≥7
+post-export via load_spec/save_spec. Remaining candidates, in order:
+iOS17/CoreML7 export (built, parity-checked on Mac CPU, staged in the
+sandbox container (outside the repo) — test ONLY in a
+controlled moment, it may crash-loop the app again); fp32 GPU-only
+(`quantize=32`); file a feedback with Apple. Crash logs archived from the
+device on 2026-07-23 (~00:00 local).
+
+**2026-07-23 RESEARCH — the crash was tested WRONG; a promising untested
+option remains.** Web research (incl. Ultralytics' own CoreML docs and a
+detailed Reddit write-up of the identical crash) established:
+- The `Error: MLIR pass manager failed` abort on **`coremltools` 9.x
+  mlprograms is a KNOWN limitation of the `.all` / `.cpuAndGPU` path** —
+  it's the GPU/MPSGraph compile route that trips Apple's MLIR compiler, an
+  UNCATCHABLE C++ assertion (no `do/catch`, no config flag prevents it).
+- **The device test only ever used `.all`** (`SessionModel.loadBundledDetector`),
+  which INCLUDES the GPU → guaranteed to hit the crashing path. **We never
+  tried `.cpuAndNeuralEngine`.** Ultralytics explicitly recommends
+  `.cpuAndNeuralEngine` as BOTH the crash-avoider AND the right unit for a
+  camera app (don't fight the AR preview for the GPU; `.all` also causes
+  frame-time jitter). ANE routes differently from GPU/MPSGraph and may
+  dodge the MLIR bug entirely — though on some hardware the ANE path can
+  also hit it (device-specific), so it's a genuine unknown to TEST.
+- The fp16-outputs-vs-NMS issue and the iOS16+ FLOAT32 requirement solved
+  by hand are exactly what Ultralytics' exporter already encodes
+  (`minimum_deployment_target >= iOS16` ⇒ `compute_precision=FLOAT32`
+  because no CoreML NMS spec accepts fp16 input). YOLOv11 uses SiLU (well
+  supported), NOT Mish — so this is not the Mish/Softplus fp16 bug.
+
+**NEXT EXPERIMENT (one-line, do with the device + a human watching):** flip
+`SessionModel.loadBundledDetector` from `.cpuOnly` to
+**`.cpuAndNeuralEngine`** (NOT `.all`) with the CURRENT bundled model — no
+re-export needed. If it runs: un-pin achieved, ANE ~3× CPU, fast-ball
+detection improves. If it still SIGABRTs: the ANE path is also affected on
+this iPad → stay `.cpuOnly`, file Apple feedback. **Before trying it,
+implement a crash-safe probe** (persist an "attempting ANE" flag before the
+first inference, clear it after the first success; on launch, if the flag
+is still set the last run crashed → force `.cpuOnly`). That converts the
+risky test into a self-healing one — no more manual crash-loop recovery.
+Retrained weights + all export variants persist at
+outside the repo (best.pt, best_ios16_fixed, best_ios17_fixed).
 
 ## Device-session working notes (for agents driving the Mac remotely)
 

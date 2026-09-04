@@ -15,7 +15,9 @@ import Foundation
 public enum HUDStatus: Sendable, Equatable {
     case launching
     case findingTable
-    /// Plane found; waiting for the user to tap the four rail corners.
+    /// Plane found; waiting for the user to tap the four playing-field
+    /// corners — where the cushion NOSES meet, not the outer rail edge
+    /// (standard sizes are nose-to-nose; rail taps oversize the table).
     /// `placed` counts corners already down (0...3).
     case placingCorners(placed: Int)
     case confirmingRails
@@ -38,8 +40,8 @@ public enum HUDStatus: Sendable, Equatable {
         switch self {
         case .launching: "Starting…"
         case .findingTable: "Point at the table"
-        case .placingCorners(let placed): "Tap the rail corners (\(placed)/4)"
-        case .confirmingRails: "Adjust the corners, then lock"
+        case .placingCorners(let placed): "Tap the cushion-nose corners (\(placed)/4)"
+        case .confirmingRails: "Drag dots onto the cushion noses, then lock"
         case .awaitingCueBall: "Place the cue ball — or tap a ball to mark it"
         case .onLine: "On line — send it"
         case .tracking(let count): "Tracking \(count) balls"

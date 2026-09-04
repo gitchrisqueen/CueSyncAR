@@ -39,6 +39,10 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
 
     public let arView: ARView
     private let pendingRequest = FrameRequestBox()
+    /// T1.4 instrumentation: counters for the ARFrame-retention hunt. The
+    /// delegate (session queue) and snapshot path (main actor) both write;
+    /// the app layer reads a snapshot ~every few seconds and logs it.
+    private let diagnostics = DiagnosticsBox()
     /// Human-readable session health (errors, interruptions, tracking
     /// limits) for the HUD. Nil when everything is nominal.
     public private(set) var sessionEvent: String?
@@ -233,6 +237,7 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
     // MARK: - ARSessionDelegate
 
     public nonisolated func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        diagnostics.add(\.framesSeen)
         // No pending request → drop the frame without touching its buffers.
         guard let continuation = pendingRequest.take() else { return }
         let transform = Transform3D(columns: (0..<4).map { column in
@@ -247,9 +252,11 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
         // warnings, then a stopped camera. Copy cost is trivial at the
         // preview's ≤2 Hz pull rate.
         guard let copiedBuffer = Self.copyPixelBuffer(frame.capturedImage) else {
+            diagnostics.add(\.copyFailures)
             continuation.resume(returning: nil)
             return
         }
+        diagnostics.add(\.framesDelivered)
         // Intrinsics travel with the frame so consumers (pipeline raycasts)
         // can unproject image points without touching ARKit.
         let k = frame.camera.intrinsics
@@ -270,12 +277,29 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
     /// entities) as JPEG — the debug mirror's frame source. Captures what
     /// the user actually sees, unlike raw camera frames.
     public func snapshotJPEG(compressionQuality: CGFloat = 0.5) async -> Data? {
-        await withCheckedContinuation { continuation in
+        // Prime retention suspect (T1.4): RealityKit's snapshot pipeline
+        // retains drawables/frames internally. Count + time every call so a
+        // device run can correlate snapshot cadence with the "retaining N
+        // ARFrames" warning; in-flight count exposes pile-ups when snapshot
+        // completion falls behind the mirror's 1 Hz request rate.
+        diagnostics.add(\.snapshotsInFlight)
+        let started = ContinuousClock.now
+        defer {
+            diagnostics.add(\.snapshotsInFlight, delta: -1)
+            diagnostics.recordSnapshot(milliseconds: (ContinuousClock.now - started)
+                .totalMilliseconds)
+        }
+        return await withCheckedContinuation { continuation in
             arView.snapshot(saveToHDR: false) { image in
                 continuation.resume(
                     returning: image?.jpegData(compressionQuality: compressionQuality))
             }
         }
+    }
+
+    /// Read-and-continue snapshot of the T1.4 counters.
+    public nonisolated func frameDiagnostics() -> FrameDiagnostics {
+        diagnostics.snapshot()
     }
 
     /// The camera's current pose (camera-to-world), for aim derivation at
@@ -382,6 +406,63 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
     }
 }
 
+/// T1.4 counters: how camera frames flow (or pile up) through the delegate
+/// and the mirror snapshot path. Values are cumulative since session start.
+public struct FrameDiagnostics: Sendable, Equatable {
+    /// Delegate `didUpdate` callbacks observed (≈ camera FPS × uptime).
+    public var framesSeen = 0
+    /// Frames deep-copied and handed to a `nextFrame()` caller.
+    public var framesDelivered = 0
+    /// Deep-copy allocation failures (should stay 0; growth = memory pressure).
+    public var copyFailures = 0
+    /// Completed `arView.snapshot` calls (the mirror's frame source).
+    public var snapshotsCompleted = 0
+    /// Snapshot calls currently outstanding — sustained >1 means snapshot
+    /// completion is slower than the mirror cadence (retention suspect).
+    public var snapshotsInFlight = 0
+    /// Total wall-clock spent in completed snapshot calls.
+    public var snapshotTotalMilliseconds = 0.0
+
+    public init() {}
+
+    public var averageSnapshotMilliseconds: Double {
+        snapshotsCompleted > 0 ? snapshotTotalMilliseconds / Double(snapshotsCompleted) : 0
+    }
+}
+
+/// Lock-protected counter storage shared by the ARKit session queue (frame
+/// delegate) and the main actor (snapshot path, reads).
+private final class DiagnosticsBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values = FrameDiagnostics()
+
+    func add(_ keyPath: WritableKeyPath<FrameDiagnostics, Int>, delta: Int = 1) {
+        lock.lock()
+        defer { lock.unlock() }
+        values[keyPath: keyPath] += delta
+    }
+
+    func recordSnapshot(milliseconds: Double) {
+        lock.lock()
+        defer { lock.unlock() }
+        values.snapshotsCompleted += 1
+        values.snapshotTotalMilliseconds += milliseconds
+    }
+
+    func snapshot() -> FrameDiagnostics {
+        lock.lock()
+        defer { lock.unlock() }
+        return values
+    }
+}
+
+private extension Duration {
+    var totalMilliseconds: Double {
+        Double(components.seconds) * 1000
+            + Double(components.attoseconds) / 1e15
+    }
+}
+
 /// Transfers an ARAnchor reference from ARKit's session queue to the main
 /// actor (ARAnchor itself is not Sendable; the reference is immutable).
 private struct AnchorBox: @unchecked Sendable {
@@ -442,10 +523,6 @@ public struct ARKitPlaneRaycaster {
 @MainActor
 public final class OverlayRenderer {
     private let root: AnchorEntity
-    /// World position of the root at creation; layout positions arrive in
-    /// world space and are re-expressed relative to this so the anchored
-    /// root can carry them through ARKit's map refinements.
-    private let rootOrigin: Vec3
     /// Strip thickness (m) and lift above the cloth to avoid z-fighting.
     private static let stripWidth = 0.008
     private static let stripLift = 0.002
@@ -456,20 +533,31 @@ public final class OverlayRenderer {
     public init(arView: ARView, tableAnchor: ARAnchor? = nil) {
         if let tableAnchor {
             root = AnchorEntity(anchor: tableAnchor)
-            let t = tableAnchor.transform.columns.3
-            rootOrigin = Vec3(Double(t.x), Double(t.y), Double(t.z))
         } else {
             root = AnchorEntity(world: matrix_identity_float4x4)
-            rootOrigin = .zero
         }
         arView.scene.addAnchor(root)
     }
 
-    /// World → root-local (the anchor was created translation-only).
-    private func local(_ world: Vec3, lift: Double) -> SIMD3<Float> {
-        SIMD3<Float>(Float(world.x - rootOrigin.x),
-                     Float(world.y - rootOrigin.y + lift),
-                     Float(world.z - rootOrigin.z))
+    /// A layout world point lifted off the cloth. Entities are positioned in
+    /// true WORLD space (`setPosition(relativeTo: nil)`), so RealityKit
+    /// resolves the anchor-local transform itself — correct for ANY anchor
+    /// rotation. The old `world − rootOrigin` translation shortcut assumed
+    /// the anchor had identity yaw; that holds at a fresh corner-lock but
+    /// NOT after relocalization, where the restored anchor carries the
+    /// session's arbitrary yaw and RealityKit re-applied it to every child,
+    /// rotating the whole overlay about the table center (the "floating off
+    /// the cloth after relaunch" bug).
+    private func worldPoint(_ world: Vec3, lift: Double) -> SIMD3<Float> {
+        SIMD3<Float>(Float(world.x), Float(world.y + lift), Float(world.z))
+    }
+
+    /// Parent to the anchored root, THEN set the world position — parenting
+    /// first lets RealityKit resolve world→anchor-local against the current
+    /// anchor transform.
+    private func place(_ entity: ModelEntity, at world: SIMD3<Float>) {
+        root.addChild(entity)
+        entity.setPosition(world, relativeTo: nil)
     }
 
     public func render(_ layout: OverlayLayout, planeNormalUp: Bool = true) {
@@ -488,8 +576,7 @@ public final class OverlayRenderer {
             var material = UnlitMaterial(color: color)
             material.blending = .transparent(opacity: ball.isCue ? 0.9 : 0.45)
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = local(ball.position, lift: Self.stripLift)
-            root.addChild(entity)
+            place(entity, at: worldPoint(ball.position, lift: Self.stripLift))
         }
 
         for strip in layout.strips {
@@ -500,10 +587,16 @@ public final class OverlayRenderer {
             var material = UnlitMaterial(color: uiColor(from: strip.color))
             material.blending = .transparent(opacity: .init(floatLiteral: strip.dashed ? 0.7 : 0.95))
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = local(strip.midpoint, lift: Self.stripLift)
+            place(entity, at: worldPoint(strip.midpoint, lift: Self.stripLift))
+            // Orientation stays LOCAL to the anchor (not relativeTo: nil):
+            // strip.angle is a TABLE-space heading, and the table anchor
+            // rotates with the table, so the anchor's yaw carries the strip
+            // to the correct world heading after relocalization. Setting a
+            // world-space yaw here would drop that yaw and under-rotate
+            // strips post-reloc. (Local == world at fresh lock, where this
+            // already rendered correctly.)
             entity.orientation = simd_quatf(angle: Float(strip.angle),
                                             axis: SIMD3<Float>(0, planeNormalUp ? 1 : -1, 0))
-            root.addChild(entity)
         }
 
         if let ghost = layout.ghostBall {
@@ -511,8 +604,7 @@ public final class OverlayRenderer {
             var material = UnlitMaterial(color: .white)
             material.blending = .transparent(opacity: 0.35)
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = local(ghost.position, lift: ghost.radius)
-            root.addChild(entity)
+            place(entity, at: worldPoint(ghost.position, lift: ghost.radius))
         }
 
         for pocket in layout.highlightedPockets {
@@ -521,8 +613,7 @@ public final class OverlayRenderer {
             var material = UnlitMaterial(color: uiColor(from: 0x2FA36B))
             material.blending = .transparent(opacity: 0.5)
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = local(pocket.position, lift: Self.stripLift)
-            root.addChild(entity)
+            place(entity, at: worldPoint(pocket.position, lift: Self.stripLift))
         }
 
         // Called pocket (M6-02): amber ring while aiming, felt green when
@@ -535,8 +626,7 @@ public final class OverlayRenderer {
             material.blending = .transparent(
                 opacity: layout.calledPocketSatisfied ? 0.85 : 0.6)
             let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position = local(called.position, lift: Self.stripLift * 2)
-            root.addChild(entity)
+            place(entity, at: worldPoint(called.position, lift: Self.stripLift * 2))
         }
     }
 
