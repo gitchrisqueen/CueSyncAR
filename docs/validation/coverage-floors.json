@@ -1,0 +1,15 @@
+{
+  "note": "Line-coverage floors per package, own sources only (Scripts/coverage.sh --check). Set at measured-3 on 2026-09-04; a PR that improves coverage must raise the floor (ratchet); a PR may never lower one.",
+  "floors": {
+    "CueSyncCore": 73,
+    "BilliardsPhysics": 97,
+    "TableSpace": 97,
+    "CoachKit": 89,
+    "CueSyncTestSupport": 84,
+    "PerceptionKit": 72,
+    "ARExperience": 90,
+    "CueSyncUI": 40,
+    "DetectionRoboflow": 44,
+    "DisplayKit": 60
+  }
+}

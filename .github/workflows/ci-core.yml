@@ -2,8 +2,13 @@ name: ci-core
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-core-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-packages-linux:
@@ -15,6 +20,13 @@ jobs:
         shell: bash   # the swift container's default sh rejects pipefail
     steps:
       - uses: actions/checkout@v4
+      - name: Restore SwiftPM build cache
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: Packages/*/.build
+          key: spm-linux-${{ hashFiles('Packages/*/Package.swift') }}
+          restore-keys: spm-linux-
       - name: Build and test every package
         run: |
           set -euo pipefail
@@ -28,6 +40,53 @@ jobs:
             echo "::endgroup::"
           done
           exit $status
+      - name: Save SwiftPM build cache (main only — PR-ref caches are unreadable by other refs)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: Packages/*/.build
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+
+  coverage-gate:
+    name: Coverage gate
+    runs-on: ubuntu-latest
+    container: swift:6.1
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install jq
+        run: apt-get update -qq && apt-get install -y -qq jq >/dev/null
+      - name: Measure own-source line coverage per package and compare to floors
+        run: |
+          set -euo pipefail
+          mkdir -p coverage
+          Scripts/coverage.sh --check --lcov coverage | tee coverage/summary.txt
+      - name: Metrics consistency (docs/validation/metrics.json is generated, never hand-edited)
+        run: |
+          set -euo pipefail
+          Scripts/verify/update-metrics.sh artifacts > /tmp/metrics.json
+          diff <(jq -S . docs/validation/metrics.json) <(jq -S . /tmp/metrics.json)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.sha }}
+          path: coverage/
+          retention-days: 14
+
+  replay-golden:
+    name: Replay golden (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.1
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install jq
+        run: apt-get update -qq && apt-get install -y -qq jq >/dev/null
+      - name: Replay the golden session bundle(s)
+        run: Scripts/verify/replay-golden.sh
 
   lint:
     name: SwiftLint
