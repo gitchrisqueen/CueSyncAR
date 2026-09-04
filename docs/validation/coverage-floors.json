@@ -1,15 +1,15 @@
 {
-  "note": "Line-coverage floors per package, own sources only (Scripts/coverage.sh --check). Set at measured-3 on 2026-09-04; a PR that improves coverage must raise the floor (ratchet); a PR may never lower one.",
+  "note": "Line-coverage floors per package, own sources only (Scripts/coverage.sh --check on Linux, the gate platform). Set at measured-3 from the 2026-09-04 CI run (run 33920333807 \u2192 re-run on 1eea88c); a PR that improves coverage must raise the floor (ratchet); a PR may never lower one.",
   "floors": {
     "CueSyncCore": 73,
     "BilliardsPhysics": 97,
     "TableSpace": 97,
     "CoachKit": 89,
     "CueSyncTestSupport": 84,
-    "PerceptionKit": 72,
+    "PerceptionKit": 89,
     "ARExperience": 90,
-    "CueSyncUI": 40,
-    "DetectionRoboflow": 44,
-    "DisplayKit": 60
+    "CueSyncUI": 87,
+    "DetectionRoboflow": 53,
+    "DisplayKit": 94
   }
 }
