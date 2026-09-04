@@ -29,9 +29,10 @@ This is a work in progress, not a shipping app. What is in the tree today:
 What is not done yet is tracked in
 [`docs/roadmap/06-MILESTONES.md`](docs/roadmap/06-MILESTONES.md) and
 [`docs/roadmap/09-SESSION-STATE.md`](docs/roadmap/09-SESSION-STATE.md).
-Highlights as of this writing: guided-drill content, the external-display
-window wiring in the app target, TV-mode styling, a settings screen, the
-device checklist at a real table, and App Store hardening are all open.
+Open items from those documents, plus one gap visible in the tree:
+guided-drill content, the external-display window wiring in the app target
+(not yet referenced from `App/Sources`), TV-mode styling, a settings screen,
+the device checklist at a real table, and App Store hardening are all open.
 The bundled Core ML model is pinned to CPU-only inference on iOS 26 until
 it is re-exported. Overlay positions still sit a few centimetres off the
 real balls.
@@ -64,8 +65,8 @@ real balls.
 
 ### 5. Projection to External Display (planned)
 
-- The routing state machine and table-view scene for a TV or projector output exist in `Packages/DisplayKit`; the window-scene wiring in the app target has not landed yet (roadmap M4-01).
-- Locating and aligning with a projector's position in the physical space is a post-MVP backlog item (roadmap M6-05).
+- The routing state machine and table-view scene for a TV or projector output exist in `Packages/DisplayKit`; the window-scene wiring in the app target has not landed yet (`App/Sources` does not reference `DisplayKit` today; 06-MILESTONES.md records the package side, M4-01, as merged).
+- Locating and aligning with a projector's position in the physical space is planned as roadmap M6-05 (`docs/roadmap/08-PRACTICE-MODES.md`), listed as post-MVP backlog item 6 in `docs/roadmap/06-MILESTONES.md`.
 
 ### 6. Compatibility
 
