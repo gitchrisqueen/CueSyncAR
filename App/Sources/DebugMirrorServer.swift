@@ -13,7 +13,7 @@
 //  from the HUD toggle. Serves:
 //    GET /            auto-refreshing HTML viewer
 //    GET /frame.jpg   latest ARView snapshot (JPEG)
-//    GET /state.json  tracking/calibration/guide state
+//    GET /state.json  tracking/calibration/guide state + live settings
 //
 
 import Foundation
@@ -212,6 +212,9 @@ final class DebugMirrorServer: @unchecked Sendable {
         <span class="lbl">guide m/s</span><input id="speed" value="3.5">
         <button onclick="cmd('action=guideSpeed&v=' + \
     document.getElementById('speed').value)">Set</button>
+        <span class="lbl">miss grace s</span><input id="grace" value="0.75">
+        <button onclick="cmd('action=missGrace&v=' + \
+    document.getElementById('grace').value)">Set</button>
       </div>
       <div id="balls"></div>
       <div id="pockets"></div>

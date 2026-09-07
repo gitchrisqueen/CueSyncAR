@@ -75,7 +75,7 @@ Goal: the MVP core loop on a phone.
 - [x] **M4-01** `DisplayKit` routing: `ExternalDisplayRouter` state machine (prompt/preference/hot-plug rules) + tests, plus `ExternalTableView` scene content. *UIWindowScene wiring lands with M3-05 app integration; hot-plug device check in M5.* *(deps: M1-06)*
 - [ ] **M4-02** Broadcast-quality Table View styling for 1080p/4K + snapshots. *Base scene landed (ExternalTableView); styling pass + snapshots open.* *(deps: M4-01)*
 - [ ] **M4-03** UI test suite (fixture mode launch smoke) + snapshot suite (CueSyncUI components + TableSceneView, light/dark × Dynamic Type) + accessibility pass (VoiceOver labels, Reduce Motion/Transparency). *(deps: M3-05)*
-- [ ] **M4-04** Settings screen (table size override, provider selection, debug HUD) + persistence tests. *(deps: M3-05)*
+- [x] **M4-04** Settings screen (table size override, detector selection, guide speed, `visibleMissGrace`, practice mode, debug mirror) as a HUD sheet over a pure, tested `SettingsModel` in `CoachKit`; live values served in the mirror’s `/state.json`. *`visibleMissGrace` is exposed + persisted but the tracker does not read it until PerceptionKit’s `TrackerConfig.visibleMissGrace` lands — one commented line in `SessionModel+Settings.swift` connects it.* *(deps: M3-05)*
 
 **Exit:** MVP item 5 working; snapshot/UI suites green.
 
