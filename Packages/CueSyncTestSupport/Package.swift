@@ -8,10 +8,14 @@ let package = Package(
         .library(name: "CueSyncTestSupport", targets: ["CueSyncTestSupport"])
     ],
     dependencies: [
-        .package(path: "../CueSyncCore")
+        .package(path: "../CueSyncCore"),
+        // The synthetic pinhole harness projects onto TableCalibration
+        // planes. The graph stays acyclic: TableSpace depends on CueSyncCore
+        // only, and nothing TableSpace builds depends on this package.
+        .package(path: "../TableSpace")
     ],
     targets: [
-        .target(name: "CueSyncTestSupport", dependencies: ["CueSyncCore"]),
+        .target(name: "CueSyncTestSupport", dependencies: ["CueSyncCore", "TableSpace"]),
         .testTarget(name: "CueSyncTestSupportTests", dependencies: ["CueSyncTestSupport"])
     ]
 )
