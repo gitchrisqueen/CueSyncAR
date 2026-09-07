@@ -62,14 +62,21 @@ usage_week_minutes() {
   echo "$total"
 }
 
-usage_week_charge() {  # <minutes> <mode> <item>
+# usage_week_charge <minutes> <mode> <item>. Minutes are clamped to >= 0 and a zero charge writes
+# no row: usage_week_minutes treats any non-digit (a leading "-") as garbage and returns the cap,
+# so one negative "adjust" row used to lock the weekly gate for the rest of the week.
+usage_week_charge() {
+  local m="$1"
+  case "$m" in ''|*[!0-9-]*) m=0 ;; esac
+  [ "$m" -gt 0 ] 2>/dev/null || return 0
   mkdir -p "$AGENT_BASE/state"
-  printf '%s\t%s\t%s\t%s\n' "$(date +%s)" "$1" "$2" "$3" >> "$AGENT_BASE/state/usage-week.tsv"
+  printf '%s\t%s\t%s\t%s\n' "$(date +%s)" "$m" "$2" "$3" >> "$AGENT_BASE/state/usage-week.tsv"
 }
 
+# runs_today counts DISPATCHES: rows whose mode ends in "-adjust" are post-run corrections, not runs.
 runs_today() {
   local f="$AGENT_BASE/state/usage-week.tsv" day
   [ -f "$f" ] || { echo 0; return 0; }
   day="$(date -d "today 00:00" +%s 2>/dev/null || date -v0H -v0M +%s)"
-  awk -F'\t' -v d="$day" '$1 ~ /^[0-9]+$/ && $1 >= d {n++} END{print n+0}' "$f"
+  awk -F'\t' -v d="$day" '$1 ~ /^[0-9]+$/ && $1 >= d && $3 !~ /-adjust$/ {n++} END{print n+0}' "$f"
 }

@@ -27,3 +27,8 @@ App/Config/Secrets.xcconfig
 # Misc
 *.log
 .env
+
+# Agent runner hand-off files inside a worktree (never committed; see docs/agent-runner.md)
+.agent-outbox/
+.agent-inbox/
+.pr-body.md
