@@ -132,6 +132,10 @@ struct RootView: View {
                     .transition(.opacity)
                 }
                 bottomBar
+                // Bottom-most, under the control bar: always answers "which
+                // build is this?" without a cable, and sits below the table
+                // in frame so it never occludes the cloth during play.
+                BuildBadge(identity: AppBuild.identity)
             }
             .padding(.top, 8)
             .padding(.bottom, 12)

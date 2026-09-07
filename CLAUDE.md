@@ -94,6 +94,18 @@ durable lessons that must not be re-learned:
   tracking JSON at `http://<device-ip>:8787` for any browser on the LAN
   (`App/Sources/DebugMirrorServer.swift`). This is the standard way to see
   the device when it's at the table away from the Mac.
+- **Build identity:** every build is stamped with the git SHA/branch/dirty
+  flag it came from, surfaced in three places — the tappable badge at the
+  bottom of the HUD, `build` in the mirror's `/state.json` and page header,
+  and a `.notice` line at startup (`AppBuild.logStartup()`). The stamping is
+  a post-build phase declared in `project.yml`
+  (`Scripts/embed-build-identity.sh`) that can never fail a build; with no
+  git history it writes `unknown`. Two consequences worth knowing: the phase
+  declares the built Info.plist as an *input* so it runs after
+  `ProcessInfoPlistFile` (without that, the stamps are overwritten), and the
+  app target sets `ENABLE_USER_SCRIPT_SANDBOXING: NO` because the sandbox
+  denies both the git read and the plist write. Display formatting lives in
+  the pure, tested `CueSyncUI.BuildIdentity`.
 - **Camera buffers:** ARKit's capture pool is tiny. Frames are PULL-based
   (`nextFrame()`); the delegate hands out only deep-copied pixel buffers
   (`ARSessionCoordinator.copyPixelBuffer`). Never retain ARFrames or their
