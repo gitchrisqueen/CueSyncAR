@@ -21,7 +21,19 @@ public protocol PlaneRaycasting: Sendable {
     /// capability: implementations that can't invert their raycast return
     /// nil, and callers must treat "unknown" as "assume visible".
     func projectToImage(worldPoint: Vec3, frame: CapturedFrame) -> Vec2?
-
+    /// Height-aware raycast: intersect a plane lifted `planeHeightOffset`
+    /// above the cloth and drop the hit back to cloth level (the sphere-
+    /// centre method, see `PlaneGeometryRaycaster`).
+    ///
+    /// This is a protocol REQUIREMENT, not merely the extension method
+    /// below, because the pipeline holds its raycaster as
+    /// `any PlaneRaycasting`. As an extension-only method the call bound
+    /// statically to the fallback, the lift never engaged, and every ball
+    /// projected r / tan(elevation) long — 6.1 cm at 25 degrees of camera
+    /// elevation, 2.9 cm at 45. The extension below stays as the default so
+    /// implementations without the capability keep working unchanged.
+    func raycastToTablePlane(imagePoint: Vec2, frame: CapturedFrame,
+                             planeHeightOffset: Double) -> Vec3?
 }
 
 public struct PerceptionConfig: Sendable, Equatable {
