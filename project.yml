@@ -31,6 +31,10 @@ packages:
     path: Packages/DetectionRoboflow
   CueSyncTestSupport:
     path: Packages/CueSyncTestSupport
+  # Deterministic session replay (B2). Not an app dependency yet — the
+  # Simulator replay view lands in a later task.
+  SessionReplay:
+    path: Packages/SessionReplay
 
 targets:
   CueSyncAR:

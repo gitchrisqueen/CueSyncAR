@@ -251,8 +251,12 @@ public struct AnalyticSolver: TrajectorySolving {
             }
         }
 
-        // Ball-ball: sweep a circle of radius r1+r2 along the ray.
-        for (id, other) in stationary {
+        // Ball-ball: sweep a circle of radius r1+r2 along the ray. Balls are
+        // visited in ascending id order and `consider` keeps the FIRST of
+        // equal-distance events, so a frozen symmetric pair resolves to the
+        // lower id on every platform — dictionary order is per-process
+        // random and would make replay goldens flap.
+        for (id, other) in stationary.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
             let sumRadius = ball.radius + other.radius
             let rel = other.position - ball.position
             let proj = rel.dot(ball.direction)

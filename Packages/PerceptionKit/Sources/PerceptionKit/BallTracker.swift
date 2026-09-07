@@ -170,7 +170,14 @@ public struct BallTracker: Sendable {
                 }
             }
         }
-        pairs.sort { $0.distance < $1.distance }
+        // Total order: ties on distance (a symmetric layout, an observation
+        // exactly between two tracks) fall back to array position, never to
+        // sort stability — replay goldens require byte-identical tracks.
+        pairs.sort { a, b in
+            if a.distance != b.distance { return a.distance < b.distance }
+            if a.trackIndex != b.trackIndex { return a.trackIndex < b.trackIndex }
+            return a.obsIndex < b.obsIndex
+        }
 
         var usedTracks = Set<Int>()
         var usedObs = Set<Int>()

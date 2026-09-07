@@ -286,3 +286,37 @@ struct VisionBoxMappingTests {
     }
 
 }
+
+@Suite("BallTracker — determinism")
+struct BallTrackerDeterminismTests {
+    /// Two tracks and two observations laid out so every (track,
+    /// observation) pair is EXACTLY equidistant: association must resolve
+    /// by array position, so the outcome is identical on every run and
+    /// platform (replay goldens depend on it).
+    @Test func equidistantAssociationIsResolvedByPositionNotSortLuck() {
+        func run() -> [Ball] {
+            var tracker = BallTracker(config: TrackerConfig(gatingDistance: 0.1,
+                                                            appearanceFrames: 1))
+            _ = tracker.update(observations: [
+                BallObservation(kind: .solid(1), position: Vec2(-0.05, 0), confidence: 0.9),
+                BallObservation(kind: .solid(2), position: Vec2(0.05, 0), confidence: 0.9)
+            ])
+            // Observations on the perpendicular bisector: each is 0.05·√2
+            // from BOTH tracks (inside the gate, outside the physical-
+            // overlap merge radius after the Kalman step).
+            return tracker.update(observations: [
+                BallObservation(kind: .solid(1), position: Vec2(0, 0.05), confidence: 0.9),
+                BallObservation(kind: .solid(2), position: Vec2(0, -0.05), confidence: 0.9)
+            ])
+        }
+        let first = run()
+        for _ in 0..<20 {
+            #expect(run() == first)
+        }
+        // Lowest track index pairs with the lowest observation index.
+        #expect(first.count == 2)
+        #expect(first[0].id == BallID(0))
+        #expect(first[0].position.y > 0)
+        #expect(first[1].position.y < 0)
+    }
+}
