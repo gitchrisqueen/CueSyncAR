@@ -183,6 +183,18 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
         return Vec3(Double(t.x), Double(t.y), Double(t.z))
     }
 
+    /// The table anchor's CURRENT transform (B3 anchor following).
+    /// `tableAnchor` is the object ARKit handed us at lock/restore and is
+    /// never mutated; refinements arrive as replacement anchors in
+    /// `currentFrame`, looked up by identifier. Nil until the anchor is
+    /// present in the current frame.
+    public var currentTableAnchorTransform: Transform3D? {
+        guard let id = tableAnchor?.identifier,
+              let anchor = arView.session.currentFrame?.anchors
+                .first(where: { $0.identifier == id }) else { return nil }
+        return Self.transform3D(from: anchor.transform)
+    }
+
     /// Serialize the current world map (async — ARKit assembles it) so the
     /// venue relocalizes instantly on the next visit. Throws when the map
     /// isn't available yet (insufficient mapping); callers may retry later.

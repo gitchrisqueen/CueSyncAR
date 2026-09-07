@@ -65,6 +65,44 @@ Working on device (iPhone 16 Pro, iPad 9th gen):
   `session`, `pipeline`, `mirror`); every tap gives on-screen feedback;
   tracked-ball rings always render during live tracking (cue = white).
 
+## B3 (2026-09-07): overlays a few cm off — two causes, sized honestly
+
+The residual "rings/guides sit a few cm off the real balls" has a DOMINANT
+cause and a second-order one; they landed on separate branches:
+
+1. **Dominant — sphere-centre lift never dispatched** (task C's finding,
+   fixed on `claude/C-synthetic-harness`): `raycastToTablePlane(…,
+   planeHeightOffset:)` was only a `PlaneRaycasting` extension method, so
+   the pipeline's call through `any PlaneRaycasting` bound to the fallback
+   that drops the lift. Every ball projected LONG by r/tan(elevation):
+   61 mm at 25°, 29 mm at 45° (harness-measured). Direction follows the
+   camera — exactly the observed symptom.
+2. **Second-order — calibration frozen at lock vs ARKit's refined anchor**
+   (this branch, `claude/B3-anchor-calibration`): the pipeline and every
+   app consumer used the lock-time world calibration while camera poses
+   arrive in ARKit's continuously refined world frame. The error equals
+   the anchor's refinement since lock: horizontal/yaw refinement shifts
+   the TABLE-space coordinates (cushions, pockets, trajectory relative to
+   the ball); a vertical refinement δy shifts the ring itself by
+   δy/tan(elevation). Package test: 20 mm anchor drift → frozen path
+   18.9 mm (top-down) / 25.9 mm (35° oblique) off; followed path 0.02 mm /
+   ~0 mm (`AnchorFollowingTests`). How much ARKit actually refines the
+   table anchor in a session is NOT yet measured on device — the mirror
+   now reports it as `anchorDriftMm` (translation since lock).
+
+Live path: `PerceptionConfig.followsTableAnchor` (default ON) —
+`PerceptionPipeline.ingest(_:tableAnchorTransform:)` re-derives the
+calibration per frame from `AnchoredCalibration`; `SessionModel` mirrors
+that for overlays/aim/taps (`SessionModel+AnchorFollowing.swift`), fed by
+`ARSessionCoordinator.currentTableAnchorTransform`. A/B at the table:
+mirror buttons "Follow anchor ON/OFF" (`/cmd?action=followAnchor&v=0|1`;
+OFF = pre-B3 frozen behaviour, rebuilds the pipeline). **Device run
+needed:** watch `anchorDriftMm` over a few minutes of walking around the
+table and across a relocalization; if it stays at a few mm, this fix is
+a guard rail and C's is the whole story; if it climbs to 1–3 cm (loop
+closures, post-relocalization refinement), the A/B should show pockets
+and cushion lines snapping back onto the physical table with ON.
+
 ## RESOLVED 2026-07-22 (late session): guides + designation work at the table
 
 Verified live through the debug mirror: cue ball classified (white-ball →

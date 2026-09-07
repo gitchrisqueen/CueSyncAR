@@ -213,6 +213,8 @@ final class DebugMirrorServer: @unchecked Sendable {
         <button onclick="cmd('action=resetTracking')">Reset tracking</button>
         <button onclick="cmd('action=clearCue')">Clear cue mark</button>
         <button onclick="cmd('action=clearPocket')">Clear pocket call</button>
+        <button onclick="cmd('action=followAnchor&v=1')">Follow anchor ON</button>
+        <button onclick="cmd('action=followAnchor&v=0')">Follow anchor OFF</button>
         <span class="lbl">guide m/s</span><input id="speed" value="3.5">
         <button onclick="cmd('action=guideSpeed&v=' + \
     document.getElementById('speed').value)">Set</button>

@@ -41,8 +41,15 @@ public struct PerceptionOutput: Sendable {
 
 public actor PerceptionPipeline {
     private let detector: any DetectionProviding
-    private let calibration: TableCalibration
-    private let raycaster: any PlaneRaycasting
+    /// World-space calibration + its raycaster. Both are re-expressed from
+    /// the table anchor's current transform per frame (B3, see
+    /// `followTableAnchor`) — never mutated anywhere else.
+    private var calibration: TableCalibration
+    private var raycaster: any PlaneRaycasting
+    /// `calibration` relative to the table anchor at lock/restore time.
+    /// Nil when the caller supplied no anchor transform: the calibration
+    /// then stays pinned at its initial world-space value.
+    private let anchoredCalibration: AnchoredCalibration?
     private let config: PerceptionConfig
     /// Playing-surface gate for both projected detections and reported
     /// balls; built once from the calibration, which is immutable here.
@@ -50,6 +57,9 @@ public actor PerceptionPipeline {
     private var tracker: BallTracker
 
     private var pendingFrame: CapturedFrame?
+    /// Anchor transform sampled with `pendingFrame` — travels with it so a
+    /// frame is always processed against the world frame it was captured in.
+    private var pendingAnchorTransform: Transform3D?
     private var isProcessing = false
     private var prepared = false
     private var frameCount = 0
@@ -65,14 +75,22 @@ public actor PerceptionPipeline {
     /// One output per processed frame.
     public var outputs: AsyncStream<PerceptionOutput> { stream }
 
+    /// - Parameter tableAnchorTransform: the table ARAnchor's transform at
+    ///   the moment `calibration` was expressed (lock or relocalization).
+    ///   Required for anchor following; without it the calibration is
+    ///   pinned regardless of `config.followsTableAnchor`.
     public init(detector: any DetectionProviding,
                 calibration: TableCalibration,
                 raycaster: any PlaneRaycasting,
                 config: PerceptionConfig = .default,
-                trackerConfig: TrackerConfig = .default) {
+                trackerConfig: TrackerConfig = .default,
+                tableAnchorTransform: Transform3D? = nil) {
         self.detector = detector
         self.calibration = calibration
         self.raycaster = raycaster
+        self.anchoredCalibration = tableAnchorTransform.map {
+            AnchoredCalibration(calibration: calibration, anchorTransform: $0)
+        }
         self.config = config
         self.surface = PlayingSurfaceGate(table: Table(size: calibration.size))
         self.tracker = BallTracker(config: trackerConfig)
@@ -85,8 +103,13 @@ public actor PerceptionPipeline {
 
     /// Offer a frame. Returns immediately; processing is asynchronous and
     /// drops stale frames (latest wins).
-    public func ingest(_ frame: CapturedFrame) {
+    /// - Parameter tableAnchorTransform: the table anchor's CURRENT
+    ///   transform, sampled alongside the frame; the calibration is
+    ///   re-derived from it before the frame is processed (B3). Nil keeps
+    ///   the last calibration.
+    public func ingest(_ frame: CapturedFrame, tableAnchorTransform: Transform3D? = nil) {
         pendingFrame = frame
+        pendingAnchorTransform = tableAnchorTransform
         guard !isProcessing else { return }
         isProcessing = true
         Task { await self.drain() }
@@ -95,18 +118,38 @@ public actor PerceptionPipeline {
     /// Process pending frames until none remain. Runs on the actor; detector
     /// inference suspends without blocking ingest.
     private func drain() async {
-        while let frame = takePending() {
-            await process(frame)
+        while let (frame, anchorTransform) = takePending() {
+            await process(frame, tableAnchorTransform: anchorTransform)
         }
         isProcessing = false
     }
 
-    private func takePending() -> CapturedFrame? {
-        defer { pendingFrame = nil }
-        return pendingFrame
+    private func takePending() -> (CapturedFrame, Transform3D?)? {
+        defer {
+            pendingFrame = nil
+            pendingAnchorTransform = nil
+        }
+        return pendingFrame.map { ($0, pendingAnchorTransform) }
     }
 
-    private func process(_ frame: CapturedFrame) async {
+    /// B3: re-express the calibration in the world frame this frame was
+    /// captured in. Skipped (calibration stays pinned) when following is
+    /// off, no anchor transform came with the frame, the pipeline was
+    /// built without a lock-time anchor transform, or the raycaster cannot
+    /// move its plane — a frozen plane under a moving calibration would be
+    /// worse than both frozen.
+    private func followTableAnchor(_ transform: Transform3D?) {
+        guard config.followsTableAnchor,
+              let transform, let anchoredCalibration,
+              let following = raycaster as? any CalibrationFollowingRaycaster else { return }
+        let refreshed = anchoredCalibration.worldCalibration(anchorTransform: transform)
+        guard refreshed != calibration else { return }
+        calibration = refreshed
+        raycaster = following.following(refreshed)
+    }
+
+    private func process(_ frame: CapturedFrame, tableAnchorTransform: Transform3D?) async {
+        followTableAnchor(tableAnchorTransform)
         do {
             if !prepared {
                 try await detector.prepare()

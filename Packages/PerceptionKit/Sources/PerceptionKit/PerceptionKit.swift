@@ -46,15 +46,25 @@ public struct PerceptionConfig: Sendable, Equatable {
     public var disappearanceFrames: Int
     /// Minimum detector confidence to consider at all.
     public var confidenceFloor: Double
+    /// B3: re-express the table calibration from the table anchor's
+    /// CURRENT transform on every frame that carries one (see
+    /// `PerceptionPipeline.ingest(_:tableAnchorTransform:)`). ARKit keeps
+    /// refining anchors as its map improves, while camera poses always
+    /// arrive in the refined world frame — a calibration frozen at lock
+    /// time then projects balls into a stale table frame. OFF reproduces
+    /// the frozen-at-lock behaviour so the two can be A/B'd at the table.
+    public var followsTableAnchor: Bool
 
     public init(detectionRate: Double = 15,
                 appearanceFrames: Int = 3,
                 disappearanceFrames: Int = 10,
-                confidenceFloor: Double = 0.35) {
+                confidenceFloor: Double = 0.35,
+                followsTableAnchor: Bool = true) {
         self.detectionRate = detectionRate
         self.appearanceFrames = appearanceFrames
         self.disappearanceFrames = disappearanceFrames
         self.confidenceFloor = confidenceFloor
+        self.followsTableAnchor = followsTableAnchor
     }
 
     public static let `default` = PerceptionConfig()
