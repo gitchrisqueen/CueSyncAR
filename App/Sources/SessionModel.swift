@@ -61,8 +61,10 @@ final class SessionModel {
     /// re-enterable from the HUD at any time (05-UX-DESIGN).
     private(set) var calibrationVisible = false
 
-    /// The locked world-space calibration, when one exists.
-    var tableCalibration: TableCalibration? { calibration.calibration }
+    /// The locked world-space calibration, when one exists — re-expressed
+    /// in the table anchor's current world frame while live tracking
+    /// follows the anchor (B3), else the lock-time value.
+    var tableCalibration: TableCalibration? { anchorFollowedCalibration ?? calibration.calibration }
 
     func beginCalibration() {
         stopLiveTracking() // recalibration invalidates the pipeline's plane
@@ -183,15 +185,17 @@ final class SessionModel {
     /// Persist a locked calibration relative to its world anchor so a
     /// returning visit relocalizes straight to Ready.
     func persistCalibration(_ locked: TableCalibration, anchorTransform: Transform3D) {
+        lockAnchorTransform = anchorTransform
         CalibrationStore.save(AnchoredCalibration(calibration: locked,
                                                   anchorTransform: anchorTransform))
     }
 
     /// A saved venue relocalized — jump to locked (unless the user already
     /// locked a fresh calibration this session; the controller ignores it).
-    func restoreCalibration(_ restored: TableCalibration) {
+    func restoreCalibration(_ restored: TableCalibration, anchorTransform: Transform3D) {
         let wasLocked = calibration.isLocked
         calibration.handle(.restored(restored))
+        if !wasLocked, calibration.isLocked { lockAnchorTransform = anchorTransform }
         // T1.2 relocalization timing: verified bar is locked within 15 s of
         // seeing the table; the mirror surfaces the measured number.
         if !wasLocked, calibration.isLocked, let started = relocalizationStartedAt {
@@ -258,6 +262,15 @@ final class SessionModel {
     /// is addressing the ball, else the device-pose sighting model.
     enum AimSource { case stick, devicePose }
     private(set) var aimSource: AimSource = .devicePose
+    /// B3 anchor following (SessionModel+AnchorFollowing.swift): the anchor
+    /// transform the lock-time calibration was expressed against, that
+    /// calibration re-derived from the anchor's latest transform (non-nil
+    /// only while a pipeline runs), the anchor's drift since lock in mm
+    /// (mirror `anchorDriftMm`), and the A/B switch (default ON).
+    @ObservationIgnored var lockAnchorTransform: Transform3D?
+    var anchorFollowedCalibration: TableCalibration?
+    var anchorDriftMillimeters: Double?
+    var followsTableAnchor = true
     /// The user's called pocket (M6-02); nil = no call.
     private(set) var calledPocket: PocketID?
     /// True when the current prediction sends an object ball into the
@@ -362,7 +375,9 @@ final class SessionModel {
             detector: detector,
             calibration: calibration,
             raycaster: PlaneGeometryRaycaster(calibration: calibration),
-            trackerConfig: trackerConfigFromSettings())
+            config: PerceptionConfig(followsTableAnchor: followsTableAnchor),
+            trackerConfig: trackerConfigFromSettings(),
+            tableAnchorTransform: lockAnchorTransform)
         pipeline = newPipeline
         // Spatial overlays take over — stale 2D preview boxes would linger
         // frozen over the camera otherwise.
@@ -395,6 +410,8 @@ final class SessionModel {
         statesTask?.cancel()
         statesTask = nil
         pipeline = nil
+        anchorFollowedCalibration = nil
+        anchorDriftMillimeters = nil
         tableState = nil
         shotPrediction = nil
         shotGuide = nil
@@ -417,15 +434,16 @@ final class SessionModel {
     /// the tracker handle the rest); the hosted API stays throttled to the
     /// quota-friendly preview cadence. No motion gate in either case:
     /// during live tracking the BALLS move while the phone may be still.
-    func ingestTrackingFrame(_ frame: CapturedFrame) {
+    func ingestTrackingFrame(_ frame: CapturedFrame, tableAnchorTransform: Transform3D? = nil) {
         guard let pipeline else { return }
+        followTableAnchor(tableAnchorTransform)
         if !usingOnDeviceDetection {
             guard Date().timeIntervalSince(lastTrackingIngestAt) >= previewInterval else {
                 return
             }
         }
         lastTrackingIngestAt = Date()
-        Task { await pipeline.ingest(frame) }
+        Task { await pipeline.ingest(frame, tableAnchorTransform: tableAnchorTransform) }
     }
 
     /// Recompute the aim ray + shot prediction + coaching guide (called at
@@ -697,40 +715,6 @@ final class SessionModel {
         }
         return String(describing: error).prefix(80).description
     }
-
-    #if canImport(CoreML)
-    /// Load the bundled BallDetector OFF the main actor (MLModel init can
-    /// take seconds) and hand back the Sendable provider.
-    private nonisolated static func loadBundledDetector() async -> (any DetectionProviding)? {
-        await Task.detached(priority: .userInitiated) {
-            guard let url = Bundle.main.url(forResource: "BallDetector",
-                                            withExtension: "mlmodelc") else { return nil }
-            let configuration = MLModelConfiguration()
-            // Still CPU-only. T1.3 negative result (2026-07-23, crash logs
-            // on file): even the iOS16-target/CoreML6 re-export with fp32
-            // pipeline outputs aborts in MPSGraph's MLIR optimization
-            // passes on iOS 26 the moment GPU/ANE compiles it — the
-            // boundary-cast theory is dead; the bug is in MPSGraph's
-            // ingestion of coremltools-9 mlprograms generally. Next
-            // candidates: iOS17-target export, then fp32 GPU-only.
-            configuration.computeUnits = .cpuOnly
-            guard let model = try? MLModel(contentsOf: url,
-                                           configuration: configuration),
-                  let provider = try? CoreMLDetectionProvider(model: model) else {
-                return nil
-            }
-            return provider as (any DetectionProviding)
-        }.value
-    }
-    #endif
-
-    private func makeEncoder() -> any FrameJPEGEncoding {
-        #if canImport(CoreImage)
-        PixelBufferJPEGEncoder()
-        #else
-        UnsupportedEncoder()
-        #endif
-    }
 }
 
 // MARK: - Debug mirror and tracking commands
@@ -825,6 +809,9 @@ extension SessionModel {
             guard let raw = params["mode"], let mode = PracticeMode(rawValue: raw)
             else { return }
             selectPracticeMode(mode)
+        case "followAnchor":
+            guard let v = params["v"].flatMap(Int.init) else { return }
+            setFollowsTableAnchor(v != 0)
         default:
             Self.log.info("mirror command ignored: \(String(describing: params), privacy: .public)")
         }
@@ -890,6 +877,10 @@ extension SessionModel {
             state["pockets"] = pockets.map { String(describing: $0.id) }
         }
         state["guideSpeed"] = guideSpeed
+        state["followsTableAnchor"] = followsTableAnchor
+        if let anchorDriftMillimeters {
+            state["anchorDriftMm"] = (anchorDriftMillimeters * 10).rounded() / 10
+        }
         state["mode"] = practiceMode.rawValue
         state["settings"] = settingsMirrorState()
         state["hasPrediction"] = shotPrediction != nil

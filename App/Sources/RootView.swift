@@ -523,7 +523,8 @@ struct ARCameraView: View {
                 if let anchorTransform = coordinator.restoredTableAnchorTransform,
                    let saved = CalibrationStore.load() {
                     model.restoreCalibration(
-                        saved.worldCalibration(anchorTransform: anchorTransform))
+                        saved.worldCalibration(anchorTransform: anchorTransform),
+                        anchorTransform: anchorTransform)
                 }
             }
             if model.calibration.isLocked {
@@ -532,7 +533,12 @@ struct ARCameraView: View {
                 model.startLiveTrackingIfReady()
                 if model.isLiveTracking {
                     if let frame = await coordinator.nextFrame() {
-                        model.ingestTrackingFrame(frame)
+                        // The anchor transform is sampled WITH the frame so
+                        // the pipeline projects it in the world frame ARKit
+                        // is using right now (B3 anchor following).
+                        model.ingestTrackingFrame(
+                            frame,
+                            tableAnchorTransform: coordinator.currentTableAnchorTransform)
                     }
                     if let cameraTransform = coordinator.currentCameraTransform {
                         model.updateAim(cameraTransform: cameraTransform)
