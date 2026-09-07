@@ -79,7 +79,8 @@ final class SessionModel {
         // Re-pins of a known table snap to its saved spec, not just the
         // generic standards (a shallow-angle tap set once locked an 8 ft
         // table as 7 ft — the spec makes repeat calibrations agree).
-        calibration.preferredSize = CalibrationStore.loadTableSpec()
+        // An explicit Settings override wins over the remembered spec.
+        calibration.preferredSize = settings.tableSize.override ?? CalibrationStore.loadTableSpec()
         calibrationVisible = true
     }
 
@@ -292,15 +293,19 @@ final class SessionModel {
 
     // MARK: Practice modes (M6-01)
 
-    private static let practiceModeKey = "practiceMode"
+    /// Every knob the Settings sheet exposes (M4-04), and the single
+    /// source of truth for each — practice mode and guide speed below just
+    /// read from here. Always mutate through `updateSettings` so the change
+    /// persists and is applied (see SessionModel+Settings.swift).
+    var settings = SettingsModel()
+
     /// Selected practice mode (persisted). The mode is a pure bundle of
     /// behavior flags from CoachKit — the app honors them, never the
     /// reverse (08-PRACTICE-MODES).
-    private(set) var practiceMode: PracticeMode = .freePlay
+    var practiceMode: PracticeMode { settings.practiceMode }
 
     func selectPracticeMode(_ mode: PracticeMode) {
-        practiceMode = mode
-        UserDefaults.standard.set(mode.rawValue, forKey: Self.practiceModeKey)
+        updateSettings { $0.practiceMode = mode }
         Self.log.info("practice mode: \(mode.rawValue, privacy: .public)")
         showTapFeedback("Mode: \(mode.title)")
     }
@@ -313,8 +318,6 @@ final class SessionModel {
     private(set) var debugMirrorURL: String?
     /// Raw detector labels from the latest pipeline frame (debug mirror).
     @ObservationIgnored private(set) var latestDetectionLabels: [String] = []
-
-    private static let mirrorPreferenceKey = "debugMirrorEnabled"
 
     @ObservationIgnored private var pipeline: PerceptionPipeline?
     @ObservationIgnored private var statesTask: Task<Void, Never>?
@@ -336,17 +339,20 @@ final class SessionModel {
     /// no per-point ARKit raycasts) and tracked into TableState.
     func startLiveTrackingIfReady() {
         guard pipeline == nil, let calibration = tableCalibration else { return }
-        // Bundled on-device model first (offline, ~15 Hz); hosted picker
-        // model as evaluation fallback when the bundle resource is absent.
-        guard let detector = onDeviceProvider.map({ $0 })
-                ?? provider.map({ $0 as any DetectionProviding }) else {
+        // Settings choose the detector (bundled on-device by default —
+        // offline, ~15 Hz); either still stands in for the other when the
+        // preferred one is unavailable: no bundled model in a simulator
+        // build, no key/selected model for the hosted evaluation adapter.
+        let hosted = provider.map { $0 as any DetectionProviding }
+        let preferHosted = settings.detectionProvider == .hosted && hosted != nil
+        guard let detector = (preferHosted ? hosted : onDeviceProvider) ?? hosted ?? onDeviceProvider else {
             Self.log.error("""
                 startLiveTracking: no detector (bundled model missing AND \
                 no hosted model selected) — live tracking cannot start
                 """)
             return
         }
-        usingOnDeviceDetection = onDeviceProvider != nil
+        usingOnDeviceDetection = !preferHosted && onDeviceProvider != nil
         let detectorName = usingOnDeviceDetection ? "on-device BallDetector" : "hosted API"
         let tableSummary = String(format: "%.2fx%.2fm",
                                   calibration.size.playField.width,
@@ -355,7 +361,8 @@ final class SessionModel {
         let newPipeline = PerceptionPipeline(
             detector: detector,
             calibration: calibration,
-            raycaster: PlaneGeometryRaycaster(calibration: calibration))
+            raycaster: PlaneGeometryRaycaster(calibration: calibration),
+            trackerConfig: trackerConfigFromSettings())
         pipeline = newPipeline
         // Spatial overlays take over — stale 2D preview boxes would linger
         // frozen over the camera otherwise.
@@ -431,7 +438,7 @@ final class SessionModel {
     /// the effective cloth deceleration crosses the table several times;
     /// the 8-event budget still bounds the polyline. Remotely tunable via
     /// the mirror (`/cmd?action=guideSpeed&v=...`).
-    private(set) var guideSpeed: Double = 3.5
+    var guideSpeed: Double { settings.guideSpeed }
 
     @ObservationIgnored private var lastAimNilLogAt: Date = .distantPast
     /// Aim stabilization state (see AimStabilizer): smoothing + deadband.
@@ -453,7 +460,7 @@ final class SessionModel {
     private static let stickAimHold: TimeInterval = 2.5
     /// State the current prediction was solved against — a changed ball
     /// layout forces a re-solve even inside the aim deadband.
-    @ObservationIgnored private var lastPredictedState: TableState?
+    @ObservationIgnored var lastPredictedState: TableState?
 
     /// Material layout change (ball added/removed/rolled > 5 mm or
     /// re-classified) — Kalman sub-millimeter jitter and the per-frame
@@ -575,11 +582,10 @@ final class SessionModel {
     func bootstrap() async {
         await registry.register(AnalyticSolver() as any TrajectorySolving)
         await registry.register(AppSecrets() as any SecretsProviding)
+        // Settings first: the mirror's start-on-launch preference, the
+        // practice mode and the guide speed all come out of this load.
+        settings = SettingsModel(loading: appSettingsStore)
         startDebugMirrorIfEnabled()
-        if let saved = UserDefaults.standard.string(forKey: Self.practiceModeKey),
-           let mode = PracticeMode(rawValue: saved) {
-            practiceMode = mode
-        }
         // M2-01 winner, bundled: YOLOv11n on the pool-ball-agzev fork,
         // mAP50 0.896 / mAP50-95 0.765 (Linux fine-tune, epoch 19).
         // The MVP works offline on this model; the hosted picker remains
@@ -733,26 +739,31 @@ final class SessionModel {
 // above remain visible here.
 
 extension SessionModel {
+    /// HUD antenna button. Flips the persisted preference; the mirror is
+    /// brought up or down by `applyDebugMirrorSetting`, so the button and
+    /// the Settings sheet toggle drive exactly one switch.
     func toggleDebugMirror() {
-        if let server = debugMirror {
-            server.stop()
-            debugMirror = nil
-            debugMirrorURL = nil
-            UserDefaults.standard.set(false, forKey: Self.mirrorPreferenceKey)
-            showTapFeedback("Debug mirror off")
+        updateSettings { $0.debugMirrorEnabled.toggle() }
+    }
+
+    /// Match the running mirror to `settings.debugMirrorEnabled`.
+    func applyDebugMirrorSetting() {
+        guard !settings.debugMirrorEnabled else {
+            startDebugMirrorIfEnabled()
             return
         }
-        startDebugMirror()
-        UserDefaults.standard.set(debugMirror != nil, forKey: Self.mirrorPreferenceKey)
+        guard let server = debugMirror else { return }
+        server.stop()
+        debugMirror = nil
+        debugMirrorURL = nil
+        showTapFeedback("Debug mirror off")
     }
 
     /// Bring the mirror up if the preference allows (default ON): the
     /// device usually sits at the table out of reach, so the mirror must
     /// survive app relaunches without a hand touching the screen.
     func startDebugMirrorIfEnabled() {
-        guard debugMirror == nil,
-              UserDefaults.standard.object(forKey: Self.mirrorPreferenceKey) as? Bool ?? true
-        else { return }
+        guard debugMirror == nil, settings.debugMirrorEnabled else { return }
         startDebugMirror()
     }
 
@@ -802,11 +813,13 @@ extension SessionModel {
             calledShotOnLine = false
             showTapFeedback("Pocket call cleared (remote)")
         case "guideSpeed":
-            guard let v = params["v"].flatMap(Double.init), (1.0...8.0).contains(v)
-            else { return }
-            guideSpeed = v
-            lastPredictedState = nil // force a re-solve at the new speed
-            showTapFeedback(String(format: "Guide speed %.1f m/s (remote)", v))
+            guard let v = params["v"].flatMap(Double.init) else { return }
+            updateSettings { $0.guideSpeed = v } // clamped by SettingsModel
+            showTapFeedback(String(format: "Guide speed %.1f m/s (remote)", guideSpeed))
+        case "missGrace":
+            guard let v = params["v"].flatMap(Double.init) else { return }
+            updateSettings { $0.visibleMissGrace = v }
+            showTapFeedback(String(format: "Miss grace %.2f s (remote)", settings.visibleMissGrace))
         case "setMode":
             guard let raw = params["mode"], let mode = PracticeMode(rawValue: raw)
             else { return }
@@ -876,6 +889,7 @@ extension SessionModel {
         }
         state["guideSpeed"] = guideSpeed
         state["mode"] = practiceMode.rawValue
+        state["settings"] = settingsMirrorState()
         state["hasPrediction"] = shotPrediction != nil
         if let prediction = shotPrediction, !prediction.segments.isEmpty {
             // Predicted path + events in table space — makes bank-line
@@ -976,21 +990,3 @@ extension SessionModel {
         return adjusted
     }
 }
-
-#if !canImport(CoreImage)
-private struct UnsupportedEncoder: FrameJPEGEncoding {
-    func encodeJPEG(from frame: CapturedFrame) throws -> (data: Data, width: Int, height: Int) {
-        throw RoboflowError.frameNotEncodable
-    }
-}
-#endif
-
-#if canImport(CoreVideo)
-import CoreVideo
-import PerceptionKit
-
-// Bridge PerceptionKit's frame image type to DetectionRoboflow's encoder seam.
-extension PixelBufferImage: @retroactive DetectionRoboflow.PixelBufferProviding {
-    public var cvPixelBuffer: CVPixelBuffer { pixelBuffer }
-}
-#endif

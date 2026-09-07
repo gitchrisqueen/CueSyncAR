@@ -23,6 +23,9 @@ struct RootView: View {
     /// Manual trim ON TOP of the orientation-derived rotation, for devices
     /// whose sensor mounting differs. Cycled by the rotate button.
     @AppStorage("previewBoxRotationTrim") private var rotationTrimRaw = NormalizedRotation.none.rawValue
+    /// Whether the Settings sheet is up (05-UX-DESIGN: settings is a
+    /// sheet, never a nav stack over the live view).
+    @State private var showingSettings = false
     /// Rotation derived from the device's PHYSICAL orientation (fluid —
     /// tracks the free-floating phone via orientation notifications, and
     /// works even when the UI orientation is locked).
@@ -133,6 +136,9 @@ struct RootView: View {
             .padding(.top, 8)
             .padding(.bottom, 12)
         }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
         .onAppear {
             UIDevice.current.beginGeneratingDeviceOrientationNotifications()
             autoRotation = Self.rotation(for: UIDevice.current.orientation) ?? autoRotation
@@ -186,6 +192,7 @@ struct RootView: View {
             mirrorButton
             modeMenu
             modelPicker
+            settingsButton
             if model.selectedModel != nil {
                 Text("\(model.previewStats.latencyMilliseconds) ms")
                     .font(.footnote.weight(.semibold))
@@ -222,6 +229,20 @@ struct RootView: View {
         }
         .accessibilityLabel("Practice mode: \(model.practiceMode.title)")
         .accessibilityIdentifier("practice-mode-menu")
+    }
+
+    /// Opens the Settings sheet (M4-04) — table size, detector, guide
+    /// speed, tracker tuning, practice mode and the debug mirror, all
+    /// changeable at the table without a rebuild.
+    private var settingsButton: some View {
+        Button {
+            showingSettings = true
+        } label: {
+            Label("Settings", systemImage: "gearshape")
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel("Settings")
+        .accessibilityIdentifier("settings-button")
     }
 
     /// Debug mirror toggle: serves the live screen + tracking state to any
