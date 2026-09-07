@@ -1,0 +1,9 @@
+[Unit]
+Description=CueSync AR agent runner tick timer
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=5min
+RandomizedDelaySec=30s
+Unit=cuesync-tick.service
+[Install]
+WantedBy=timers.target

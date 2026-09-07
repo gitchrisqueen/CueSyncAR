@@ -120,8 +120,10 @@ durable lessons that must not be re-learned:
 
 ## Git workflow
 
-- Branch per task: `claude/<task-id>-<slug>` (e.g. `claude/M2-03-tracker`).
-  A pushed claim branch = a claimed task; tick the board checkbox in the
-  same PR that completes the task.
+- Work is tracked as GitHub Issues; the autonomous runner (`docs/agent-runner.md`)
+  claims `agent:ready` issues and works them on `claude/issue-<N>-<slug>`.
+  Interactive sessions claim by pushing `claude/<task-id>-<slug>` when no
+  issue exists yet. Never author `.github/**`, `.claude/**`, runner or verify
+  scripts from an agent run — those are owner-merged surfaces.
 - Default branch: `main`. Never push elsewhere without permission; do not
   open PRs unless asked.

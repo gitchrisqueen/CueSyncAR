@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git push --force*)", "Bash(git push -f*)", "Bash(rm -rf /*)", "Bash(sudo*)",
+      "Edit(.github/**)", "Write(.github/**)", "Edit(.claude/**)", "Write(.claude/**)",
+      "Edit(.mcp.json)", "Write(.mcp.json)",
+      "Edit(Scripts/agent-runner/**)", "Write(Scripts/agent-runner/**)",
+      "Edit(Scripts/verify/**)", "Write(Scripts/verify/**)",
+      "Edit(App/Config/**)", "Write(App/Config/**)",
+      "Edit(.gitleaks.toml)", "Write(.gitleaks.toml)"
+    ]
+  },
+  "enableAllProjectMcpServers": false
+}

@@ -1,0 +1,13 @@
+[Unit]
+Description=CueSync AR agent runner watch tick (GitHub-only: CI watch, merge, reap; never dispatches Claude)
+[Service]
+Type=oneshot
+WorkingDirectory=@AGENT_BASE@
+Environment=AGENT_BASE=@AGENT_BASE@ WATCH_ONLY=1 CAPACITY_PROBE=0
+Environment=PATH=@PATH@
+Environment=HOME=%h
+Environment=GH_CONFIG_DIR=@AGENT_BASE@/gh-config
+Environment=GIT_CONFIG_GLOBAL=@AGENT_BASE@/gitconfig
+ExecStart=@AGENT_BASE@/tick.sh
+TimeoutStartSec=10m
+KillMode=control-group

@@ -1,5 +1,24 @@
 # CueSync AR - Billiards Augmented Reality App
 
+## Status (2026-09)
+
+- **What runs:** ten SwiftPM packages (physics, table geometry, perception pipeline, AR shell, UI,
+  display routing, coaching), Swift Testing suites on Linux and macOS, SwiftLint and secrets
+  scanning in CI. The pure core (physics, calibration math, tracking) has no device dependencies.
+- **Device-verified, one session (2026-07-23, iPad, one 8 ft table —
+  `docs/validation/2026-07-23-T1-device-verification.md`):** relocalization of a saved calibration
+  (2 s on three consecutive relaunches), anchor-rooted overlays staying on the cloth after
+  relocalization (before/after photos in the same folder), stick-based aiming engaging with the cue
+  on the table (86 % duty cycle after the hold fix), and the debug mirror as the observation path.
+  On-device ball detection runs CPU-only and was shown to be **blind to a ball at shot speed**
+  (only rest positions are captured) — a documented negative result, not a verified feature.
+- **Not yet:** pocket calling, predicted-vs-actual bank paths (one uncalibrated data point so
+  far), overlay accuracy and physics tuning. These are being validated against recorded sessions
+  and a synthetic ground-truth harness (`docs/roadmap/`), driven by an autonomous agent loop
+  (`docs/agent-runner.md`). Claims about accuracy carry a measured number and a run link, or they
+  are not made.
+- **Platforms:** iOS 26 on iPhone/iPad. visionOS/tvOS are vision, not targets.
+
 ## Overview
 
 CueSync AR is an iOS app designed to provide an immersive and educational experience for billiards enthusiasts using Augmented Reality (AR) technology. The app focuses on real-time object detection, trajectory projection, and spatial awareness to enhance the user's understanding and skills in playing billiards.
