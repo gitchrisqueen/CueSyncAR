@@ -124,10 +124,11 @@ durable lessons that must not be re-learned:
 - **AR anchoring:** all spatial content roots under ARAnchors (table anchor
   for overlays, one shared cluster anchor for calibration corners). Raw
   world coordinates drift with ARKit's map refinements.
-- **Coordinate flow:** detections → bounding-box *foot point* → intrinsics
-  unprojection (`PlaneGeometryRaycaster`) → table plane → `worldToTable`.
-  Vision boxes are bottom-left origin (`VisionBoxMapping` flips);
-  `imageCropAndScaleOption = .scaleFill` matches the dataset's
+- **Coordinate flow:** detections → bounding-box *center* → intrinsics
+  unprojection against the plane lifted one ball radius
+  (`PlaneGeometryRaycaster`, `planeHeightOffset`) → dropped to cloth →
+  `worldToTable`. Vision boxes are bottom-left origin (`VisionBoxMapping`
+  flips); `imageCropAndScaleOption = .scaleFill` matches the dataset's
   Stretch-to-640 preprocessing — do not "fix" either.
 - **Playing-surface invariant:** every ball in a `TableState` lies inside
   the calibrated field with its centre ≥ one radius from every cushion.
@@ -136,6 +137,20 @@ durable lessons that must not be re-learned:
   envelope and clamped onto it (rail balls draw on the rail), anything
   further is rejected; tracker output is filtered by the same envelope
   (suppressed, not retired). Tune the slack there, never with a margin.
+- **Table-free iteration = `Packages/SessionReplay`.** A session bundle
+  (frames/detections/events JSONL + calibration + truth, no video needed)
+  replays through the real pipeline → `ShotPlanner` → solver on any
+  platform; `swift test --package-path Packages/SessionReplay --filter
+  Golden` is the fixed eval set (byte-equal `outputs.jsonl` + accuracy
+  bars). Judge every perception/tracking/physics change against it before
+  anyone stands at a table. Regenerate goldens only deliberately
+  (`CUESYNC_REGENERATE_FIXTURES=1`, explain the diff in the PR).
+- **Protocol-extension trap:** the pipeline holds `any PlaneRaycasting`;
+  a method that exists only in a protocol *extension* dispatches
+  statically to the default through that existential. The height-aware
+  raycast was silently never called (every ball ~4 cm toward the camera)
+  until it became a protocol requirement. Any capability a conformer
+  overrides must be a requirement.
 
 ## Git workflow
 

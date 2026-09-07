@@ -33,7 +33,7 @@ import ARKit
 import RealityKit
 
 @MainActor
-public final class ARSessionCoordinator: NSObject, ARSessionDelegate {
+public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourcing {
     /// Name of the world anchor the locked table calibration hangs off.
     public nonisolated static let tableAnchorName = "cuesync.tableOrigin"
 

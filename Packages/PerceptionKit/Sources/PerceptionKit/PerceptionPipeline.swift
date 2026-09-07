@@ -92,11 +92,24 @@ public actor PerceptionPipeline {
         Task { await self.drain() }
     }
 
+    /// Process ONE frame inline and return its output — the deterministic
+    /// replay seam (SessionReplay drives this; the live path uses `ingest`).
+    /// Every frame is processed, in call order, with no latest-wins
+    /// dropping, so the tracker sees exactly the recorded sequence. Returns
+    /// nil when the detector throws (the frame is dropped, as live). The
+    /// result is NOT yielded on `outputs`. Do not interleave with `ingest`
+    /// on the same instance: both mutate the tracker.
+    public func processFrame(_ frame: CapturedFrame) async -> PerceptionOutput? {
+        await process(frame)
+    }
+
     /// Process pending frames until none remain. Runs on the actor; detector
     /// inference suspends without blocking ingest.
     private func drain() async {
         while let frame = takePending() {
-            await process(frame)
+            if let output = await process(frame) {
+                continuation.yield(output)
+            }
         }
         isProcessing = false
     }
@@ -106,7 +119,7 @@ public actor PerceptionPipeline {
         return pendingFrame
     }
 
-    private func process(_ frame: CapturedFrame) async {
+    private func process(_ frame: CapturedFrame) async -> PerceptionOutput? {
         do {
             if !prepared {
                 try await detector.prepare()
@@ -216,14 +229,24 @@ public actor PerceptionPipeline {
                 }
             }
             #endif
-            let labels = detections
-                .sorted { $0.confidence > $1.confidence }
+            // Total order (confidence desc, label asc, detector order asc):
+            // equal confidences must not depend on sort stability, or the
+            // label list — part of the replay golden — could reorder.
+            let labels = detections.enumerated()
+                .sorted { a, b in
+                    if a.element.confidence != b.element.confidence {
+                        return a.element.confidence > b.element.confidence
+                    }
+                    if a.element.classLabel != b.element.classLabel {
+                        return a.element.classLabel < b.element.classLabel
+                    }
+                    return a.offset < b.offset
+                }
                 .prefix(12)
-                .map { "\($0.classLabel) \(Int($0.confidence * 100))%" }
-            continuation.yield(PerceptionOutput(state: state,
-                                                stickQuad: stickQuad(in: detections,
-                                                                     frame: frame),
-                                                detectionLabels: Array(labels)))
+                .map { "\($0.element.classLabel) \(Int($0.element.confidence * 100))%" }
+            return PerceptionOutput(state: state,
+                                    stickQuad: stickQuad(in: detections, frame: frame),
+                                    detectionLabels: Array(labels))
         } catch {
             // A failed frame is dropped; the previous state stands — but
             // NEVER silently: a permanently-failing detector looks like
@@ -235,6 +258,7 @@ public actor PerceptionPipeline {
                 Self.log.error("detect failed (#\(self.errorCount)): \(String(describing: error), privacy: .public)")
             }
             #endif
+            return nil
         }
     }
 
