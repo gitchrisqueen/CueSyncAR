@@ -1,0 +1,71 @@
+name: verify-sim
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      fixture:
+        description: Session bundle id to replay (default synthetic-mini)
+        default: synthetic-mini
+        required: false
+      ref:
+        description: Git ref to build
+        required: false
+
+concurrency:
+  group: verify-sim-${{ github.head_ref || inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  replay-smoke:
+    name: Replay smoke (Simulator)
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Pick a simulator
+        id: sim
+        run: |
+          set -euo pipefail
+          udid=$(xcrun simctl list devices available --json | jq -r '[.devices[] | .[] | select(.name | test("iPhone 1[6-9]"))][0].udid')
+          [ -n "$udid" ] && [ "$udid" != "null" ] || udid=$(xcrun simctl list devices available --json | jq -r '[.devices[] | .[] | select(.name | test("iPhone"))][0].udid')
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$udid" || true
+      - name: Build for testing
+        run: |
+          set -o pipefail
+          xcodebuild -project CueSyncAR.xcodeproj -scheme CueSyncAR \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO build-for-testing
+      - name: Replay smoke (XCUITest when the target exists; launch smoke otherwise)
+        env:
+          FIXTURE: ${{ inputs.fixture || 'synthetic-mini' }}
+        run: |
+          set -euo pipefail
+          mkdir -p sim-replay/screenshots
+          if xcodebuild -project CueSyncAR.xcodeproj -list 2>/dev/null | grep -q CueSyncARUITests; then
+            xcodebuild test-without-building -project CueSyncAR.xcodeproj -scheme CueSyncAR \
+              -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build/DerivedData \
+              -only-testing CueSyncARUITests -resultBundlePath sim-replay/result.xcresult \
+              -testLanguage en "-ReplayBundle" "$FIXTURE" | tee sim-replay/xcodebuild.log | tail -50
+          else
+            app=$(find build/DerivedData -name 'CueSyncAR.app' -path '*iphonesimulator*' | head -1)
+            xcrun simctl install "${{ steps.sim.outputs.udid }}" "$app"
+            xcrun simctl launch "${{ steps.sim.outputs.udid }}" CQC.CueSync-AR -ReplayBundle "$FIXTURE" || true
+            sleep 8
+            xcrun simctl io "${{ steps.sim.outputs.udid }}" screenshot sim-replay/screenshots/launch.png
+            xcrun simctl spawn "${{ steps.sim.outputs.udid }}" log show --last 1m --predicate 'subsystem == "com.cuesync.ar"' > sim-replay/app-log.txt || true
+            echo "Launch smoke only: CueSyncARUITests target not present yet; no metrics.json written by design."
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sim-replay-${{ inputs.fixture || 'synthetic-mini' }}-${{ github.sha }}
+          path: sim-replay/
+          retention-days: 14

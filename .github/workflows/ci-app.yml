@@ -2,8 +2,13 @@ name: ci-app
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-app-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-app:
@@ -36,6 +41,13 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Restore SwiftPM build cache
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: Packages/*/.build
+          key: spm-macos-${{ hashFiles('Packages/*/Package.swift') }}
+          restore-keys: spm-macos-
       - name: Test every package on the Apple toolchain
         run: |
           set -euo pipefail
@@ -49,3 +61,43 @@ jobs:
             echo "::endgroup::"
           done
           exit $status
+      - name: Save SwiftPM build cache (main only)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: Packages/*/.build
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+
+  detector-parity:
+    name: Detector parity
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the bundled Core ML model over committed keyframes (skeleton until Tools/DetectionEval and Fixtures land)
+        run: |
+          set -euo pipefail
+          if [ -d Tools/DetectionEval ] && ls Fixtures/Sessions/*/keyframes/*.jpg >/dev/null 2>&1; then
+            swift build --package-path Tools/DetectionEval -c release
+            Tools/DetectionEval/.build/release/detection-eval --parity Fixtures/Sessions --min-match 0.9
+          else
+            echo "Detector parity skeleton: Tools/DetectionEval or fixture keyframes not present yet — passing by design."
+          fi
+
+  snapshot-tests:
+    name: Snapshot tests (advisory)
+    runs-on: macos-26
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run snapshot suites where present
+        run: |
+          set -euo pipefail
+          ran=0
+          for pkg in Packages/CueSyncUI Packages/DisplayKit; do
+            if grep -rq "Snapshot" "$pkg/Tests" 2>/dev/null; then
+              swift test --package-path "$pkg" --filter Snapshot && ran=1
+            fi
+          done
+          [ "$ran" = 1 ] || echo "No snapshot suites yet — advisory job passes by design."

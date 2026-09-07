@@ -93,7 +93,8 @@ changes; results table committed alongside the model version. Bar: mAP@50 ≥
 1. `ci-core`: build + unit + contract + fixture suites for all packages; lint;
    format check; gitleaks. Target wall time < 10 min.
 2. `ci-app`: simulator build, snapshot suite, XCUITest smoke. Target < 20 min.
-3. Coverage floors (pure packages 85%) enforced via `xccov` diff.
+3. Coverage floors enforced by `Scripts/coverage.sh --check` (llvm-cov, own sources per
+   package) against `docs/validation/coverage-floors.json`; floors only ratchet up.
 4. No new warnings (`SWIFT_TREAT_WARNINGS_AS_ERRORS` in CI config for app +
    packages).
 
