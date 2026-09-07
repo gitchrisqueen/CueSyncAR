@@ -44,6 +44,9 @@ public actor PerceptionPipeline {
     private let calibration: TableCalibration
     private let raycaster: any PlaneRaycasting
     private let config: PerceptionConfig
+    /// Playing-surface gate for both projected detections and reported
+    /// balls; built once from the calibration, which is immutable here.
+    private let surface: PlayingSurfaceGate
     private var tracker: BallTracker
 
     private var pendingFrame: CapturedFrame?
@@ -51,6 +54,7 @@ public actor PerceptionPipeline {
     private var prepared = false
     private var frameCount = 0
     private var errorCount = 0
+    private var suppressedCount = 0
     #if canImport(os)
     private static let log = Logger(subsystem: "com.cuesync.ar", category: "pipeline")
     #endif
@@ -70,6 +74,7 @@ public actor PerceptionPipeline {
         self.calibration = calibration
         self.raycaster = raycaster
         self.config = config
+        self.surface = PlayingSurfaceGate(table: Table(size: calibration.size))
         self.tracker = BallTracker(config: trackerConfig)
         (stream, continuation) = AsyncStream.makeStream(of: PerceptionOutput.self)
     }
@@ -111,10 +116,14 @@ public actor PerceptionPipeline {
             // frame edge, or that matches something OFF the table (window
             // reflections, balls on a shelf), unprojects to a point far
             // outside the cloth — observed live as phantom tracks at
-            // (-4.5, -3.3) on a 2.34 m table. A ball can legitimately sit
-            // against a cushion, so allow a small margin beyond half-extents.
-            let bounds = Table(size: calibration.size).halfExtents
-            let margin = Ball.standardRadius * 2
+            // (-4.5, -3.3) on a 2.34 m table. A ball CAN sit against a
+            // cushion, with its centre one radius inside the nose line, and
+            // calibration is never exact, so the gate admits a small band
+            // beyond that envelope and pulls those observations back onto
+            // it (`PlayingSurfaceGate`). Anything further is not a ball on
+            // this table and must never seed a track.
+            var rejected = 0
+            var clamped = 0
             let detections = try await detector.detect(in: frame)
             let observations = detections.compactMap { detection -> BallObservation? in
                 // Cue-stick detections are not balls — feeding them to the
@@ -133,10 +142,13 @@ public actor PerceptionPipeline {
                     planeHeightOffset: Ball.standardRadius)
                 else { return nil }
                 let table = calibration.worldToTable(world)
-                guard abs(table.x) <= bounds.x + margin,
-                      abs(table.y) <= bounds.y + margin else { return nil }
+                guard let position = surface.admit(table) else {
+                    rejected += 1
+                    return nil
+                }
+                if position != table { clamped += 1 }
                 return BallObservation(kind: detection.ballKind,
-                                       position: table,
+                                       position: position,
                                        confidence: detection.confidence)
             }
             // Visibility-gated misses: an unmatched track only decays when
@@ -144,8 +156,8 @@ public actor PerceptionPipeline {
             // (with an edge margin — boxes clip near edges). Balls are
             // static objects; pointing the camera elsewhere, or resting the
             // device on the rail, must never erase the known layout.
-            let balls = tracker.update(observations: observations,
-                                       timestamp: frame.timestamp) { position in
+            let tracked = tracker.update(observations: observations,
+                                         timestamp: frame.timestamp) { position in
                 let world = calibration.tableToWorld(position)
                 // Grazing view (device resting on the rail): sightlines run
                 // nearly parallel to the cloth, detections can't project —
@@ -160,6 +172,29 @@ public actor PerceptionPipeline {
                 return image.x > 0.05 && image.x < 0.95
                     && image.y > 0.05 && image.y < 0.95
             }
+            // Reporting invariant: a ball in TableState is inside the
+            // playing surface, always. Tracks are smoothed ESTIMATES, not
+            // observations — today's constant-position Kalman stays within
+            // the hull of what it was fed, but a velocity model would
+            // predict straight through a cushion, and the invariant must
+            // not depend on the filter. An offending track is SUPPRESSED
+            // from output, not retired: retiring loses the ball's identity
+            // (and the user's cue-ball designation) over a transient wobble,
+            // while a suppressed track either re-converges onto admitted
+            // observations within a few frames or, unfed and in view,
+            // retires through the tracker's own visible-miss grace.
+            let balls = tracked.filter { surface.contains($0.position) }
+            if balls.count != tracked.count {
+                suppressedCount += 1
+                #if canImport(os)
+                if suppressedCount <= 5 || suppressedCount % 50 == 0 {
+                    let offTable = tracked.filter { !surface.contains($0.position) }.map {
+                        "#\($0.id.rawValue)" + String(format: "(%.3f,%.3f)", $0.position.x, $0.position.y)
+                    }.joined(separator: " ")
+                    Self.log.notice("frame #\(self.frameCount + 1): suppressed off-table tracks \(offTable, privacy: .public)")
+                }
+                #endif
+            }
             let state = TableState(table: Table(size: calibration.size),
                                    balls: balls,
                                    timestamp: frame.timestamp)
@@ -168,6 +203,7 @@ public actor PerceptionPipeline {
             if frameCount == 1 || frameCount % 40 == 0 {
                 let kinds = balls.map { String(describing: $0.kind) }.joined(separator: ",")
                 let summary = "detections=\(detections.count) projected=\(observations.count)"
+                    + " offTable=\(rejected) railClamped=\(clamped)"
                     + " confirmed=\(balls.count) kinds=[\(kinds)]"
                 Self.log.info("frame #\(self.frameCount): \(summary, privacy: .public)")
                 // Ball table positions — sanity-check the projection math
