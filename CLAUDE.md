@@ -48,7 +48,9 @@ Packages/                   ← local SwiftPM packages (the real code)
   CueSyncUI/                ← design system (M1-05/06)
   CoachKit/                 ← shot coaching (ShotGuide today; LLM adapters post-MVP)
   DetectionRoboflow/        ← hosted-API detection provider (A/B eval tooling)
-Scripts/                    ← bootstrap.sh, test-all.sh, format.sh
+Scripts/                    ← bootstrap.sh, test-all.sh, format.sh, render-icon.sh
+Design/                     ← app-icon vector master (cuesync-icon.svg) + README;
+                              the AppIcon PNGs are rendered from it, never hand-edited
 docs/roadmap/               ← the plan; 06-MILESTONES.md is the task board,
                               09-SESSION-STATE.md the live status/handoff
 .github/workflows/          ← ci-core (Linux package tests), ci-app (macOS build)
