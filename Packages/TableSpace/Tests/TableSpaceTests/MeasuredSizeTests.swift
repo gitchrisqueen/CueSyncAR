@@ -29,8 +29,7 @@ import Testing
     @Test func preT12CalibrationJSONStillDecodes() throws {
         let calibration = TableCalibration(origin: .zero, xAxis: Vec3(1, 0, 0),
                                            yAxis: Vec3(0, 0, 1), size: .nineFoot)
-        var object = try JSONSerialization.jsonObject(
-            with: JSONEncoder().encode(calibration)) as! [String: Any]
+        var object = try jsonDictionary(calibration)
         // Simulate a pre-T1.2 payload: the measured fields never existed.
         object.removeValue(forKey: "measuredWidth")
         object.removeValue(forKey: "measuredHeight")
@@ -61,8 +60,7 @@ import Testing
             calibration: TableCalibration(origin: .zero, xAxis: Vec3(1, 0, 0),
                                           yAxis: Vec3(0, 0, 1), size: .eightFoot),
             anchorTransform: .identity)
-        var object = try JSONSerialization.jsonObject(
-            with: JSONEncoder().encode(anchored)) as! [String: Any]
+        var object = try jsonDictionary(anchored)
         object.removeValue(forKey: "measuredWidth")
         object.removeValue(forKey: "measuredHeight")
         let decoded = try JSONDecoder().decode(
@@ -104,4 +102,17 @@ import Testing
         let calibration = try TableCalibration.fromCorners(realTableCorners)
         #expect(calibration.size == .eightFoot) // 3.3% off -> standard snap
     }
+}
+
+/// Encode a value and read it back as a mutable JSON dictionary, so a test can
+/// strip fields that a pre-T1.2 payload would not have carried. Throws rather
+/// than force-casting: a non-object payload is a test-setup bug worth a failure
+/// message, not a crash.
+private func jsonDictionary<T: Encodable>(_ value: T) throws -> [String: Any] {
+    let data = try JSONEncoder().encode(value)
+    guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        throw DecodingError.dataCorrupted(
+            .init(codingPath: [], debugDescription: "encoded \(T.self) is not a JSON object"))
+    }
+    return object
 }
