@@ -139,6 +139,87 @@ struct BallTrackerTests {
         for _ in 0..<5 { balls = tracker.update(observations: obs) }
         #expect(balls.map(\.id) == idsBefore)
     }
+
+    // Finding 2 of the device-verification run: a struck cue ball reappears
+    // as a NEW track at its destination while the ORIGINAL track stays
+    // frozen at the shot origin, drawing a phantom ring and a stale
+    // prediction line. Scripted replay — no session bundle, no device.
+    //
+    // The observed device tick rate is ~8.7 Hz, so 30 missed FRAMES is
+    // ~3.5 s of wall clock: retirement must be judged in frame timestamps,
+    // not frame counts.
+    static let deviceTick: TimeInterval = 0.115
+
+    @Test func struckBallDoesNotLeaveAPhantomTrackAtTheShotOrigin() {
+        var tracker = BallTracker(config: config)
+        let origin = Vec2(-0.3, 0)
+        let destination = Vec2(0.35, 0)   // 0.65 m away — far outside the gate
+        let tick = Self.deviceTick
+        var now: TimeInterval = 0
+        var balls: [Ball] = []
+
+        // Cue ball sits at the shot origin, fully in view.
+        for _ in 0..<10 {
+            now += tick
+            balls = tracker.update(
+                observations: [BallObservation(kind: .cue, position: origin, confidence: 0.9)],
+                timestamp: now, isVisible: { _ in true })
+        }
+        #expect(balls.count == 1)
+        let originID = balls[0].id
+
+        // Struck. From here the ball is only ever observed at the
+        // destination, and the whole table stays in view.
+        let strike = now
+        var retiredAfter: TimeInterval?
+        for _ in 0..<60 {
+            now += tick
+            balls = tracker.update(
+                observations: [BallObservation(kind: .cue, position: destination, confidence: 0.9)],
+                timestamp: now, isVisible: { _ in true })
+            if !balls.contains(where: { $0.id == originID }) {
+                retiredAfter = now - strike
+                break
+            }
+        }
+
+        #expect(retiredAfter != nil, "phantom track at the shot origin never retired")
+        #expect(retiredAfter ?? .infinity <= 1.0,
+                "phantom track lingered \(retiredAfter ?? -1) s at the shot origin")
+        #expect(balls.count == 1)
+        #expect(balls.first?.position.distance(to: destination) ?? 1 < 0.05)
+    }
+
+    @Test func outOfViewTracksSurviveArbitraryWallClockTime() {
+        var tracker = BallTracker(config: config)
+        let resting = Vec2(0.5, 0.2)
+        let tick = Self.deviceTick
+        var now: TimeInterval = 0
+        for _ in 0..<5 {
+            now += tick
+            _ = tracker.update(
+                observations: [BallObservation(kind: .eight, position: resting, confidence: 0.9)],
+                timestamp: now, isVisible: { _ in true })
+        }
+
+        // The occlusion guarantee: ~30 s of frame time with the camera
+        // pointed elsewhere must NOT decay a static ball.
+        var balls: [Ball] = []
+        for _ in 0..<260 {
+            now += tick
+            balls = tracker.update(observations: [], timestamp: now, isVisible: { _ in false })
+            #expect(balls.count == 1)
+        }
+        #expect(balls.first?.position.distance(to: resting) ?? 1 < 0.05)
+
+        // Back in view with nothing detected: the visible grace now applies,
+        // and it expires on wall clock well before 30 missed frames.
+        for _ in 0..<20 {
+            now += tick
+            balls = tracker.update(observations: [], timestamp: now, isVisible: { _ in true })
+        }
+        #expect(balls.isEmpty)
+    }
 }
 
 @Suite("Vision box mapping")

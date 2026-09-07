@@ -144,7 +144,8 @@ public actor PerceptionPipeline {
             // (with an edge margin — boxes clip near edges). Balls are
             // static objects; pointing the camera elsewhere, or resting the
             // device on the rail, must never erase the known layout.
-            let balls = tracker.update(observations: observations) { position in
+            let balls = tracker.update(observations: observations,
+                                       timestamp: frame.timestamp) { position in
                 let world = calibration.tableToWorld(position)
                 // Grazing view (device resting on the rail): sightlines run
                 // nearly parallel to the cloth, detections can't project —

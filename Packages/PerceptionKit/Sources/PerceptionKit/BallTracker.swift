@@ -66,6 +66,10 @@ struct BallTrack: Sendable, Equatable {
     var lastConfidence: Double
     var hits: Int
     var consecutiveMisses: Int
+    /// Seconds of frame time this track has gone unmatched WHILE VISIBLE.
+    /// Reset on every match; frames where the track is out of view do not
+    /// contribute, so this is a "looked and did not find it" stopwatch.
+    var visibleMissSeconds: TimeInterval
     var confirmed: Bool
 
     var position: Vec2 { Vec2(x.estimate, y.estimate) }
@@ -89,6 +93,14 @@ public struct TrackerConfig: Sendable, Equatable {
     /// gated track management): a ball is a static object — walking the
     /// camera away must never erase it.
     public var disappearanceFrames: Int
+    /// Seconds a VISIBLE track may go unmatched before it is retired.
+    /// Frame counts are not a clock: `disappearanceFrames` at the observed
+    /// device tick rate (~8.7 Hz) is ~3.5 s, long enough for a struck ball
+    /// to leave a phantom ring frozen at the shot origin while its new
+    /// track runs on at the destination. Time-based retirement keeps the
+    /// behaviour identical whatever the pipeline's tick rate. Set to 0 to
+    /// disable and fall back to the frame count alone.
+    public var visibleMissGrace: TimeInterval
     /// Kalman noise parameters (m²).
     public var processNoise: Double
     public var measurementNoise: Double
@@ -98,12 +110,14 @@ public struct TrackerConfig: Sendable, Equatable {
     public init(gatingDistance: Double = 0.08,
                 appearanceFrames: Int = 3,
                 disappearanceFrames: Int = 30,
+                visibleMissGrace: TimeInterval = 0.75,
                 processNoise: Double = 4e-5,
                 measurementNoise: Double = 4e-4,
                 maxKindVotes: Int = 15) {
         self.gatingDistance = gatingDistance
         self.appearanceFrames = appearanceFrames
         self.disappearanceFrames = disappearanceFrames
+        self.visibleMissGrace = visibleMissGrace
         self.processNoise = processNoise
         self.measurementNoise = measurementNoise
         self.maxKindVotes = maxKindVotes
@@ -116,6 +130,8 @@ public struct BallTracker: Sendable {
     public var config: TrackerConfig
     var tracks: [BallTrack] = []
     private var nextID = 0
+    /// Timestamp of the previous `update`, for per-frame elapsed time.
+    private var lastTimestamp: TimeInterval?
 
     public init(config: TrackerConfig = .default) {
         self.config = config
@@ -126,8 +142,21 @@ public struct BallTracker: Sendable {
     /// camera's current view — unmatched tracks OUTSIDE the view are
     /// frozen, not penalized (best practice from MOT track management:
     /// an object can only be declared gone where you actually looked).
+    /// `timestamp` is the frame's own clock (seconds, monotonic); pass it
+    /// so retirement of visible-but-unmatched tracks runs on wall clock
+    /// rather than on tick rate. Omitting it falls back to the frame count.
     public mutating func update(observations: [BallObservation],
+                                timestamp: TimeInterval? = nil,
                                 isVisible: (Vec2) -> Bool = { _ in true }) -> [Ball] {
+        // Elapsed frame time. Non-monotonic or first-ever timestamps
+        // contribute nothing rather than a garbage delta.
+        let elapsed: TimeInterval
+        if let timestamp, let previous = lastTimestamp, timestamp > previous {
+            elapsed = timestamp - previous
+        } else {
+            elapsed = 0
+        }
+        lastTimestamp = timestamp ?? lastTimestamp
         // Greedy association: consider all (track, observation) pairs within
         // the gate, closest first; each side is used at most once. With
         // per-frame motion far below ball spacing this preserves identities
@@ -173,12 +202,20 @@ public struct BallTracker: Sendable {
                 absorbed.append(index)
             } else if isVisible(tracks[index].position) {
                 tracks[index].consecutiveMisses += 1
+                tracks[index].visibleMissSeconds += elapsed
             }
         }
         for index in absorbed.sorted(by: >) {
             tracks.remove(at: index)
         }
-        tracks.removeAll { $0.consecutiveMisses >= config.disappearanceFrames }
+        // Retire on whichever budget runs out first. Both are gated on
+        // visibility, so an occluded or out-of-frame ball still persists
+        // indefinitely — neither counter moves while nobody is looking.
+        tracks.removeAll { track in
+            if track.consecutiveMisses >= config.disappearanceFrames { return true }
+            return config.visibleMissGrace > 0
+                && track.visibleMissSeconds >= config.visibleMissGrace
+        }
 
         // Unmatched observations spawn tentative tracks.
         for (oi, obs) in observations.enumerated() where !usedObs.contains(oi) {
@@ -227,6 +264,7 @@ public struct BallTracker: Sendable {
         tracks[index].lastConfidence = obs.confidence
         tracks[index].hits += 1
         tracks[index].consecutiveMisses = 0
+        tracks[index].visibleMissSeconds = 0
         let votes = tracks[index].kindVotes[obs.kind] ?? 0
         if votes < config.maxKindVotes {
             tracks[index].kindVotes[obs.kind] = votes + 1
@@ -251,6 +289,7 @@ public struct BallTracker: Sendable {
             lastConfidence: obs.confidence,
             hits: 1,
             consecutiveMisses: 0,
+            visibleMissSeconds: 0,
             confirmed: config.appearanceFrames <= 1)
     }
 
