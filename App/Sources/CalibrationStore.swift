@@ -12,8 +12,11 @@
 import Foundation
 import TableSpace
 
+import CueSyncCore
+
 enum CalibrationStore {
     private static let calibrationKey = "savedAnchoredCalibration"
+    private static let tableSpecKey = "savedTableSpec"
 
     /// Location of the serialized ARWorldMap for the saved venue.
     static var worldMapURL: URL {
@@ -43,5 +46,24 @@ enum CalibrationStore {
     static func clear() {
         UserDefaults.standard.removeObject(forKey: calibrationKey)
         try? FileManager.default.removeItem(at: worldMapURL)
+        // The table SPEC deliberately survives: clearing a venue means "the
+        // anchor/world map is stale", not "the table changed size".
+    }
+
+    // MARK: Table spec ("my table is this size", venue-independent)
+
+    /// The user's known table size from the last lock. Re-pins that measure
+    /// within tolerance of it snap back to it, so repeat calibrations of
+    /// the same table can't wander between size classes.
+    static func loadTableSpec() -> TableSize? {
+        guard let data = UserDefaults.standard.data(forKey: tableSpecKey) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(TableSize.self, from: data)
+    }
+
+    static func saveTableSpec(_ size: TableSize) {
+        guard let data = try? JSONEncoder().encode(size) else { return }
+        UserDefaults.standard.set(data, forKey: tableSpecKey)
     }
 }
