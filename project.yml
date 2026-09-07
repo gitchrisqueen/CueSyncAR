@@ -71,6 +71,26 @@ targets:
         # Secrets surfaced from App/Config/Secrets.xcconfig (untracked).
         ROBOFLOW_API_KEY: $(ROBOFLOW_API_KEY)
         ANTHROPIC_API_KEY: $(ANTHROPIC_API_KEY)
+    postBuildScripts:
+      # Stamps the built Info.plist with the git SHA/branch/dirty flag the
+      # build came from, so the HUD badge, the debug mirror and the startup
+      # log can all name the running build. Runs before code signing.
+      # The script can never fail a build — a checkout with no git history
+      # (CI's shallow/detached clone) simply writes "unknown".
+      - name: Embed Build Identity
+        path: Scripts/embed-build-identity.sh
+        # Nothing declarable to depend on: git state changes without any
+        # tracked input changing, so this must run on every build.
+        basedOnDependencyAnalysis: false
+        # Ordering, not caching: naming the built Info.plist as an input is
+        # what forces this phase to run AFTER ProcessInfoPlistFile. Without
+        # it the build system is free to schedule the phase first and the
+        # stamped keys are silently overwritten.
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+        # Keep the build environment (absolute paths, user names) out of the
+        # CI log — this is a public repository.
+        showEnvVars: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: CQC.CueSync-AR
@@ -81,7 +101,16 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-        ENABLE_USER_SCRIPT_SANDBOXING: YES
+        # NO, deliberately: the Embed Build Identity phase has to read the
+        # repo's git state (denied: SRCROOT is unreadable under the script
+        # sandbox) and stamp the built Info.plist (denied: the products dir
+        # is unwritable). Neither can be expressed as a declared input or
+        # output — `git` needs the whole .git tree, and the Info.plist is
+        # already another task's output. The only script phase in this
+        # project is that one, its source is reviewed in-repo
+        # (Scripts/embed-build-identity.sh), and it neither writes to the
+        # source tree nor reads anything outside it.
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
     configFiles:
       Debug: App/Config/App.xcconfig
       Release: App/Config/App.xcconfig

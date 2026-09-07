@@ -580,6 +580,7 @@ final class SessionModel {
     private static let selectedModelKey = "selectedDetectionModelID"
 
     func bootstrap() async {
+        AppBuild.logStartup()
         await registry.register(AnalyticSolver() as any TrajectorySolving)
         await registry.register(AppSecrets() as any SecretsProviding)
         // Settings first: the mirror's start-on-launch preference, the
@@ -837,6 +838,7 @@ extension SessionModel {
 
     private func mirrorStateJSON() -> Data? {
         var state: [String: Any] = [
+            "build": AppBuild.json,
             "liveTracking": isLiveTracking,
             "onDeviceDetection": usingOnDeviceDetection,
             "calibrationLocked": calibration.isLocked,

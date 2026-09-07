@@ -201,8 +201,12 @@ final class DebugMirrorServer: @unchecked Sendable {
       .lbl { color: #2FA36B; margin-right: 4px; }
       input { width: 52px; background: #182420; color: #d9e5df; \
     border: 1px solid #2FA36B; border-radius: 6px; padding: 4px; }
+      #build { padding: 4px 12px 0; color: #8fa89c; font-size: 12px; }
+      #sha { width: 220px; font-family: monospace; }
+      .dirty { color: #E8A33D; }
     </style></head><body>
     <h1>CueSync AR — Debug Mirror</h1>
+    <div id="build">build identity: waiting…</div>
     <div id="wrap"><img id="frame" alt="waiting for first frame…">
     <div id="side">
       <div id="controls">
@@ -225,13 +229,49 @@ final class DebugMirrorServer: @unchecked Sendable {
       const pre = document.getElementById('state');
       const ballsDiv = document.getElementById('balls');
       const pocketsDiv = document.getElementById('pockets');
+      const buildDiv = document.getElementById('build');
       function cmd(q) { fetch('/cmd?' + q); }
+      // navigator.clipboard is unavailable over plain http, so copy the
+      // SHA the old way: select the readonly field and execCommand.
+      function copySha() {
+        const field = document.getElementById('sha');
+        if (!field) { return; }
+        field.select();
+        field.setSelectionRange(0, 999);
+        try { document.execCommand('copy'); } catch (e) { /* select-and-⌘C */ }
+      }
+      // Rendered from our own Info.plist values, refreshed once: the build
+      // cannot change while the process runs.
+      let buildRendered = false;
+      function renderBuild(b) {
+        if (buildRendered) { return; }
+        if (!b || !b.summary) {
+          buildDiv.textContent = 'build identity: not reported by this build';
+          return;
+        }
+        buildRendered = true;
+        const dirty = b.dirty === 'yes';
+        const el = document.createElement('span');
+        el.textContent = 'v' + b.version + ' (' + b.buildNumber + ')  ' +
+          b.branch + (dirty ? '  DIRTY TREE' : '') + '  built ' + b.built + '  ';
+        if (dirty) { el.className = 'dirty'; }
+        const field = document.createElement('input');
+        field.id = 'sha';
+        field.readOnly = true;
+        field.value = b.commit;
+        const button = document.createElement('button');
+        button.textContent = 'copy SHA';
+        button.onclick = copySha;
+        buildDiv.textContent = '';
+        buildDiv.append(el, field, button);
+      }
       setInterval(() => { img.src = '/frame.jpg?' + Date.now(); }, 700);
       setInterval(async () => {
         try {
           const r = await fetch('/state.json');
           const s = await r.json();
           pre.textContent = JSON.stringify(s, null, 2);
+          renderBuild(s.build);
           ballsDiv.innerHTML = (s.balls || []).map(b =>
             `<button onclick="cmd('action=designate&x=${b.x}&y=${b.y}')">` +
             `${b.kind === 'cue' ? '☆' : '→'} cue @ (${b.x}, ${b.y})</button>`
