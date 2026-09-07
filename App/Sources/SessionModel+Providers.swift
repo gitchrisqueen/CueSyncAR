@@ -56,17 +56,6 @@ extension SessionModel {
     }
 }
 
-#if !canImport(CoreImage)
-struct UnsupportedEncoder: FrameJPEGEncoding {
-    func encodeJPEG(from frame: CapturedFrame) throws -> (data: Data, width: Int, height: Int) {
-        throw RoboflowError.frameNotEncodable
-    }
-}
-#endif
-
-#if canImport(CoreVideo)
-// Bridge PerceptionKit's frame image type to DetectionRoboflow's encoder seam.
-extension PixelBufferImage: @retroactive DetectionRoboflow.PixelBufferProviding {
-    public var cvPixelBuffer: CVPixelBuffer { pixelBuffer }
-}
-#endif
+// `UnsupportedEncoder` and the `PixelBufferImage` encoder bridge live in
+// App/Sources/FrameEncodingBridges.swift — declaring them here too is a
+// redeclaration and a redundant retroactive conformance.
