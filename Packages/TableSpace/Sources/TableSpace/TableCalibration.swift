@@ -27,12 +27,20 @@ public struct TableCalibration: Sendable, Equatable, Codable {
     /// World-space unit vector of the table-space +y axis (short axis).
     public var yAxis: Vec3
     public var size: TableSize
+    /// Raw measured long axis at lock time (pre-snap), meters. Nil on
+    /// calibrations persisted before this field existed (decodes absent).
+    public var measuredWidth: Double?
+    /// Raw measured short axis at lock time (pre-snap), meters.
+    public var measuredHeight: Double?
 
-    public init(origin: Vec3, xAxis: Vec3, yAxis: Vec3, size: TableSize) {
+    public init(origin: Vec3, xAxis: Vec3, yAxis: Vec3, size: TableSize,
+                measuredWidth: Double? = nil, measuredHeight: Double? = nil) {
         self.origin = origin
         self.xAxis = xAxis.normalized
         self.yAxis = yAxis.normalized
         self.size = size
+        self.measuredWidth = measuredWidth
+        self.measuredHeight = measuredHeight
     }
 
     /// Plane normal (right-handed: x × y).
@@ -73,12 +81,15 @@ public struct TableCalibration: Sendable, Equatable, Codable {
     /// Build a calibration from the four playing-field corners in world
     /// space, ordered around the rectangle (either winding, any starting
     /// corner): c0→c1 and c3→c2 must be one pair of opposite edges.
-    /// The long edge pair becomes the x axis. Table size snaps to the
-    /// nearest standard size within `sizeTolerance` (the "slight
-    /// adjustment" path); anything else locks as `.custom` with the
-    /// measured dimensions — never refuse a real table for being odd.
+    /// The long edge pair becomes the x axis. Table size snaps first to
+    /// `preferredSize` (the user's saved table spec — repeat calibrations
+    /// of the same table must agree with each other, not with a generic
+    /// standard), then to the nearest standard size within `sizeTolerance`;
+    /// anything else locks as `.custom` with the measured dimensions —
+    /// never refuse a real table for being odd.
     public static func fromCorners(_ corners: [Vec3],
-                                   sizeTolerance: Double = 0.08)
+                                   sizeTolerance: Double = 0.08,
+                                   preferredSize: TableSize? = nil)
     throws -> TableCalibration {
         guard corners.count == 4 else { throw CalibrationError.needFourCorners }
         let c0 = corners[0], c1 = corners[1], c2 = corners[2], c3 = corners[3]
@@ -98,9 +109,16 @@ public struct TableCalibration: Sendable, Equatable, Codable {
         }
         let width = Swift.max(lengthA, lengthB)
         let height = Swift.min(lengthA, lengthB)
-        let size = TableSize.inferred(width: width, height: height,
+        let size: TableSize
+        if let preferred = preferredSize,
+           matches(width: width, height: height, candidate: preferred,
+                   tolerance: sizeTolerance) {
+            size = preferred
+        } else {
+            size = TableSize.inferred(width: width, height: height,
                                       tolerance: sizeTolerance)
-            ?? .custom(width: width, height: height)
+                ?? .custom(width: width, height: height)
+        }
 
         let x = edgeA.normalized
         // Orthonormalize the short axis against x (Gram-Schmidt).
@@ -109,6 +127,30 @@ public struct TableCalibration: Sendable, Equatable, Codable {
         let y = yRaw.normalized
 
         let centroid = (c0 + c1 + c2 + c3) * 0.25
-        return TableCalibration(origin: centroid, xAxis: x, yAxis: y, size: size)
+        return TableCalibration(origin: centroid, xAxis: x, yAxis: y, size: size,
+                                measuredWidth: width, measuredHeight: height)
+    }
+
+    /// Whether a measured field is within `tolerance` (fractional, worst
+    /// axis) of a candidate size's playing field.
+    private static func matches(width: Double, height: Double,
+                                candidate: TableSize, tolerance: Double) -> Bool {
+        let w = Swift.max(width, height)
+        let h = Swift.min(width, height)
+        let field = candidate.playField
+        let error = Swift.max(abs(w - field.width) / field.width,
+                              abs(h - field.height) / field.height)
+        return error <= tolerance
+    }
+
+    /// How the measured field compares to the nearest standard size —
+    /// falls back to the snapped size for pre-T1.2 calibrations (delta 0).
+    public var standardSizeComparison: StandardSizeComparison {
+        if let measuredWidth, let measuredHeight {
+            StandardSizeComparison(measuredWidth: measuredWidth,
+                                   measuredHeight: measuredHeight)
+        } else {
+            StandardSizeComparison(size: size)
+        }
     }
 }
