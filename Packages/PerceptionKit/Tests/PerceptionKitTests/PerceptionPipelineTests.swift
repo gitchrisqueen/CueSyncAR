@@ -125,6 +125,81 @@ struct PerceptionPipelineTests {
         #expect(ballCounts == [0, 0, 1, 1])
     }
 
+    // MARK: - Playing-surface invariant (off-table tracks, 2026-09-07)
+
+    /// Image x for a table-space x under `LinearFixtureRaycaster` on the
+    /// nine-foot field (2.54 m long axis): x_img = 0.5 + x_table / 2.54.
+    private func box(atTableX x: Double, y: Double = 0.475) -> NormalizedRect {
+        let cx = 0.5 + x / 2.54
+        return NormalizedRect(x: cx - 0.025, y: y, width: 0.05, height: 0.05)
+    }
+
+    private func settledState(_ detections: [Detection2D]) async throws -> TableState {
+        let pipeline = PerceptionPipeline(
+            detector: FixtureDetectionProvider(constant: detections),
+            calibration: calibration,
+            raycaster: LinearFixtureRaycaster(calibration: calibration))
+        var iterator = await pipeline.outputs.makeAsyncIterator()
+        var lastState: TableState?
+        for index in 0..<6 {
+            await pipeline.ingest(makeFrame(index))
+            lastState = await iterator.next()?.state
+        }
+        return try #require(lastState)
+    }
+
+    /// The invariant behind the live report "balls are being tracked off
+    /// the table": a track whose estimate sits past the cushion nose must
+    /// not be reported, however it got there. This one projects 3.2 cm
+    /// beyond the nose line — physically impossible for a ball centre
+    /// (the furthest a real ball can sit is one radius INSIDE the nose).
+    @Test func trackedBallPastTheCushionNoseIsNotReported() async throws {
+        let table = Table(size: .nineFoot)
+        let offTable = table.halfExtents.x + 0.032
+        let state = try await settledState([
+            Detection2D(classLabel: "white-ball",
+                        boundingBox: box(atTableX: offTable), confidence: 0.9)
+        ])
+        #expect(state.balls.isEmpty,
+                "reported \(state.balls.map(\.position)) outside the playing surface")
+        for ball in state.balls {
+            #expect(table.contains(ball.position, ballRadius: Ball.standardRadius))
+        }
+    }
+
+    /// A ball frozen to the cushion has its centre exactly one radius
+    /// inside the nose line. It is the most common real ball near a rail
+    /// and must be reported exactly where it is — clipping it would be
+    /// worse than the bug.
+    @Test func ballRestingAgainstTheCushionIsReported() async throws {
+        let table = Table(size: .nineFoot)
+        let railContact = table.halfExtents.x - Ball.standardRadius
+        let state = try await settledState([
+            Detection2D(classLabel: "white-ball",
+                        boundingBox: box(atTableX: railContact), confidence: 0.9)
+        ])
+        let cue = try #require(state.cueBall)
+        #expect(abs(cue.position.x - railContact) < 1e-6)
+        #expect(table.contains(cue.position, ballRadius: Ball.standardRadius))
+    }
+
+    /// Calibration is never perfect: a rail ball can project a couple of
+    /// centimetres past where a ball can physically be. It must still be
+    /// reported (it is a real ball), and it must be reported INSIDE the
+    /// surface — every ball in TableState has to satisfy the invariant.
+    @Test func railBallWithCalibrationErrorIsReportedInsideTheSurface() async throws {
+        let table = Table(size: .nineFoot)
+        let railContact = table.halfExtents.x - Ball.standardRadius
+        let state = try await settledState([
+            Detection2D(classLabel: "white-ball",
+                        boundingBox: box(atTableX: railContact + 0.02), confidence: 0.9)
+        ])
+        let cue = try #require(state.cueBall)
+        #expect(table.contains(cue.position, ballRadius: Ball.standardRadius),
+                "rail ball reported at x=\(cue.position.x), past the contact line \(railContact)")
+        #expect(abs(cue.position.x - railContact) < 1e-6)
+    }
+
     @Test func detectorFailuresDropFramesWithoutKillingThePipeline() async throws {
         struct FlakyDetector: DetectionProviding {
             struct Boom: Error {}

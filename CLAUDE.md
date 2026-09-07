@@ -117,6 +117,13 @@ durable lessons that must not be re-learned:
   Vision boxes are bottom-left origin (`VisionBoxMapping` flips);
   `imageCropAndScaleOption = .scaleFill` matches the dataset's
   Stretch-to-640 preprocessing — do not "fix" either.
+- **Playing-surface invariant:** every ball in a `TableState` lies inside
+  the calibrated field with its centre ≥ one radius from every cushion.
+  `PlayingSurfaceGate` (PerceptionKit) enforces it twice: projected
+  detections are admitted within a 4.5 cm calibration-error band past that
+  envelope and clamped onto it (rail balls draw on the rail), anything
+  further is rejected; tracker output is filtered by the same envelope
+  (suppressed, not retired). Tune the slack there, never with a margin.
 
 ## Git workflow
 
