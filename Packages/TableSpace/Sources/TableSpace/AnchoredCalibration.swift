@@ -20,6 +20,11 @@ public struct AnchoredCalibration: Sendable, Equatable, Codable {
     public var localXAxis: Vec3
     public var localYAxis: Vec3
     public var size: TableSize
+    /// Raw pre-snap measurement carried through persistence (T1.2 — the
+    /// size-vs-standard readout must survive relocalization). Optional so
+    /// records saved before the field existed still decode.
+    public var measuredWidth: Double?
+    public var measuredHeight: Double?
 
     /// Express `calibration` (world space) relative to the rigid transform
     /// of the anchor it was saved against.
@@ -29,6 +34,8 @@ public struct AnchoredCalibration: Sendable, Equatable, Codable {
         localXAxis = inverse.transformDirection(calibration.xAxis)
         localYAxis = inverse.transformDirection(calibration.yAxis)
         size = calibration.size
+        measuredWidth = calibration.measuredWidth
+        measuredHeight = calibration.measuredHeight
     }
 
     /// Rebuild the world-space calibration from the anchor's transform in
@@ -37,7 +44,9 @@ public struct AnchoredCalibration: Sendable, Equatable, Codable {
         TableCalibration(origin: anchorTransform.transformPoint(localOrigin),
                          xAxis: anchorTransform.transformDirection(localXAxis),
                          yAxis: anchorTransform.transformDirection(localYAxis),
-                         size: size)
+                         size: size,
+                         measuredWidth: measuredWidth,
+                         measuredHeight: measuredHeight)
     }
 
     /// Inverse of a rigid (rotation + translation) transform: Rᵀ, -Rᵀt.

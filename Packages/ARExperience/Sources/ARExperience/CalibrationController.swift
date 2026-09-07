@@ -42,6 +42,10 @@ public struct CalibrationController: Sendable, Equatable {
     public private(set) var state: State = .searchingPlane
     /// Set when the last lock attempt failed (cleared by any other event).
     public private(set) var lastError: CalibrationError?
+    /// The user's saved table spec ("my table is 2.26 × 1.09 m"): when the
+    /// measured corners are within tolerance of it, lock snaps to this
+    /// size — repeat calibrations of the same table stay consistent.
+    public var preferredSize: TableSize?
 
     public init() {}
 
@@ -72,7 +76,8 @@ public struct CalibrationController: Sendable, Equatable {
 
         case (.adjusting(let corners), .lockRequested):
             do {
-                state = .locked(try TableCalibration.fromCorners(corners))
+                state = .locked(try TableCalibration.fromCorners(
+                    corners, preferredSize: preferredSize))
             } catch let error as CalibrationError {
                 lastError = error // stay in .adjusting; UI shows the reason
             } catch {
