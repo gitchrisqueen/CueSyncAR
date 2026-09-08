@@ -1,0 +1,16 @@
+/* tinted.css / CueSync AR
+   iOS "tinted" icon appearance: a grayscale drawing on a transparent
+   background; the system supplies the background and applies the user's
+   tint colour. Applied to Design/cuesync-icon.svg by Scripts/render-icon.sh
+   via `rsvg-convert --stylesheet`. */
+#bg        { fill: none; }
+.shadow    { opacity: 0; }
+#aim-glow  { opacity: 0; }
+#aim       { stroke: #B8B8B8; }
+#ghost     { stroke: #DADADA; fill-opacity: 0.10; }
+.cue-hi    { stop-color: #FFFFFF; }
+.cue-mid   { stop-color: #F2F2F2; }
+.cue-lo    { stop-color: #C4C4C4; }
+.obj-hi    { stop-color: #D0D0D0; }
+.obj-mid   { stop-color: #9A9A9A; }
+.obj-lo    { stop-color: #6A6A6A; }

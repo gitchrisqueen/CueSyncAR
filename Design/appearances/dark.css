@@ -1,0 +1,8 @@
+/* dark.css / CueSync AR
+   iOS "dark" icon appearance. Applied to Design/cuesync-icon.svg by
+   Scripts/render-icon.sh via `rsvg-convert --stylesheet`. Keeps the cloth
+   (it is the identity) but drops it to a dim-room felt so the icon sits
+   quietly beside other dark-mode icons; the balls and aim line are untouched. */
+.cloth-hi  { stop-color: #1B5C3C; }
+.cloth-mid { stop-color: #123F2A; }
+.cloth-lo  { stop-color: #081F14; }
