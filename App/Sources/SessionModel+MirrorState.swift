@@ -22,6 +22,13 @@ extension SessionModel {
             "onDeviceDetection": usingOnDeviceDetection,
             "calibrationLocked": calibration.isLocked,
             "designatedCueBall": designatedCueBallID != nil,
+            // Which surface is on top and therefore receiving taps. When
+            // the calibration overlay is visible it covers the whole
+            // screen, and its tap handler ignores everything unless the
+            // flow is in .planeFound — so a stuck `true` here silently
+            // swallows every pocket call and cue-ball designation.
+            "calibrationVisible": calibrationVisible,
+
             "aimSource": String(describing: aimSource),
             "calledShotOnLine": calledShotOnLine
         ]
