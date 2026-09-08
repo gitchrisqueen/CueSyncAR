@@ -20,12 +20,16 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(SessionModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    /// Snapshot of the probe line; refreshed when the sheet opens and
+    /// after a reset (the probe is not an observable model).
+    @State private var computeSummary = DetectorCompute.current?.summary ?? "Detector: not loaded"
 
     var body: some View {
         NavigationStack {
             Form {
                 tableSection
                 detectionSection
+                computeSection
                 guidesSection
                 trackingSection
                 practiceSection
@@ -80,6 +84,32 @@ struct SettingsView: View {
             Text(model.canUseHostedDetection
                  ? "The hosted detector also needs a model picked in the HUD; without one the bundled model keeps running."
                  : "The hosted detector needs a Roboflow API key in Secrets.xcconfig. Without one the bundled model is used.")
+        }
+    }
+
+    /// T1.3: the Neural Engine probe, readable and resettable at the table.
+    private var computeSection: some View {
+        Section {
+            Text(computeSummary)
+                .font(.footnote.monospaced())
+                .accessibilityIdentifier("settings-detector-compute-summary")
+            Toggle("Pin detector to CPU", isOn: binding(\.detectorPinnedToCPU))
+                .accessibilityIdentifier("settings-detector-pin-cpu")
+            Button("Retry Neural Engine on next launch") {
+                model.resetDetectorComputeProbe()
+                computeSummary = DetectorCompute.current?.summary ?? "Detector: not loaded"
+            }
+            .disabled(DetectorCompute.current?.record.pinnedToCPU != true)
+            .accessibilityIdentifier("settings-detector-compute-reset")
+        } header: {
+            Text("Detector compute")
+        } footer: {
+            Text("""
+                The bundled model asks for the Neural Engine unless the last \
+                run crashed inside it (then it stays on the CPU until you \
+                retry) or you pin the CPU here. Both take effect on the next \
+                launch. The debug mirror shows the same under detectorCompute.
+                """)
         }
     }
 
