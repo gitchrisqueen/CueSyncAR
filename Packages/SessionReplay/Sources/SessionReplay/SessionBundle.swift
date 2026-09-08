@@ -18,6 +18,9 @@ public enum SessionBundleFile: String, CaseIterable, Sendable {
     case events = "events.jsonl"
     case truth = "truth.json"
     case outputs = "outputs.jsonl"
+    /// Device recordings only: ~1 Hz overlay-projection snapshots
+    /// (RecordedSnapshot). Optional; scripted bundles have none.
+    case snapshots = "snapshots.jsonl"
 
     /// Files a bundle must contain to replay. `truth` is needed only for
     /// AccuracyReport, `outputs` only exists once a golden was recorded.
@@ -36,6 +39,12 @@ public enum SessionBundleError: Error, Equatable {
     case detectionsForUnknownFrame(Int)
     case invalidCalibration(String)
     case invalidTransform(Int)
+    /// manifest.json carries no `files` hashes to verify against.
+    case manifestWithoutHashes
+    /// A hashed file is missing from the directory.
+    case integrityFileMissing(String)
+    /// A file's bytes do not match the manifest's sha256.
+    case integrityMismatch(String)
 }
 
 public struct SessionBundle: Sendable, Equatable {
@@ -45,16 +54,20 @@ public struct SessionBundle: Sendable, Equatable {
     public var detections: [RecordedDetectionFrame]
     public var events: [RecordedEvent]
     public var truth: SessionTruth?
+    /// Overlay-projection snapshots (device recordings); empty otherwise.
+    public var snapshots: [RecordedSnapshot]
 
     public init(manifest: SessionManifest, calibration: RecordedCalibration,
                 frames: [RecordedFrameMeta], detections: [RecordedDetectionFrame],
-                events: [RecordedEvent], truth: SessionTruth? = nil) {
+                events: [RecordedEvent], truth: SessionTruth? = nil,
+                snapshots: [RecordedSnapshot] = []) {
         self.manifest = manifest
         self.calibration = calibration
         self.frames = frames
         self.detections = detections
         self.events = events
         self.truth = truth
+        self.snapshots = snapshots
     }
 
     /// Structural checks a replay relies on: schema version, frames in
@@ -110,9 +123,13 @@ public struct SessionBundleReader: Sendable {
         if let truthData = try? data(for: .truth, in: directory) {
             truth = try decoder.decode(SessionTruth.self, from: truthData)
         }
+        var snapshots: [RecordedSnapshot] = []
+        if let snapshotData = try? data(for: .snapshots, in: directory) {
+            snapshots = try Self.decodeLines(snapshotData, file: .snapshots)
+        }
         let bundle = SessionBundle(manifest: manifest, calibration: calibration,
                                    frames: frames, detections: detections,
-                                   events: events, truth: truth)
+                                   events: events, truth: truth, snapshots: snapshots)
         try bundle.validate()
         return bundle
     }
@@ -193,6 +210,9 @@ public struct SessionBundleWriter: Sendable {
         ]
         if let truth = bundle.truth {
             texts[.truth] = CanonicalJSON.serialize(truth.canonical()) + "\n"
+        }
+        if !bundle.snapshots.isEmpty {
+            texts[.snapshots] = CanonicalJSON.serializeLines(bundle.snapshots.map { $0.canonical() })
         }
         return texts
     }

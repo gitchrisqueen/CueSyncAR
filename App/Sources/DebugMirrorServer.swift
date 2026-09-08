@@ -14,6 +14,8 @@
 //    GET /            auto-refreshing HTML viewer
 //    GET /frame.jpg   latest ARView snapshot (JPEG)
 //    GET /state.json  tracking/calibration/guide state + live settings
+//    GET /cmd?action= remote commands (incl. startRecording/stopRecording)
+//    GET /sessions    recorded session bundles (DebugMirrorServer+Sessions)
 //
 
 import Foundation
@@ -32,14 +34,31 @@ final class DebugMirrorServer: @unchecked Sendable {
     typealias CommandHandler = @Sendable ([String: String]) -> Void
 
     private let listener: NWListener
-    private let queue = DispatchQueue(label: "cuesync.debugmirror")
+    let queue = DispatchQueue(label: "cuesync.debugmirror")
     private let lock = NSLock()
     private var latestJPEG: Data?
     private var latestStateJSON: Data?
     private var commandHandler: CommandHandler?
+    private var sessionsRootValue: URL?
+    private var activeSessionValue: String?
 
     func setCommandHandler(_ handler: @escaping CommandHandler) {
         lock.lock(); commandHandler = handler; lock.unlock()
+    }
+
+    /// Where recorded bundles live (Documents/Sessions); nil = not served.
+    var sessionsRoot: URL? {
+        get { lock.lock(); defer { lock.unlock() }; return sessionsRootValue }
+        set { lock.lock(); sessionsRootValue = newValue; lock.unlock() }
+    }
+
+    /// The bundle currently being written — listed, but a pull must wait.
+    var activeSessionID: String? {
+        lock.lock(); defer { lock.unlock() }; return activeSessionValue
+    }
+
+    func setActiveSession(_ id: String?) {
+        lock.lock(); activeSessionValue = id; lock.unlock()
     }
 
     init() throws {
@@ -114,6 +133,11 @@ final class DebugMirrorServer: @unchecked Sendable {
                 return
             }
             let path = request.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
+            let cleanPath = path.split(separator: "?").first.map(String.init) ?? path
+            if cleanPath == "/sessions" || cleanPath.hasPrefix("/sessions/") {
+                self.serveSessions(path: cleanPath, requestHead: request, connection: connection)
+                return
+            }
             let response = self.response(for: path)
             connection.send(content: response, completion: .contentProcessed { _ in
                 connection.cancel()
@@ -169,9 +193,9 @@ final class DebugMirrorServer: @unchecked Sendable {
         return params
     }
 
-    private static func httpResponse(status: String = "200 OK",
-                                     body: Data = Data(),
-                                     contentType: String = "text/plain") -> Data {
+    static func httpResponse(status: String = "200 OK",
+                             body: Data = Data(),
+                             contentType: String = "text/plain") -> Data {
         var head = "HTTP/1.1 \(status)\r\n"
         head += "Content-Type: \(contentType)\r\n"
         head += "Content-Length: \(body.count)\r\n"
@@ -222,6 +246,12 @@ final class DebugMirrorServer: @unchecked Sendable {
         <button onclick="cmd('action=missGrace&v=' + \
     document.getElementById('grace').value)">Set</button>
       </div>
+      <div id="recording">
+        <button onclick="cmd('action=startRecording')">● Record session</button>
+        <button onclick="cmd('action=stopRecording')">■ Stop</button>
+        <a href="/sessions" style="color:#2FA36B">sessions</a>
+        <span id="rec">recorder: waiting…</span>
+      </div>
       <div id="balls"></div>
       <div id="pockets"></div>
       <pre id="state">waiting…</pre>
@@ -232,7 +262,23 @@ final class DebugMirrorServer: @unchecked Sendable {
       const ballsDiv = document.getElementById('balls');
       const pocketsDiv = document.getElementById('pockets');
       const buildDiv = document.getElementById('build');
+      const recSpan = document.getElementById('rec');
       function cmd(q) { fetch('/cmd?' + q); }
+      function renderRecording(r) {
+        if (!r) { recSpan.textContent = 'recorder: not reported'; return; }
+        if (r.active) {
+          recSpan.textContent = '● REC ' + r.sessionID + '  ' + r.seconds + ' s  ' +
+            r.frames + ' frames  ~' + r.estimatedMB + ' MB' +
+            (r.videoDropped ? '  video dropped ' + r.videoDropped : '') +
+            (r.error ? '  ERROR ' + r.error : '');
+          recSpan.className = 'dirty';
+        } else {
+          recSpan.className = '';
+          recSpan.textContent = (r.blocker ? 'cannot record: ' + r.blocker : 'ready to record') +
+            (r.last ? '  | last: ' + r.last.sessionID + ' ' + r.last.frames + ' frames ' +
+              Math.round(r.last.bytes / 1e6) + ' MB (' + r.last.stopReason + ')' : '');
+        }
+      }
       // navigator.clipboard is unavailable over plain http, so copy the
       // SHA the old way: select the readonly field and execCommand.
       function copySha() {
@@ -274,6 +320,7 @@ final class DebugMirrorServer: @unchecked Sendable {
           const s = await r.json();
           pre.textContent = JSON.stringify(s, null, 2);
           renderBuild(s.build);
+          renderRecording(s.recording);
           ballsDiv.innerHTML = (s.balls || []).map(b =>
             `<button onclick="cmd('action=designate&x=${b.x}&y=${b.y}')">` +
             `${b.kind === 'cue' ? '☆' : '→'} cue @ (${b.x}, ${b.y})</button>`

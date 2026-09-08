@@ -28,6 +28,11 @@ App/Config/Secrets.xcconfig
 *.log
 .env
 
+# Session bundles pulled from the device (Scripts/pull-session.sh) — up to
+# ~225 MB of video each. Fixtures are copied under Packages/SessionReplay/
+# Tests/.../Fixtures deliberately, without the video.
+Sessions/
+
 # Agent runner hand-off files inside a worktree (never committed; see docs/agent-runner.md)
 .agent-outbox/
 .agent-inbox/

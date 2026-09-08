@@ -77,8 +77,19 @@ public struct ReplayRunner: Sendable {
         try bundle.validate()
         let calibration = try bundle.calibration.tableCalibration()
         let detector = RecordedDetectionProvider(bundle: bundle)
-        var session = ReplaySession(config: config, calibration: calibration,
-                                    detector: detector)
+        // B3 anchor following under replay: a device bundle records the
+        // lock-time anchor transform (calibration.json) and the anchor's
+        // transform in every frame (frames.jsonl), and its manifest says
+        // whether the live pipeline followed it — replay the same way. A
+        // scripted bundle has none of that, so its calibration stays
+        // pinned and the byte-exact golden is unaffected.
+        var replayConfig = config
+        if let recorded = bundle.manifest.recording?.followsTableAnchor {
+            replayConfig.perception.followsTableAnchor = recorded
+        }
+        var session = ReplaySession(config: replayConfig, calibration: calibration,
+                                    detector: detector,
+                                    lockAnchorTransform: try bundle.calibration.anchorTransform3D())
         var eventsByFrame: [Int: [RecordedEvent]] = [:]
         for event in bundle.events {
             eventsByFrame[event.frame, default: []].append(event)
@@ -88,15 +99,8 @@ public struct ReplayRunner: Sendable {
         var dropped: [Int] = []
         for meta in bundle.frames {
             let frame = try meta.capturedFrame()
-            // Anchor following (B3) is deliberately inert under replay: a
-            // bundle's calibration.json is expressed in the same world frame
-            // as its recorded camera poses, so there is no anchor to follow
-            // — passing nil keeps `calibration`/`raycaster` fixed for the
-            // whole run, which the byte-exact golden depends on. A future
-            // on-device recorder that captures per-frame anchor transforms
-            // would add them to RecordedFrameMeta and thread them here.
             guard let output = await session.pipeline.processFrame(
-                frame, tableAnchorTransform: nil) else {
+                frame, tableAnchorTransform: try meta.tableAnchorTransform3D()) else {
                 dropped.append(meta.index)
                 continue
             }
@@ -140,28 +144,34 @@ struct ReplaySession {
     let config: ReplayConfig
     let calibration: TableCalibration
     let detector: RecordedDetectionProvider
+    /// Lock-time table anchor transform (device bundles); nil pins the calibration.
+    let lockAnchorTransform: Transform3D?
     var pipeline: PerceptionPipeline
     var planner: ShotPlanner
     var designatedCueBallID: BallID?
     var calledPocket: PocketID?
 
     init(config: ReplayConfig, calibration: TableCalibration,
-         detector: RecordedDetectionProvider) {
+         detector: RecordedDetectionProvider, lockAnchorTransform: Transform3D? = nil) {
         self.config = config
         self.calibration = calibration
         self.detector = detector
-        pipeline = Self.makePipeline(config: config, calibration: calibration, detector: detector)
+        self.lockAnchorTransform = lockAnchorTransform
+        pipeline = Self.makePipeline(config: config, calibration: calibration, detector: detector,
+                                     lockAnchorTransform: lockAnchorTransform)
         planner = ShotPlanner(solver: AnalyticSolver(config: config.physics),
                               guideSpeed: config.guideSpeed, config: config.planner)
     }
 
     private static func makePipeline(config: ReplayConfig, calibration: TableCalibration,
-                                     detector: RecordedDetectionProvider) -> PerceptionPipeline {
+                                     detector: RecordedDetectionProvider,
+                                     lockAnchorTransform: Transform3D?) -> PerceptionPipeline {
         PerceptionPipeline(detector: detector,
                            calibration: calibration,
                            raycaster: PlaneGeometryRaycaster(calibration: calibration),
                            config: config.perception,
-                           trackerConfig: config.tracker)
+                           trackerConfig: config.tracker,
+                           tableAnchorTransform: lockAnchorTransform)
     }
 
     mutating func apply(_ event: RecordedEvent, state: TableState) {
@@ -174,7 +184,7 @@ struct ReplaySession {
             calledPocket = calledPocket == pocket ? nil : pocket
         case .resetTracking:
             pipeline = Self.makePipeline(config: config, calibration: calibration,
-                                         detector: detector)
+                                         detector: detector, lockAnchorTransform: lockAnchorTransform)
             planner.reset()
             designatedCueBallID = nil
             calledPocket = nil
