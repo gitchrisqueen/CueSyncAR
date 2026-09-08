@@ -71,14 +71,23 @@ echo "pulling ${SESSION} from ${BASE} into ${DEST}"
 python3 -c '
 import json, sys
 for f in json.load(sys.stdin)["files"]:
-    print(f"{f["name"]}\t{f["bytes"]}")
+    # %-format, not an f-string: nested same-type quotes inside an
+    # f-string only parse on Python 3.12+, and macOS ships 3.9/3.10.
+    print("%s\t%s" % (f["name"], f["bytes"]))
 ' <<<"$session_json" | while IFS=$'\t' read -r name bytes; do
   target="${DEST}/${name}"
   have=0
+  exists=0
   if [ -f "$target" ]; then
+    exists=1
     have=$(stat -f%z "$target" 2>/dev/null || stat -c%s "$target")
   fi
-  if [ "$have" = "$bytes" ]; then
+  # The existence test is load-bearing for EMPTY files. A legitimately
+  # 0-byte artifact (events.jsonl, when the session recorded no taps) has
+  # bytes=0, and a missing file also reports have=0 — so a size-only check
+  # declared it "already complete" and skipped the fetch, leaving nothing
+  # on disk for the manifest to verify against.
+  if [ "$exists" = "1" ] && [ "$have" = "$bytes" ]; then
     echo "  ${name}: already complete (${bytes} bytes)"
     continue
   fi
@@ -114,5 +123,9 @@ fi
 
 frames=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["frameCount"])' "${DEST}/manifest.json")
 echo "done: ${DEST} (${frames} frames, all files verified)"
+# ABSOLUTE path: the replay test resolves the bundle relative to the
+# package directory, not the repo root, so the relative form printed here
+# used to fail with missingFile("manifest.json").
+ABS_DEST=$(cd "$DEST" && pwd)
 echo "replay it (writes outputs.jsonl the first time; byte-compares on every later run / platform):"
-echo "  CUESYNC_REPLAY_BUNDLE=${DEST} swift test --package-path Packages/SessionReplay --filter DeviceBundleReplay"
+echo "  CUESYNC_REPLAY_BUNDLE=${ABS_DEST} swift test --package-path Packages/SessionReplay --filter DeviceBundleReplay"
