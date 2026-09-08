@@ -26,6 +26,9 @@ struct RootView: View {
     /// Whether the Settings sheet is up (05-UX-DESIGN: settings is a
     /// sheet, never a nav stack over the live view).
     @State private var showingSettings = false
+    /// Measured height of the bottom HUD cluster, handed to overlays that
+    /// draw underneath it (the calibration controls) so they clear it.
+    @State private var hudBottomInset: CGFloat = 84
     /// Rotation derived from the device's PHYSICAL orientation (fluid —
     /// tracks the free-floating phone via orientation notifications, and
     /// works even when the UI orientation is locked).
@@ -134,15 +137,25 @@ struct RootView: View {
                     .padding(.bottom, 4)
                     .transition(.opacity)
                 }
-                bottomBar
-                // Bottom-most, under the control bar: always answers "which
-                // build is this?" without a cable, and sits below the table
-                // in frame so it never occludes the cloth during play.
-                BuildBadge(identity: AppBuild.identity)
+                VStack {
+                    bottomBar
+                    // Bottom-most, under the control bar: always answers
+                    // "which build is this?" without a cable, and sits below
+                    // the table in frame so it never occludes the cloth
+                    // during play.
+                    BuildBadge(identity: AppBuild.identity)
+                }
+                .measuringHUDBottomInset()
             }
             .padding(.top, 8)
             .padding(.bottom, 12)
         }
+        .onPreferenceChange(HUDBottomInsetKey.self) { height in
+            // + the VStack's own bottom padding: the calibration controls
+            // must clear the whole cluster, not just its content box.
+            hudBottomInset = height + 12
+        }
+        .environment(\.hudBottomInset, hudBottomInset)
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
@@ -360,10 +373,19 @@ struct RootView: View {
         #if targetEnvironment(simulator)
         SimulatorPlaceholderView()
         #else
-        if model.usingFrontCamera {
-            FrontCameraPreviewView()
-        } else {
+        // ARCameraView stays mounted in BOTH modes. Swapping it out for the
+        // front preview destroyed its ARView — and with it the world origin
+        // every calibration corner is expressed in — so flipping to the
+        // front camera and back moved all four corners (reported from the
+        // table, 2026-09-08). It now hands the camera over instead: the
+        // session pauses, the front preview draws on top, and resuming
+        // re-runs the same configuration so ARKit relocalizes into the
+        // original origin.
+        ZStack {
             ARCameraView()
+            if model.usingFrontCamera {
+                FrontCameraPreviewView()
+            }
         }
         #endif
     }
@@ -452,13 +474,19 @@ struct ARCameraView: View {
             if let coordinator {
                 ARViewRepresentable(coordinator: coordinator)
                     .task { await runSessionLoop(coordinator) }
-                if model.isLiveTracking, !model.calibrationVisible {
-                    PocketCallCatcher(coordinator: coordinator)
-                        .ignoresSafeArea()
-                }
-                if model.calibrationVisible {
-                    CalibrationOverlayView(coordinator: coordinator)
-                        .ignoresSafeArea()
+                // Hidden, not unmounted, while the front preview owns the
+                // camera: unmounting is what used to lose the world origin.
+                    .opacity(model.usingFrontCamera ? 0 : 1)
+                    .allowsHitTesting(!model.usingFrontCamera)
+                if !model.usingFrontCamera {
+                    if model.isLiveTracking, !model.calibrationVisible {
+                        PocketCallCatcher(coordinator: coordinator)
+                            .ignoresSafeArea()
+                    }
+                    if model.calibrationVisible {
+                        CalibrationOverlayView(coordinator: coordinator)
+                            .ignoresSafeArea()
+                    }
                 }
             } else {
                 Color.black
@@ -467,6 +495,14 @@ struct ARCameraView: View {
         .onAppear {
             if coordinator == nil {
                 coordinator = ARSessionCoordinator()
+            }
+        }
+        .onChange(of: model.usingFrontCamera) { _, isFront in
+            guard let coordinator else { return }
+            if isFront {
+                coordinator.suspendForCameraHandoff()
+            } else {
+                coordinator.resumeFromCameraHandoff()
             }
         }
     }
@@ -505,6 +541,13 @@ struct ARCameraView: View {
         var lastDiagnosticsAt = Date.distantPast
         var lastSnapshotAt = Date.distantPast
         while !Task.isCancelled {
+            // A suspended session never delivers a frame, so `nextFrame()`
+            // would await forever and the loop would stop servicing
+            // everything below it. Idle here until the camera comes back.
+            if coordinator.isSuspendedForCameraHandoff {
+                try? await Task.sleep(for: .milliseconds(SessionModel.loopTickMilliseconds))
+                continue
+            }
             coordinator.refreshViewportInfo()
             // A stale world map can keep ARKit relocalizing forever
             // (tracking limited, overlays degraded). Give it 15 s, then

@@ -24,6 +24,10 @@ struct CalibrationOverlayView: View {
     @Environment(SessionModel.self) private var model
     let coordinator: ARSessionCoordinator
 
+    /// Height of RootView's bottom HUD cluster, measured there and passed
+    /// down so these controls can sit clear of it at any size.
+    @Environment(\.hudBottomInset) private var hudBottomInset
+
     /// Active handle drag: which corner, plus the finger→handle offset at
     /// grab time. Preserving the offset keeps the corner from snapping
     /// under the fingertip (where the finger would hide it).
@@ -59,7 +63,13 @@ struct CalibrationOverlayView: View {
         .coordinateSpace(name: Self.space)
         .overlay(alignment: .bottom) {
             controls
-                .padding(.bottom, 84)
+                // Clear RootView's bottom HUD, which draws in a LATER
+                // sibling of the ZStack and therefore on top of these
+                // controls. The height is measured there and published
+                // through the environment: the previous hard-coded 84 was a
+                // guess that the control bar had already outgrown, so Lock
+                // sat underneath the toolbar and could not be tapped.
+                .padding(.bottom, hudBottomInset + 16)
         }
         .sensoryFeedback(.success, trigger: model.calibration.isLocked)
     }
@@ -96,20 +106,28 @@ struct CalibrationOverlayView: View {
         }
     }
 
+    /// One projection pass per frame, shared by the dots and the handles.
+    /// Index-preserving on purpose — see `CalibrationCornerLayout`.
+    private var cornerLayout: CalibrationCornerLayout {
+        CalibrationCornerLayout(
+            points: displayCorners.map { coordinator.projectToScreen($0) })
+    }
+
     @ViewBuilder
     private var cornerGraphics: some View {
-        let projected = displayCorners.compactMap { coordinator.projectToScreen($0) }
+        let layout = cornerLayout
         Canvas { context, _ in
-            if case .adjusting = model.calibration.state, projected.count == 4 {
+            if case .adjusting = model.calibration.state,
+               let outlinePoints = layout.closedOutline {
                 var outline = Path()
-                outline.move(to: projected[0])
-                for point in projected.dropFirst() {
+                outline.move(to: outlinePoints[0])
+                for point in outlinePoints.dropFirst() {
                     outline.addLine(to: point)
                 }
                 outline.closeSubpath()
                 context.stroke(outline, with: .color(feltGreen.opacity(0.9)), lineWidth: 2)
             }
-            for point in projected {
+            for (_, point) in layout.drawable {
                 let dot = CGRect(x: point.x - 5, y: point.y - 5, width: 10, height: 10)
                 context.fill(Path(ellipseIn: dot), with: .color(feltGreen))
             }
@@ -118,7 +136,10 @@ struct CalibrationOverlayView: View {
 
         if case .adjusting(let corners) = model.calibration.state {
             ForEach(corners.indices, id: \.self) { index in
-                if let point = coordinator.projectToScreen(corners[index]) {
+                // Same array, same index as the dot above — so the white
+                // handle is drawn from the identical projection the green
+                // dot used, not a second independent one.
+                if let point = layout.point(at: index) {
                     Circle()
                         .fill(.white.opacity(activeDrag?.index == index ? 1 : 0.85))
                         .overlay(Circle().stroke(feltGreen, lineWidth: 2))
@@ -127,6 +148,16 @@ struct CalibrationOverlayView: View {
                         .frame(width: 56, height: 56)
                         .contentShape(Circle())
                         .position(point)
+                        // The enclosing TimelineView(.animation) drives an
+                        // animated transaction every tick. The Canvas above
+                        // repaints instantly; a positioned view would
+                        // INTERPOLATE toward its new point instead, so the
+                        // handles lagged the dots by roughly a frame
+                        // whenever the device moved — visible as the white
+                        // circle sliding off its green corner. Positions
+                        // here are re-derived every frame from world space,
+                        // so there is nothing to animate between.
+                        .transaction { $0.animation = nil }
                         .gesture(handleDrag(index: index, handleCenter: point))
                         .accessibilityLabel("Corner \(index + 1) handle")
                 }
