@@ -159,7 +159,26 @@ final class SessionModel {
     private(set) var tapFeedback: String?
     @ObservationIgnored private var tapFeedbackTask: Task<Void, Never>?
 
+    /// Every screen tap that actually REACHED the tap handler, and the
+    /// last thing that happened as a result. Both are sticky — they are
+    /// never cleared on a timer — because `tapFeedback` lives for 2.5 s
+    /// and the mirror publishes at ~1 Hz, so a remote observer almost
+    /// always misses it and cannot tell "the tap never arrived" from "the
+    /// tap arrived, was handled, and the message already expired". Those
+    /// two need opposite fixes.
+    private(set) var rawTapCount = 0
+    private(set) var lastTapNote: String?
+
+    /// Called FIRST in the tap handler, before any guard, so the count
+    /// rises even when every downstream check rejects the tap.
+    func noteRawTap(kind: String, x: Double, y: Double) {
+        rawTapCount += 1
+        lastTapNote = String(format: "#%d %@ at (%.0f, %.0f)", rawTapCount, kind, x, y)
+        Self.log.info("raw tap \(self.lastTapNote ?? "?", privacy: .public)")
+    }
+
     func showTapFeedback(_ message: String) {
+        lastTapNote = "#\(rawTapCount) → \(message)"
         tapFeedback = message
         tapFeedbackTask?.cancel()
         tapFeedbackTask = Task { [weak self] in

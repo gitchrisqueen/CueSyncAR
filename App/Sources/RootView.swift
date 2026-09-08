@@ -735,8 +735,13 @@ private struct PocketCallCatcher: View {
         Color.clear
             .contentShape(Rectangle())
             .onTapGesture(coordinateSpace: .local) { location in
+                // FIRST, before any guard: proves the tap reached this
+                // handler at all. Without it a swallowed tap and a tap
+                // that never arrived look identical from the mirror.
+                model.noteRawTap(kind: "tap", x: location.x, y: location.y)
                 guard let calibration = model.tableCalibration else {
                     SessionModel.log.info("tap: ignored — no calibration")
+                    model.showTapFeedback("Tap ignored — table not calibrated")
                     return
                 }
                 guard let table = model.tableState?.table else {
@@ -776,6 +781,7 @@ private struct PocketCallCatcher: View {
                 }
             }
             .onLongPressGesture(minimumDuration: 0.8) {
+                model.noteRawTap(kind: "longpress", x: 0, y: 0)
                 model.resetBallTracking()
             }
             .accessibilityLabel("""

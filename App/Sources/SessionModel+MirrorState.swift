@@ -28,6 +28,9 @@ extension SessionModel {
             // flow is in .planeFound — so a stuck `true` here silently
             // swallows every pocket call and cue-ball designation.
             "calibrationVisible": calibrationVisible,
+            // Sticky tap instrumentation — see SessionModel.noteRawTap.
+            "rawTapCount": rawTapCount,
+            "lastTapNote": lastTapNote ?? "",
 
             "aimSource": String(describing: aimSource),
             "calledShotOnLine": calledShotOnLine
