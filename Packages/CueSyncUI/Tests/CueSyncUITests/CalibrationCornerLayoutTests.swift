@@ -9,7 +9,10 @@
 //  — the symptom reported from the table on 2026-09-08.
 //
 
-import CoreGraphics
+// Foundation, NOT CoreGraphics: these packages build on Linux too, where
+// CoreGraphics does not exist. swift-corelibs-foundation supplies CGPoint
+// and CGFloat, which is all this suite needs.
+import Foundation
 import Testing
 @testable import CueSyncUI
 
