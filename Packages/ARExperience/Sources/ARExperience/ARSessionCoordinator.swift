@@ -43,6 +43,13 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
     /// delegate (session queue) and snapshot path (main actor) both write;
     /// the app layer reads a snapshot ~every few seconds and logs it.
     private let diagnostics = DiagnosticsBox()
+    /// Session-recording side channel: one DeliveredFrameMeta per frame
+    /// handed out (table-anchor pose, display transform, orientation),
+    /// keyed by timestamp. Written in the delegate; read by the recorder.
+    let frameMetaRing = FrameMetaRingBox()
+    /// Viewport facts the delegate needs to compute a display transform,
+    /// refreshed from the main actor by `refreshViewportInfo()`.
+    let viewportBox = ViewportInfoBox()
     /// Human-readable session health (errors, interruptions, tracking
     /// limits) for the HUD. Nil when everything is nominal.
     public private(set) var sessionEvent: String?
@@ -269,6 +276,10 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
             return
         }
         diagnostics.add(\.framesDelivered)
+        // Side channel for the session recorder: everything about THIS
+        // frame that a CapturedFrame cannot carry, read here and released
+        // with the ARFrame — the ring holds only value types.
+        frameMetaRing.record(Self.deliveredMeta(for: frame, viewport: viewportBox.current))
         // Intrinsics travel with the frame so consumers (pipeline raycasts)
         // can unproject image points without touching ARKit.
         let k = frame.camera.intrinsics
@@ -283,6 +294,24 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
             image: PixelBufferImage(pixelBuffer: copiedBuffer),
             intrinsics: intrinsics)
         continuation.resume(returning: captured)
+    }
+
+    /// Value-type extract of a frame's recording side channel. Runs on the
+    /// session queue inside the delegate callback; touches no buffers.
+    nonisolated static func deliveredMeta(for frame: ARFrame,
+                                          viewport: ViewportInfo) -> DeliveredFrameMeta {
+        let anchor = frame.anchors.first { $0.name == Self.tableAnchorName }
+        var display: [Double]?
+        if viewport.width > 0, viewport.height > 0 {
+            display = affineComponents(frame.displayTransform(
+                for: orientation(named: viewport.interfaceOrientation),
+                viewportSize: CGSize(width: viewport.width, height: viewport.height)))
+        }
+        return DeliveredFrameMeta(
+            timestamp: frame.timestamp,
+            tableAnchorTransform: anchor.map { transform3D(from: $0.transform) },
+            displayTransform: display,
+            viewport: viewport)
     }
 
     /// Snapshot the RENDERED view (camera background + RealityKit overlay
@@ -538,6 +567,13 @@ public final class OverlayRenderer {
     /// Strip thickness (m) and lift above the cloth to avoid z-fighting.
     private static let stripWidth = 0.008
     private static let stripLift = 0.002
+    /// Design palette for people; the metric palette (opaque, colour-
+    /// keyable — see MetricPalette) while a session is being recorded.
+    /// Takes effect on the next `render`.
+    public var paletteMode: OverlayPaletteMode = .design
+    /// The markers of the layout most recently rendered, in placement
+    /// order — what a projection snapshot asks `arView.project` about.
+    public private(set) var renderedMarkers: [RenderedMarker] = []
 
     /// Root under the table's ARAnchor when one exists — anchored content
     /// follows ARKit's refinements; identity-world content drifts (anchor
@@ -574,6 +610,8 @@ public final class OverlayRenderer {
 
     public func render(_ layout: OverlayLayout, planeNormalUp: Bool = true) {
         root.children.removeAll()
+        renderedMarkers = layout.renderedMarkers
+        let metric = paletteMode == .metric
 
         // Tracked-ball rings first (visually lowest): flat rings on the
         // cloth at each tracked ball, the cue ball's filled + white so the
@@ -585,8 +623,9 @@ public final class OverlayRenderer {
                 height: Float(Self.stripWidth / 2),
                 radius: Float(ringRadius))
             let color: UIColor = ball.isCue ? .white : uiColor(from: 0xF5A623)
-            var material = UnlitMaterial(color: color)
-            material.blending = .transparent(opacity: ball.isCue ? 0.9 : 0.45)
+            var material = UnlitMaterial(color: metric
+                ? uiColor(from: MetricPalette.color(for: ball.isCue ? .cueBall : .ball)) : color)
+            material.blending = metric ? .opaque : .transparent(opacity: ball.isCue ? 0.9 : 0.45)
             let entity = ModelEntity(mesh: mesh, materials: [material])
             place(entity, at: worldPoint(ball.position, lift: Self.stripLift))
         }
@@ -596,8 +635,12 @@ public final class OverlayRenderer {
                 width: Float(strip.length),
                 height: Float(Self.stripWidth / 2),
                 depth: Float(Self.stripWidth))
-            var material = UnlitMaterial(color: uiColor(from: strip.color))
-            material.blending = .transparent(opacity: .init(floatLiteral: strip.dashed ? 0.7 : 0.95))
+            let stripColor = metric
+                ? MetricPalette.color(for: MetricPalette.stripMarker(forDesignColor: strip.color))
+                : strip.color
+            var material = UnlitMaterial(color: uiColor(from: stripColor))
+            material.blending = metric ? .opaque
+                : .transparent(opacity: .init(floatLiteral: strip.dashed ? 0.7 : 0.95))
             let entity = ModelEntity(mesh: mesh, materials: [material])
             place(entity, at: worldPoint(strip.midpoint, lift: Self.stripLift))
             // Orientation stays LOCAL to the anchor (not relativeTo: nil):
@@ -613,8 +656,9 @@ public final class OverlayRenderer {
 
         if let ghost = layout.ghostBall {
             let mesh = MeshResource.generateSphere(radius: Float(ghost.radius))
-            var material = UnlitMaterial(color: .white)
-            material.blending = .transparent(opacity: 0.35)
+            var material = UnlitMaterial(color: metric
+                ? uiColor(from: MetricPalette.color(for: .ghostBall)) : .white)
+            material.blending = metric ? .opaque : .transparent(opacity: 0.35)
             let entity = ModelEntity(mesh: mesh, materials: [material])
             place(entity, at: worldPoint(ghost.position, lift: ghost.radius))
         }
@@ -622,8 +666,9 @@ public final class OverlayRenderer {
         for pocket in layout.highlightedPockets {
             let mesh = MeshResource.generateCylinder(height: Float(Self.stripWidth / 2),
                                                      radius: Float(pocket.radius * 1.2))
-            var material = UnlitMaterial(color: uiColor(from: 0x2FA36B))
-            material.blending = .transparent(opacity: 0.5)
+            var material = UnlitMaterial(color: uiColor(
+                from: metric ? MetricPalette.color(for: .pocket) : 0x2FA36B))
+            material.blending = metric ? .opaque : .transparent(opacity: 0.5)
             let entity = ModelEntity(mesh: mesh, materials: [material])
             place(entity, at: worldPoint(pocket.position, lift: Self.stripLift))
         }
@@ -633,10 +678,12 @@ public final class OverlayRenderer {
         if let called = layout.calledPocket {
             let mesh = MeshResource.generateCylinder(height: Float(Self.stripWidth / 2),
                                                      radius: Float(called.radius))
-            let color: UInt32 = layout.calledPocketSatisfied ? 0x2FA36B : 0xF5A623
+            let satisfied = layout.calledPocketSatisfied
+            let color: UInt32 = metric
+                ? MetricPalette.color(for: satisfied ? .calledPocketOnLine : .calledPocket)
+                : (satisfied ? 0x2FA36B : 0xF5A623)
             var material = UnlitMaterial(color: uiColor(from: color))
-            material.blending = .transparent(
-                opacity: layout.calledPocketSatisfied ? 0.85 : 0.6)
+            material.blending = metric ? .opaque : .transparent(opacity: satisfied ? 0.85 : 0.6)
             let entity = ModelEntity(mesh: mesh, materials: [material])
             place(entity, at: worldPoint(called.position, lift: Self.stripLift * 2))
         }
@@ -644,6 +691,7 @@ public final class OverlayRenderer {
 
     public func clear() {
         root.children.removeAll()
+        renderedMarkers = []
     }
 
     private func uiColor(from rgb: UInt32) -> UIColor {

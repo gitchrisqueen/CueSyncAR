@@ -68,6 +68,9 @@ struct RootView: View {
 
             VStack {
                 StatusCapsule(status: hudStatus)
+                if let recording = model.recordingStatus {
+                    RecordingBadge(status: recording)
+                }
                 if model.cameraDenied {
                     Text("Camera access denied — enable it in Settings → CueSync AR")
                         .font(.caption)
@@ -194,6 +197,9 @@ struct RootView: View {
                 calibrateButton
             }
             mirrorButton
+            if !model.usingFrontCamera {
+                RecordButton()
+            }
             modeMenu
             modelPicker
             settingsButton
@@ -275,6 +281,11 @@ struct RootView: View {
     /// design; the button explains via accessibility label).
     private var cameraFlipButton: some View {
         Button {
+            if model.isRecording {
+                // The AR loop goes away with the back camera; close the
+                // bundle properly rather than leaving it half-written.
+                Task { await model.stopRecording(reason: .user) }
+            }
             model.usingFrontCamera.toggle()
         } label: {
             Label("Flip camera", systemImage: "arrow.triangle.2.circlepath.camera")
@@ -466,6 +477,13 @@ struct ARCameraView: View {
             return
         }
         model.cameraDenied = false
+        // Session recording borrows two things from this layer: the
+        // per-frame side channel (anchor pose, display transform) and the
+        // viewport; both read lock boxes, so the recorder can call them
+        // from its own actor.
+        model.recordingHooks = RecordingHooks(
+            sideChannel: { [coordinator] timestamp in coordinator.deliveredFrameMeta(at: timestamp) },
+            viewport: { [coordinator] in coordinator.currentViewport })
         // RealityKit auto-configures and runs the session itself; plane
         // detection is layered on only when calibration needs it (or a
         // saved venue can be relocalized), so the plain A/B-preview path
@@ -485,7 +503,9 @@ struct ARCameraView: View {
             model.markRelocalizationStart()
         }
         var lastDiagnosticsAt = Date.distantPast
+        var lastSnapshotAt = Date.distantPast
         while !Task.isCancelled {
+            coordinator.refreshViewportInfo()
             // A stale world map can keep ARKit relocalizing forever
             // (tracking limited, overlays degraded). Give it 15 s, then
             // fall back to fresh tracking — the user can recalibrate.
@@ -535,10 +555,18 @@ struct ARCameraView: View {
                     if let frame = await coordinator.nextFrame() {
                         // The anchor transform is sampled WITH the frame so
                         // the pipeline projects it in the world frame ARKit
-                        // is using right now (B3 anchor following).
-                        model.ingestTrackingFrame(
-                            frame,
-                            tableAnchorTransform: coordinator.currentTableAnchorTransform)
+                        // is using right now (B3 anchor following). Taken
+                        // from the frame's own side channel — the value the
+                        // session recorder writes — so live and replay see
+                        // the same transform for the same frame; the
+                        // current-frame lookup is the fallback only.
+                        let anchorTransform: Transform3D?
+                        if let delivered = coordinator.deliveredFrameMeta(at: frame.timestamp) {
+                            anchorTransform = delivered.tableAnchorTransform
+                        } else {
+                            anchorTransform = coordinator.currentTableAnchorTransform
+                        }
+                        model.ingestTrackingFrame(frame, tableAnchorTransform: anchorTransform)
                     }
                     if let cameraTransform = coordinator.currentCameraTransform {
                         model.updateAim(cameraTransform: cameraTransform)
@@ -550,29 +578,12 @@ struct ARCameraView: View {
                             arView: coordinator.arView,
                             tableAnchor: coordinator.tableAnchor)
                     }
-                    if let state = model.tableState,
-                       let calibration = model.tableCalibration {
-                        let layout: OverlayLayout
-                        if let prediction = model.shotPrediction {
-                            layout = OverlayLayout.compose(
-                                state: state, prediction: prediction,
-                                calibration: calibration,
-                                calledPocket: model.calledPocket)
-                        } else {
-                            // No shot line yet (usually: no cue ball) —
-                            // still render the tracked-ball rings so the
-                            // user sees what the app sees and where to
-                            // tap to designate the cue ball.
-                            layout = OverlayLayout.ballsOnly(
-                                state: state, calibration: calibration)
-                        }
-                        if layout != lastRenderedLayout {
-                            lastRenderedLayout = layout
-                            overlayRenderer?.render(layout)
-                        }
-                    } else if lastRenderedLayout != nil {
-                        lastRenderedLayout = nil
-                        overlayRenderer?.clear()
+                    if syncPalette(model.overlayPaletteMode) {
+                        lastRenderedLayout = nil // re-render in the new palette now
+                    }
+                    renderOverlays(lastRendered: &lastRenderedLayout)
+                    if model.isRecording {
+                        lastSnapshotAt = await recordingTick(coordinator, lastSnapshotAt: lastSnapshotAt)
                     }
                 }
             } else {
@@ -601,8 +612,61 @@ struct ARCameraView: View {
                     model.publishMirrorFrame(nil)
                 }
             }
-            try? await Task.sleep(for: .milliseconds(150))
+            try? await Task.sleep(for: .milliseconds(SessionModel.loopTickMilliseconds))
         }
+    }
+
+    /// Compose this tick's overlay layout from the model and render it
+    /// only when it differs from the last one (re-rendering an identical
+    /// layout churns RealityKit entities and can flicker).
+    private func renderOverlays(lastRendered: inout OverlayLayout?) {
+        guard let state = model.tableState, let calibration = model.tableCalibration else {
+            if lastRendered != nil {
+                lastRendered = nil
+                overlayRenderer?.clear()
+            }
+            return
+        }
+        let layout: OverlayLayout
+        if let prediction = model.shotPrediction {
+            layout = OverlayLayout.compose(state: state, prediction: prediction,
+                                           calibration: calibration,
+                                           calledPocket: model.calledPocket)
+        } else {
+            // No shot line yet (usually: no cue ball) — still render the
+            // tracked-ball rings so the user sees what the app sees and
+            // where to tap to designate the cue ball.
+            layout = OverlayLayout.ballsOnly(state: state, calibration: calibration)
+        }
+        if layout != lastRendered {
+            lastRendered = layout
+            overlayRenderer?.render(layout)
+        }
+    }
+
+    /// Recording flips overlays to the metric palette (and back). Returns
+    /// true when the renderer's palette changed.
+    private func syncPalette(_ mode: OverlayPaletteMode) -> Bool {
+        guard let renderer = overlayRenderer, renderer.paletteMode != mode else { return false }
+        renderer.paletteMode = mode
+        return true
+    }
+
+    /// One loop tick while recording: HUD numbers + cap/error enforcement,
+    /// then the ~1 Hz bracketed projection snapshot of whatever the
+    /// renderer last placed. Returns when the last snapshot was taken.
+    private func recordingTick(_ coordinator: ARSessionCoordinator,
+                               lastSnapshotAt: Date) async -> Date {
+        await model.refreshRecordingStatus()
+        guard model.isRecording,
+              Date().timeIntervalSince(lastSnapshotAt) >= SessionRecorder.snapshotInterval,
+              let renderer = overlayRenderer,
+              let projection = coordinator.projectionSnapshot(
+                  markers: renderer.renderedMarkers, paletteMode: renderer.paletteMode) else {
+            return lastSnapshotAt
+        }
+        await model.recordProjectionSnapshot(projection)
+        return Date()
     }
 
     private func ensureCameraAccess() async -> Bool {

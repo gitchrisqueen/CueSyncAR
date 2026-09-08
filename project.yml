@@ -31,8 +31,8 @@ packages:
     path: Packages/DetectionRoboflow
   CueSyncTestSupport:
     path: Packages/CueSyncTestSupport
-  # Deterministic session replay (B2). Not an app dependency yet — the
-  # Simulator replay view lands in a later task.
+  # Deterministic session replay (B2) + the bundle writer the on-device
+  # session recorder streams into (SessionBundleRecorder, VideoFrameWriter).
   SessionReplay:
     path: Packages/SessionReplay
 
@@ -58,6 +58,7 @@ targets:
       - package: CueSyncUI
       - package: CoachKit
       - package: DetectionRoboflow
+      - package: SessionReplay
     info:
       path: App/Info.plist
       properties:
@@ -67,6 +68,11 @@ targets:
           CueSync AR uses the camera to see the billiards table and balls so
           it can draw live shot guidance on top of them.
         UIRequiredDeviceCapabilities: [arkit]
+        # Recorded session bundles (Documents/Sessions) show up in Files
+        # and in Finder over a cable — the fallback when the Wi-Fi pull
+        # (Scripts/pull-session.sh) is not an option.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown

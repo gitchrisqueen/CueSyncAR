@@ -108,6 +108,12 @@ durable lessons that must not be re-learned:
   app target sets `ENABLE_USER_SCRIPT_SANDBOXING: NO` because the sandbox
   denies both the git read and the plist write. Display formatting lives in
   the pure, tested `CueSyncUI.BuildIdentity`.
+- **Session recorder:** the ● button (or mirror `/cmd?action=startRecording`)
+  writes a `SessionReplay` bundle to `Documents/Sessions/<id>/` — frames,
+  detections, events, ~1 Hz projection snapshots, H.264 video — 1:1 with
+  the frames the live pipeline processed (recorded at the detector seam,
+  `RecordingDetectionProvider`). Pull it with `Scripts/pull-session.sh`;
+  the owner's walkthrough is `docs/recording-a-session.md`.
 - **Camera buffers:** ARKit's capture pool is tiny. Frames are PULL-based
   (`nextFrame()`); the delegate hands out only deep-copied pixel buffers
   (`ARSessionCoordinator.copyPixelBuffer`). Never retain ARFrames or their

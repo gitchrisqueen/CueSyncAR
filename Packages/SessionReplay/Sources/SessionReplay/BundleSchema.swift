@@ -45,9 +45,17 @@ public struct SessionManifest: Sendable, Equatable, Codable {
     /// is fully valid (frames carry pose + intrinsics, detections carry
     /// boxes — nothing in the replay needs pixels).
     public var video: VideoInfo?
+    /// How the bundle was captured on a device (build, model, display,
+    /// cadence). Absent on scripted bundles.
+    public var recording: RecordingInfo?
+    /// sha256 (lower-case hex) of every other file in the bundle, keyed by
+    /// file name — what `SessionBundleIntegrity` and Scripts/pull-session.sh
+    /// verify. Absent on scripted bundles (the generator is their proof).
+    public var files: [String: String]?
 
     public init(sessionID: String, recordedAt: String, source: String,
                 description: String, frameCount: Int, video: VideoInfo? = nil,
+                recording: RecordingInfo? = nil, files: [String: String]? = nil,
                 schemaVersion: Int = SessionBundleSchema.version) {
         self.schemaVersion = schemaVersion
         self.sessionID = sessionID
@@ -56,6 +64,8 @@ public struct SessionManifest: Sendable, Equatable, Codable {
         self.description = description
         self.frameCount = frameCount
         self.video = video
+        self.recording = recording
+        self.files = files
     }
 
     func canonical() -> JSONValue {
@@ -65,7 +75,7 @@ public struct SessionManifest: Sendable, Equatable, Codable {
                              "width": .int(info.width),
                              "height": .int(info.height)])
         }
-        return .object([
+        var object: [String: JSONValue] = [
             "schemaVersion": .int(schemaVersion),
             "sessionID": .string(sessionID),
             "recordedAt": .string(recordedAt),
@@ -73,7 +83,14 @@ public struct SessionManifest: Sendable, Equatable, Codable {
             "description": .string(description),
             "frameCount": .int(frameCount),
             "video": video
-        ])
+        ]
+        // Optional blocks are omitted (not null) when absent so scripted
+        // bundles written before they existed stay byte-identical.
+        if let recording { object["recording"] = recording.canonical() }
+        if let files {
+            object["files"] = .object(files.mapValues(JSONValue.string))
+        }
+        return .object(object)
     }
 }
 
@@ -122,12 +139,28 @@ public struct RecordedCalibration: Sendable, Equatable, Codable {
     public var xAxis: [Double]
     public var yAxis: [Double]
     public var size: Size
+    /// B3 anchor following: the table ARAnchor's transform at the moment
+    /// this calibration was expressed (16 doubles, column-major). With it,
+    /// and per-frame `RecordedFrameMeta.tableAnchorTransform`, the replay
+    /// re-derives the calibration each frame exactly as the live pipeline
+    /// did. Absent on scripted bundles (calibration stays pinned).
+    public var anchorTransform: [Double]?
 
-    public init(_ calibration: TableCalibration) {
+    public init(_ calibration: TableCalibration, anchorTransform: Transform3D? = nil) {
         origin = [calibration.origin.x, calibration.origin.y, calibration.origin.z]
         xAxis = [calibration.xAxis.x, calibration.xAxis.y, calibration.xAxis.z]
         yAxis = [calibration.yAxis.x, calibration.yAxis.y, calibration.yAxis.z]
         size = Size(calibration.size)
+        self.anchorTransform = anchorTransform.map { $0.columns.flatMap { [$0.x, $0.y, $0.z, $0.w] } }
+    }
+
+    /// The lock-time anchor transform, or nil when the bundle has none.
+    public func anchorTransform3D() throws -> Transform3D? {
+        guard let anchorTransform else { return nil }
+        guard anchorTransform.count == 16 else {
+            throw SessionBundleError.invalidCalibration("anchorTransform must have 16 components")
+        }
+        return Transform3D.fromFlat(anchorTransform)
     }
 
     public func tableCalibration() throws -> TableCalibration {
@@ -147,12 +180,23 @@ public struct RecordedCalibration: Sendable, Equatable, Codable {
         var sizeObject: [String: JSONValue] = ["name": .string(size.name)]
         if let width = size.width { sizeObject["width"] = .double(width) }
         if let height = size.height { sizeObject["height"] = .double(height) }
-        return .object([
+        var object: [String: JSONValue] = [
             "origin": .doubles(origin),
             "xAxis": .doubles(xAxis),
             "yAxis": .doubles(yAxis),
             "size": .object(sizeObject)
-        ])
+        ]
+        if let anchorTransform { object["anchorTransform"] = .doubles(anchorTransform) }
+        return .object(object)
+    }
+}
+
+extension Transform3D {
+    /// 16 column-major doubles → transform (callers check the count).
+    static func fromFlat(_ m: [Double]) -> Transform3D {
+        Transform3D(columns: (0..<4).map { c in
+            SIMD4(m[c * 4], m[c * 4 + 1], m[c * 4 + 2], m[c * 4 + 3])
+        })
     }
 }
 
@@ -228,14 +272,32 @@ public struct RecordedFrameMeta: Sendable, Equatable, Codable {
     public var cameraTransform: [Double]
     public var intrinsics: RecordedIntrinsics?
     public var image: RecordedImageInfo?
+    /// True when the recorder had to skip this frame's pixels because the
+    /// video encoder was busy (back-pressure). The frame is still in the
+    /// replay — only `image.videoFrame` is missing — and the flag makes the
+    /// gap visible instead of silently misaligning video and detections.
+    public var videoDropped: Bool?
+    /// Device-recording side channel (ARExperience.DeliveredFrameMeta):
+    /// the table ARAnchor's transform in this frame (16 doubles), ARKit's
+    /// display transform for the viewport ([a, b, c, d, tx, ty]) and the
+    /// interface orientation name. All absent on scripted bundles.
+    public var tableAnchorTransform: [Double]?
+    public var displayTransform: [Double]?
+    public var interfaceOrientation: String?
 
     public init(index: Int, timestamp: TimeInterval, cameraTransform: [Double],
-                intrinsics: RecordedIntrinsics? = nil, image: RecordedImageInfo? = nil) {
+                intrinsics: RecordedIntrinsics? = nil, image: RecordedImageInfo? = nil,
+                videoDropped: Bool? = nil, tableAnchorTransform: [Double]? = nil,
+                displayTransform: [Double]? = nil, interfaceOrientation: String? = nil) {
         self.index = index
         self.timestamp = timestamp
         self.cameraTransform = cameraTransform
         self.intrinsics = intrinsics
         self.image = image
+        self.videoDropped = videoDropped
+        self.tableAnchorTransform = tableAnchorTransform
+        self.displayTransform = displayTransform
+        self.interfaceOrientation = interfaceOrientation
     }
 
     public init(index: Int, frame: CapturedFrame) {
@@ -250,10 +312,17 @@ public struct RecordedFrameMeta: Sendable, Equatable, Codable {
         guard cameraTransform.count == 16 else {
             throw SessionBundleError.invalidTransform(index)
         }
-        let m = cameraTransform
-        return Transform3D(columns: (0..<4).map { c in
-            SIMD4(m[c * 4], m[c * 4 + 1], m[c * 4 + 2], m[c * 4 + 3])
-        })
+        return Transform3D.fromFlat(cameraTransform)
+    }
+
+    /// The table anchor's transform in this frame (B3 anchor following),
+    /// or nil when the frame carries none.
+    public func tableAnchorTransform3D() throws -> Transform3D? {
+        guard let tableAnchorTransform else { return nil }
+        guard tableAnchorTransform.count == 16 else {
+            throw SessionBundleError.invalidTransform(index)
+        }
+        return Transform3D.fromFlat(tableAnchorTransform)
     }
 
     public func capturedFrame() throws -> CapturedFrame {
@@ -271,13 +340,20 @@ public struct RecordedFrameMeta: Sendable, Equatable, Codable {
             if let videoFrame = info.videoFrame { object["videoFrame"] = .int(videoFrame) }
             image = .object(object)
         }
-        return .object([
+        var object: [String: JSONValue] = [
             "index": .int(index),
             "timestamp": .double(timestamp),
             "cameraTransform": .doubles(cameraTransform),
             "intrinsics": .optional(intrinsics?.canonical()),
             "image": image
-        ])
+        ]
+        // Emitted only when set, so frames written before the fields
+        // existed (and every frame whose pixels made it) are unchanged.
+        if videoDropped == true { object["videoDropped"] = .bool(true) }
+        if let tableAnchorTransform { object["tableAnchorTransform"] = .doubles(tableAnchorTransform) }
+        if let displayTransform { object["displayTransform"] = .doubles(displayTransform) }
+        if let interfaceOrientation { object["interfaceOrientation"] = .string(interfaceOrientation) }
+        return .object(object)
     }
 }
 

@@ -22,10 +22,14 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>CueSync AR uses the camera to see the billiards table and balls so it can draw live shot guidance on top of them.</string>
 	<key>ROBOFLOW_API_KEY</key>
 	<string>$(ROBOFLOW_API_KEY)</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>

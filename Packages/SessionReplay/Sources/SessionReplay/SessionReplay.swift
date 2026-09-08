@@ -20,6 +20,13 @@
 //      events.jsonl       RecordedEvent (taps: designate, call pocket, reset)
 //      truth.json         SessionTruth (ground-truth ball layout)
 //      outputs.jsonl      OutputRecord — the replay's golden (frozen)
+//      snapshots.jsonl    RecordedSnapshot — device recordings only (~1 Hz
+//                         overlay projections, see RecordingSchema.swift)
+//      video.mp4          device recordings only (manifest.video names it)
+//
+//  Device bundles are written by SessionBundleRecorder (streaming, one line
+//  per processed frame, manifest with a sha256 per file at stop); the app's
+//  recorder wires it to the live pipeline through RecordingDetectionProvider.
 //
 
 import Foundation
