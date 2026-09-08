@@ -69,6 +69,10 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
     /// rebase against its ARKit-refreshed position so the rectangle stays
     /// glued to the cloth while the device moves mid-calibration.
     public private(set) var calibrationAnchor: ARAnchor?
+    /// The configuration the session is running, kept so a camera hand-off
+    /// can resume with the same one (and the same world map) instead of
+    /// letting RealityKit auto-configure a fresh, re-origined session.
+    private var lastConfiguration: ARConfiguration?
 
     public override init() {
         // RealityKit owns session configuration (automaticallyConfigureSession
@@ -96,6 +100,43 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
                                                              from: data) {
             configuration.initialWorldMap = map
         }
+        lastConfiguration = configuration
+        arView.session.run(configuration)
+    }
+
+    // MARK: - Camera hand-off (front-camera preview)
+
+    /// True while the AR session is suspended for the front-camera preview.
+    /// The app's session loop reads this to stop pulling frames — a paused
+    /// session never delivers one, so an ungated `nextFrame()` would hang.
+    public private(set) var isSuspendedForCameraHandoff = false
+
+    /// Suspend the AR session so a plain AVCapture front-camera preview can
+    /// own the camera, WITHOUT destroying the session.
+    ///
+    /// The distinction matters more than it looks. Tearing the ARView down
+    /// (which is what removing it from the view hierarchy does) drops the
+    /// world origin, and every calibration corner is stored in world
+    /// coordinates — so the corners came back somewhere else entirely when
+    /// the user flipped back. Pausing keeps the session object, its anchors
+    /// and its map; `resumeFromCameraHandoff()` re-runs the SAME
+    /// configuration with no `.resetTracking`, so ARKit relocalizes into the
+    /// original origin and the corners land where they were left.
+    public func suspendForCameraHandoff() {
+        guard !isSuspendedForCameraHandoff else { return }
+        isSuspendedForCameraHandoff = true
+        pendingRequest.take()?.resume(returning: nil)
+        arView.session.pause()
+    }
+
+    /// Resume after the front-camera preview released the camera. Re-runs
+    /// the last configuration with NO reset options: resetting tracking or
+    /// removing anchors here would reintroduce exactly the corner-drift bug
+    /// this pair exists to fix.
+    public func resumeFromCameraHandoff() {
+        guard isSuspendedForCameraHandoff else { return }
+        isSuspendedForCameraHandoff = false
+        let configuration = lastConfiguration ?? ARWorldTrackingConfiguration()
         arView.session.run(configuration)
     }
 
