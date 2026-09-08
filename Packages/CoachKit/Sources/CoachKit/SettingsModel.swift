@@ -108,6 +108,8 @@ public enum SettingsKey {
     /// Pre-existing key, written by the HUD mode menu since M6-01.
     public static let practiceMode = "practiceMode"
     public static let visibleMissGrace = "visibleMissGrace"
+    /// T1.3: the owner's deliberate CPU pin for the bundled detector.
+    public static let detectorPinnedToCPU = "detectorPinnedToCPU"
 }
 
 /// Everything the owner can change without a rebuild.
@@ -148,6 +150,11 @@ public struct SettingsModel: Sendable, Equatable {
         didSet { visibleMissGrace = Self.clamped(visibleMissGrace, to: Self.visibleMissGraceRange,
                                                  fallback: Self.defaultVisibleMissGrace) }
     }
+    /// T1.3: keep the bundled detector on the CPU deliberately, instead of
+    /// letting the Neural Engine probe decide. Off by default — the probe
+    /// pins the CPU by itself after a crash. Read at model load, so a
+    /// change takes effect on the next launch.
+    public var detectorPinnedToCPU = false
 
     /// The defaults — what a fresh install runs on.
     public init() {}
@@ -184,6 +191,9 @@ public struct SettingsModel: Sendable, Equatable {
             visibleMissGrace = Self.clamped(raw, to: Self.visibleMissGraceRange,
                                             fallback: Self.defaultVisibleMissGrace)
         }
+        if let raw = store.bool(forKey: SettingsKey.detectorPinnedToCPU) {
+            detectorPinnedToCPU = raw
+        }
     }
 
     /// Write every setting. Writing all of them (rather than only what
@@ -205,7 +215,8 @@ public struct SettingsModel: Sendable, Equatable {
             SettingsKey.guideSpeed: .double(guideSpeed),
             SettingsKey.debugMirrorEnabled: .bool(debugMirrorEnabled),
             SettingsKey.practiceMode: .string(practiceMode.rawValue),
-            SettingsKey.visibleMissGrace: .double(visibleMissGrace)
+            SettingsKey.visibleMissGrace: .double(visibleMissGrace),
+            SettingsKey.detectorPinnedToCPU: .bool(detectorPinnedToCPU)
         ]
     }
 

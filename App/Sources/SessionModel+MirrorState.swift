@@ -14,6 +14,10 @@ extension SessionModel {
     func mirrorStateJSON() -> Data? {
         var state: [String: Any] = [
             "build": AppBuild.json,
+            // T1.3: which compute units the bundled detector loaded with,
+            // and whether the Neural Engine probe passed, fell back, or
+            // was never attempted (see SessionModel+Providers.swift).
+            "detectorCompute": DetectorCompute.mirrorState,
             "liveTracking": isLiveTracking,
             "onDeviceDetection": usingOnDeviceDetection,
             "calibrationLocked": calibration.isLocked,

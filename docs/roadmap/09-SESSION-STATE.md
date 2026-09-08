@@ -27,9 +27,12 @@ Working on device (iPhone 16 Pro, iPad 9th gen):
   allowed with 8% snap to standard), ARWorldMap persistence + relocalization,
   anchor-rooted overlays (drift fix), camera flip, auto box orientation.
 - On-device detection: bundled `App/Resources/BallDetector.mlpackage`
-  (YOLOv11n fine-tune, mAP50 0.896 — see M2-01 in 06-MILESTONES). **Pinned to
-  `.cpuOnly`** in `SessionModel.loadBundledDetector` — GPU/ANE crashes with
-  "MPSGraph MLIR pass manager failed" on iOS 26 (see "ANE re-export" below).
+  (YOLOv11n fine-tune, mAP50 0.896 — see M2-01 in 06-MILESTONES). Compute
+  units: **`.cpuAndNeuralEngine` behind a crash-safe probe** since
+  2026-09-07 (branch `claude/ane-compute-units`, needs-device-run) —
+  the `.cpuOnly` pin comes back automatically if the ANE path aborts (see
+  "ANE re-export" below). Never `.all`: GPU/MPSGraph crashes with "MPSGraph
+  MLIR pass manager failed" on iOS 26.
 - Live loop: pipeline → tracker → TableState → aim (stick-based with
   device-pose fallback) → AnalyticSolver → RealityKit overlays; ShotGuide
   tip-contact coaching card; pocket calling (M6-02); tap-to-designate cue
@@ -294,18 +297,68 @@ detailed Reddit write-up of the identical crash) established:
   because no CoreML NMS spec accepts fp16 input). YOLOv11 uses SiLU (well
   supported), NOT Mish — so this is not the Mish/Softplus fp16 bug.
 
-**NEXT EXPERIMENT (one-line, do with the device + a human watching):** flip
-`SessionModel.loadBundledDetector` from `.cpuOnly` to
-**`.cpuAndNeuralEngine`** (NOT `.all`) with the CURRENT bundled model — no
-re-export needed. If it runs: un-pin achieved, ANE ~3× CPU, fast-ball
-detection improves. If it still SIGABRTs: the ANE path is also affected on
-this iPad → stay `.cpuOnly`, file Apple feedback. **Before trying it,
-implement a crash-safe probe** (persist an "attempting ANE" flag before the
-first inference, clear it after the first success; on launch, if the flag
-is still set the last run crashed → force `.cpuOnly`). That converts the
-risky test into a self-healing one — no more manual crash-loop recovery.
-Retrained weights + all export variants persist at
-outside the repo (best.pt, best_ios16_fixed, best_ios17_fixed).
+**2026-09-07 SHIPPED (branch `claude/ane-compute-units`, needs-device-run):
+`.cpuAndNeuralEngine` behind a crash-safe probe.** `loadBundledDetector`
+now asks for `.cpuAndNeuralEngine` (NOT `.all`) with the CURRENT bundled
+model — no re-export. The outcome is NOT known: the Simulator has no
+Neural Engine and the build proves nothing about the abort. What shipped:
+
+- **Probe** (`DetectorComputeProbe`, PerceptionKit, 16 Linux tests): a
+  marker file `Application Support/CueSync/detector-compute-probe.json` is
+  written with `Data.write(.atomic)` + `fsync` BEFORE each ANE step that
+  can abort (the `MLModel`/`VNCoreMLModel` inits, then the first
+  `detect`) and cleared AFTER the step returns. Both are synchronous
+  syscalls, so a SIGABRT between them cannot lose the marker (process
+  death does not touch the page cache; the fsync covers power loss too).
+  `UserDefaults` was rejected for this because its writes are proxied to
+  `cfprefsd` and are not guaranteed to have left the process before an
+  immediate abort. A launch that finds the marker set counts a crash,
+  sets `pinnedToCPU`, and loads `.cpuOnly`. "First success" = the first
+  `detect` call that RETURNS A RESULT; a thrown Swift error clears the
+  marker but does not count, and the next call probes again. A normal
+  exit between load and first inference leaves no marker (not a crash).
+- **Owner controls**: Settings → "Detector compute" shows the probe line,
+  a "Pin detector to CPU" toggle (`SettingsModel.detectorPinnedToCPU`,
+  key `detectorPinnedToCPU`, wins over the probe) and "Retry Neural
+  Engine on next launch" (enabled only while a crash pin is set). Mirror:
+  `/cmd?action=resetComputeProbe`. Both take effect on the next launch —
+  the loaded model cannot swap units in place.
+- **Where to read it**: `/state.json` → `detectorCompute` block:
+  `units` (`cpuAndNeuralEngine` | `cpuOnly`), `phase` (`attempting` |
+  `succeeded` | `fellBack` | `optedOut` | `loadFailed`), `crashedLastRun`,
+  `crashes`, `successes`, `pinnedToCPU`, `relaunchNeeded`, `summary`,
+  `marker` (path). Console (filter "cuesync"): `detector compute: …` at
+  notice level on every launch; `.error` when a crash was detected.
+
+**What the owner will observe (pick one and report it):**
+
+1. **ANE works.** App launches, calibrate, lock: rings appear. `/state.json`
+   `detectorCompute.units == "cpuAndNeuralEngine"` and `phase` flips from
+   `attempting` to `succeeded` within a second of lock (`successes` ≥ 1).
+   Settings line reads "Detector: Neural Engine, probe passed (1 run)".
+   Report: the `detectorCompute` block, plus the `frameDiag` block over ~30 s
+   (`delivered` should climb faster than the CPU-era ~6-7 Hz).
+2. **ANE aborts.** The app dies at calibration lock (or at launch, if the
+   abort is in model load) — ONCE. Relaunch: it comes up on the CPU and
+   stays up. `detectorCompute.units == "cpuOnly"`, `phase == "fellBack"`,
+   `crashedLastRun == true`, `crashes == 1`. Settings line: "Detector: CPU —
+   Neural Engine crashed last run (1 total); reset to retry". No reinstall.
+   Report: that block + the crash log from Settings → Privacy → Analytics
+   (look for `MPSGraph`/`MLIR` in the abort frame; if it is NOT MPSGraph,
+   that is new information — attach it). Then file the Apple feedback.
+3. **ANE was never attempted** (how to tell 2 from 3): `phase ==
+   "optedOut"` means the Settings pin is on; `phase == "fellBack"` with
+   `crashedLastRun == false` means an EARLIER launch crashed and the pin
+   is still set from then; `units == "notLoaded"` means the bundled model
+   was not found (simulator build). `phase == "loadFailed"` means Core ML
+   THREW on the ANE load rather than aborting — also report that log line.
+4. **Reset and retry**: Settings → Retry Neural Engine on next launch (or
+   `/cmd?action=resetComputeProbe`), then relaunch. `crashes` keeps
+   counting across retries; a second crash after a reset gives `crashes ==
+   2` — do not retry a third time, report it.
+
+Retrained weights + all export variants persist outside the repo
+(best.pt, best_ios16_fixed, best_ios17_fixed).
 
 ## Device-session working notes (for agents driving the Mac remotely)
 
@@ -341,10 +394,10 @@ outside the repo (best.pt, best_ios16_fixed, best_ios17_fixed).
    replay suite runs on synthetic data only.
 3. **M2-04/M2-05** — ingest that bundle as the fixed eval set; promote
    `Replay golden (Linux)` from the scripted fixture to real data.
-4. **T1.3 ANE, tested correctly** — the crash was only ever reproduced with
-   `.all` (GPU/MPSGraph); `.cpuAndNeuralEngine` (the documented
-   crash-avoider) has never been tried. One-line compute-unit flip behind a
-   crash-safe probe, before any re-export work. See the ANE section.
+4. **T1.3 ANE, tested correctly** — SHIPPED on `claude/ane-compute-units`
+   (2026-09-07): `.cpuAndNeuralEngine` behind the crash-safe probe. What
+   remains is the device run: launch, lock, read `detectorCompute` in
+   `/state.json`, report per the four outcomes in the ANE section.
 5. **Independent re-review of the agent-runner remediation** before the
    PAUSED file is cleared (#3).
 6. **Connect `visibleMissGrace`** — settings persists and mirrors it; the

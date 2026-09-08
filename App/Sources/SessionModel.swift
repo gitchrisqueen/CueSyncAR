@@ -606,7 +606,7 @@ extension SessionModel {
         case "stopRecording":
             Task { await stopRecording(reason: .user) }
         default:
-            Self.log.info("mirror command ignored: \(String(describing: params), privacy: .public)")
+            handleProviderMirrorCommand(params)
         }
     }
 

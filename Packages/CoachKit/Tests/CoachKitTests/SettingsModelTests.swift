@@ -17,6 +17,8 @@ struct SettingsModelTests {
         #expect(settings.debugMirrorEnabled)
         #expect(settings.practiceMode == .freePlay)
         #expect(settings.visibleMissGrace == SettingsModel.defaultVisibleMissGrace)
+        // The Neural Engine probe decides by itself unless the owner pins.
+        #expect(settings.detectorPinnedToCPU == false)
     }
 
     @Test func loadingAnEmptyStoreYieldsTheDefaults() {
@@ -34,6 +36,7 @@ struct SettingsModelTests {
         written.debugMirrorEnabled = false
         written.practiceMode = .calledShots
         written.visibleMissGrace = 1.5
+        written.detectorPinnedToCPU = true
         written.persist(to: store)
 
         let reloaded = SettingsModel(loading: store)
@@ -43,6 +46,7 @@ struct SettingsModelTests {
         #expect(reloaded.debugMirrorEnabled == false)
         #expect(reloaded.practiceMode == .calledShots)
         #expect(reloaded.visibleMissGrace == 1.5)
+        #expect(reloaded.detectorPinnedToCPU)
         #expect(reloaded == written)
     }
 
@@ -59,6 +63,7 @@ struct SettingsModelTests {
         written.debugMirrorEnabled = false
         written.practiceMode = .guidedDrill
         written.visibleMissGrace = 0.4
+        written.detectorPinnedToCPU = true
         written.persist(to: store)
 
         // A brand-new store instance over the same defaults — the app's
@@ -139,6 +144,7 @@ struct SettingsModelTests {
         #expect(settings.detectionProvider == .onDevice)
         #expect(settings.debugMirrorEnabled)
         #expect(settings.visibleMissGrace == SettingsModel.defaultVisibleMissGrace)
+        #expect(settings.detectorPinnedToCPU == false)
     }
 
     @Test func corruptValuesFallBackToDefaultsWithoutLosingValidNeighbors() {
@@ -148,7 +154,8 @@ struct SettingsModelTests {
             SettingsKey.guideSpeed: .string("fast"),               // wrong type
             SettingsKey.debugMirrorEnabled: .string("yes"),        // wrong type
             SettingsKey.practiceMode: .string("trickShots"),       // unknown case
-            SettingsKey.visibleMissGrace: .double(.nan)            // not finite
+            SettingsKey.visibleMissGrace: .double(.nan),           // not finite
+            SettingsKey.detectorPinnedToCPU: .string("true")       // wrong type
         ])
         #expect(SettingsModel(loading: store) == SettingsModel())
     }
@@ -211,8 +218,10 @@ struct SettingsModelTests {
         settings.detectionProvider = .hosted
         settings.practiceMode = .calledShots
         settings.debugMirrorEnabled = false
+        settings.detectorPinnedToCPU = true
 
         let snapshot = settings.snapshot
+        #expect(snapshot[SettingsKey.detectorPinnedToCPU] == .bool(true))
         #expect(snapshot[SettingsKey.guideSpeed] == .double(4.5))
         #expect(snapshot[SettingsKey.visibleMissGrace] == .double(1.25))
         #expect(snapshot[SettingsKey.tableSize] == .string("sevenFoot"))
@@ -221,7 +230,7 @@ struct SettingsModelTests {
         #expect(snapshot[SettingsKey.debugMirrorEnabled] == .bool(false))
         // Every setting is in the snapshot: the mirror is how the owner
         // confirms a change took effect without touching the device.
-        #expect(snapshot.count == 6)
+        #expect(snapshot.count == 7)
     }
 
     // MARK: Pipeline restart hints
