@@ -46,7 +46,8 @@ extension SessionModel {
         applyDebugMirrorSetting()
         // Guide speed feeds the solver: force a re-solve so a new speed
         // shows up even when the aim itself sits inside the deadband.
-        lastPredictedState = nil
+        shotPlanner.guideSpeed = settings.guideSpeed
+        shotPlanner.invalidate()
         if let previous, isLiveTracking,
            settings.requiresPipelineRestart(comparedTo: previous) {
             resetBallTracking()

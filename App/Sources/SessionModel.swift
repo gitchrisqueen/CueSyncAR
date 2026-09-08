@@ -260,7 +260,7 @@ final class SessionModel {
     private(set) var stickQuad: [Vec2]?
     /// Where the current aim comes from: the detected cue stick when one
     /// is addressing the ball, else the device-pose sighting model.
-    enum AimSource { case stick, devicePose }
+    typealias AimSource = AimResolver.Source
     private(set) var aimSource: AimSource = .devicePose
     /// B3 anchor following (SessionModel+AnchorFollowing.swift): the anchor
     /// transform the lock-time calibration was expressed against, that
@@ -340,9 +340,10 @@ final class SessionModel {
     /// True when live tracking runs on the bundled Core ML model rather
     /// than the hosted evaluation API.
     private(set) var usingOnDeviceDetection = false
-    @ObservationIgnored private let aimEngine = AimEngine()
-    @ObservationIgnored private let solver: any TrajectorySolving = AnalyticSolver()
-    @ObservationIgnored private var lastTrackingIngestAt: Date = .distantPast
+    /// Hosted-API tracking cadence limiter, timed by frame capture time
+    /// (0.5 s = previewInterval) — never wall time, so a recorded session
+    /// throttles identically under replay.
+    @ObservationIgnored private var trackingIngestThrottle = IngestThrottle(minimumInterval: 0.5)
 
     var isLiveTracking: Bool { pipeline != nil }
 
@@ -421,11 +422,8 @@ final class SessionModel {
         calledShotOnLine = false
         designatedCueBallID = nil
         usingOnDeviceDetection = false
-        aimStabilizer.reset()
-        lastAimSource = nil
-        lastStickAim = nil
-        lastStickAimAt = nil
-        lastPredictedState = nil
+        shotPlanner.reset()
+        trackingIngestThrottle.reset()
         latestDetectionLabels = []
     }
 
@@ -438,11 +436,8 @@ final class SessionModel {
         guard let pipeline else { return }
         followTableAnchor(tableAnchorTransform)
         if !usingOnDeviceDetection {
-            guard Date().timeIntervalSince(lastTrackingIngestAt) >= previewInterval else {
-                return
-            }
+            guard trackingIngestThrottle.admit(at: frame.timestamp) else { return }
         }
-        lastTrackingIngestAt = Date()
         Task { await pipeline.ingest(frame, tableAnchorTransform: tableAnchorTransform) }
     }
 
@@ -459,112 +454,60 @@ final class SessionModel {
     var guideSpeed: Double { settings.guideSpeed }
 
     @ObservationIgnored private var lastAimNilLogAt: Date = .distantPast
-    /// Aim stabilization state (see AimStabilizer): smoothing + deadband.
-    @ObservationIgnored private var aimStabilizer = AimStabilizer()
-    @ObservationIgnored private var lastAimSource: AimSource?
-    /// Last stick-derived aim + when it was last freshly detected. The
-    /// on-device detector emits the stick in bursts (measured 2026-07-23 at
-    /// the table: fresh stick projections only ~7% of frames, gaps up to
-    /// ~6 s), so aim is HELD for `stickAimHold` after the last fresh detect
-    /// instead of snapping to the device-pose model and back — the "aim
-    /// jumping" flicker. Time-based, not a frame count: `updateAim`'s call
-    /// rate varies with the frame-pull loop, so a fixed count gave an
-    /// unpredictable hold (~1.2–2 s) that lapsed mid-gap.
-    @ObservationIgnored private var lastStickAim: AimRay?
-    @ObservationIgnored private var lastStickAimAt: Date?
-    /// How long a stick aim stays live after its last fresh detection.
-    /// Bridges the measured typical gap without persisting so long that aim
-    /// lingers after the cue is lifted.
-    private static let stickAimHold: TimeInterval = 2.5
-    /// State the current prediction was solved against — a changed ball
-    /// layout forces a re-solve even inside the aim deadband.
-    @ObservationIgnored var lastPredictedState: TableState?
-
-    /// Material layout change (ball added/removed/rolled > 5 mm or
-    /// re-classified) — Kalman sub-millimeter jitter and the per-frame
-    /// timestamp must NOT count, or the aim deadband never engages.
-    private static func layoutMoved(from old: TableState?, to new: TableState,
-                                    tolerance: Double = 0.005) -> Bool {
-        guard let old, old.balls.count == new.balls.count else { return true }
-        for ball in new.balls {
-            guard let match = old.balls.first(where: { $0.id == ball.id }),
-                  match.kind == ball.kind,
-                  match.position.distance(to: ball.position) <= tolerance else {
-                return true
-            }
-        }
-        return false
-    }
+    /// The aim → stabilize → solve midsection (ARExperience.ShotPlanner):
+    /// stick-vs-device-pose selection with the seconds-based stick hold
+    /// (2.5 s, measured at the table — see AimResolver), AimStabilizer
+    /// smoothing + deadband, and re-solving only when the aim or the ball
+    /// layout actually changed. The same value type runs under
+    /// SessionReplay, so what the replay judges is what ships. Guide speed
+    /// is pushed in by `applySettings` (SessionModel+Settings).
+    @ObservationIgnored var shotPlanner = ShotPlanner(solver: AnalyticSolver(),
+                                                      guideSpeed: SettingsModel.defaultGuideSpeed)
+    /// Monotonic seconds for the stick-aim hold — the same time base as
+    /// ARFrame.timestamp (system uptime). Injectable so a test or replay
+    /// harness can drive the hold from recorded time instead of the wall.
+    @ObservationIgnored var clock: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
 
     func updateAim(cameraTransform: Transform3D) {
-        guard let calibration = tableCalibration,
-              let state = tableState,
-              let cue = state.cueBall else {
+        guard let calibration = tableCalibration, let state = tableState else {
             shotPrediction = nil
             shotGuide = nil
-            // Throttled: explain WHY no guides render (the #1 question
-            // when the screen shows nothing).
-            if Date().timeIntervalSince(lastAimNilLogAt) > 5 {
-                lastAimNilLogAt = Date()
-                let reason = tableCalibration == nil ? "no calibration"
-                    : tableState == nil ? "no pipeline output yet"
-                    : "no cue ball among \(tableState?.balls.count ?? 0) tracked balls (tap one to mark it)"
-                Self.log.info("updateAim: no guides — \(reason, privacy: .public)")
+            logNoGuides(tableCalibration == nil ? "no calibration" : "no pipeline output yet")
+            return
+        }
+        let (plan, changed) = shotPlanner.update(state: state,
+                                                 stickQuad: stickQuad,
+                                                 cameraTransform: cameraTransform,
+                                                 calibration: calibration,
+                                                 at: clock())
+        aimSource = shotPlanner.aimSource
+        guard let plan else {
+            shotPrediction = nil
+            shotGuide = nil
+            if state.cueBall == nil {
+                logNoGuides("no cue ball among \(state.balls.count) tracked balls (tap one to mark it)")
             }
             return
         }
-        // Aim source with hysteresis: a stick estimate wins; when the stick
-        // momentarily drops out of detection, keep its last aim for a grace
-        // window instead of snapping to the device-pose model and back
-        // (each snap redraws every guide line — the "jumping" bug).
-        let rawAim: AimRay?
-        if let stickQuad,
-           let stickAim = StickAim.estimate(stickQuad: stickQuad,
-                                            cueBall: cue.position) {
-            rawAim = stickAim
-            lastStickAim = stickAim
-            lastStickAimAt = Date()
-            aimSource = .stick
-        } else if let held = lastStickAim, let at = lastStickAimAt,
-                  Date().timeIntervalSince(at) < Self.stickAimHold {
-            rawAim = held
-            aimSource = .stick
-        } else {
-            rawAim = aimEngine.aimRay(cameraTransform: cameraTransform,
-                                      cueBall: cue.position,
-                                      calibration: calibration)
-            aimSource = .devicePose
-        }
-        guard let rawAim else {
-            shotPrediction = nil
-            shotGuide = nil
-            return
-        }
-        // Temporal smoothing + deadband: tiny per-frame noise keeps the
-        // previous prediction perfectly still; intentional aim changes pass
-        // through after a couple of frames of smoothing.
-        if aimSource != lastAimSource {
-            aimStabilizer.reset()
-            lastAimSource = aimSource
-        }
-        let (aim, changed) = aimStabilizer.stabilize(rawAim)
-        if !changed, shotPrediction != nil,
-           !Self.layoutMoved(from: lastPredictedState, to: state) {
-            return
-        }
-        lastPredictedState = state
-        let prediction = solver.predict(state: state, aim: aim,
-                                        options: SolverOptions(initialSpeed: guideSpeed))
-        shotPrediction = prediction
-        shotGuide = ShotGuide.recommend(state: state, prediction: prediction)
+        guard changed else { return }
+        shotPrediction = plan.prediction
+        shotGuide = ShotGuide.recommend(state: state, prediction: plan.prediction)
         calledShotOnLine = calledPocket.map { called in
-            prediction.events.contains { event in
+            plan.prediction.events.contains { event in
                 if case let .pocket(ball, pocket) = event {
-                    return pocket == called && ball != cue.id
+                    return pocket == called && ball != state.cueBall?.id
                 }
                 return false
             }
         } ?? false
+    }
+
+    /// Throttled: explain WHY no guides render (the #1 question when the
+    /// screen shows nothing). Logging cadence only — never affects state.
+    private func logNoGuides(_ reason: String) {
+        guard Date().timeIntervalSince(lastAimNilLogAt) > 5 else { return }
+        lastAimNilLogAt = Date()
+        Self.log.info("updateAim: no guides — \(reason, privacy: .public)")
     }
 
     // MARK: Camera selection
