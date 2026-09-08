@@ -4,9 +4,14 @@
 (or human) can resume without a prior chat session. Update this file whenever
 a work session ends or a major finding lands.
 
-**Last update: 2026-09-07 (agent session, `main` @ `77f097d`).** Nine PRs
-merged in one session; the two device-visible bugs the operator reported are
-both fixed and both need a table run to confirm. Read the 2026-09-07 section
+**Last update: 2026-09-08 (agent session, `main` @ `e3e2581`).** Fifteen PRs
+merged across two sessions (`83bd090` → `e3e2581`); the two device-visible
+bugs the operator reported are both fixed and both need a table run to
+confirm. **The iPad (9th gen, iPadOS 26.6) was loaded with `e3e2581` on
+2026-09-08** — install verified, app launches and stays up, and the probe
+marker is present but `armed:false` (the detector loads only once a session
+starts, so the ANE path is still unexercised). The next table run answers
+all four open device questions at once; see "Next steps". Read the 2026-09-07 section
 below first — it supersedes the July notes, which are kept for context.
 
 **The single most important finding of that session:** the sphere-centre
@@ -29,7 +34,7 @@ Working on device (iPhone 16 Pro, iPad 9th gen):
 - On-device detection: bundled `App/Resources/BallDetector.mlpackage`
   (YOLOv11n fine-tune, mAP50 0.896 — see M2-01 in 06-MILESTONES). Compute
   units: **`.cpuAndNeuralEngine` behind a crash-safe probe** since
-  2026-09-07 (branch `claude/ane-compute-units`, needs-device-run) —
+  2026-09-07 (merged as #20, `e3e2581`; needs-device-run) —
   the `.cpuOnly` pin comes back automatically if the ANE path aborts (see
   "ANE re-export" below). Never `.all`: GPU/MPSGraph crashes with "MPSGraph
   MLIR pass manager failed" on iOS 26.
@@ -297,7 +302,7 @@ detailed Reddit write-up of the identical crash) established:
   because no CoreML NMS spec accepts fp16 input). YOLOv11 uses SiLU (well
   supported), NOT Mish — so this is not the Mish/Softplus fp16 bug.
 
-**2026-09-07 SHIPPED (branch `claude/ane-compute-units`, needs-device-run):
+**2026-09-07 SHIPPED (merged as #20, `e3e2581`; needs-device-run):
 `.cpuAndNeuralEngine` behind a crash-safe probe.** `loadBundledDetector`
 now asks for `.cpuAndNeuralEngine` (NOT `.all`) with the CURRENT bundled
 model — no re-export. The outcome is NOT known: the Simulator has no
@@ -380,10 +385,15 @@ Retrained weights + all export variants persist outside the repo
 ## Next steps (ordered)
 
 1. **Table run on the current build** — this is the gate on everything
-   perception-related. Three questions, in order of value: (a) do the rings
+   perception-related. The iPad already carries it (`e3e2581`, loaded
+   2026-09-08). Four questions, in order of value: (a) do the rings
    and guides sit ON the balls now (#8); (b) does anything still render past
    the cushion nose, and do rail-frozen balls still render at the contact
-   line (#11); (c) do phantom rings clear within ~1 s of a shot (#7). Tick
+   line (#11); (c) do phantom rings clear within ~1 s of a shot (#7);
+   (d) what does Settings → Detector compute say afterwards (#20 — a single
+   crash on the first session that recovers on relaunch is the probe working
+   as designed, not a regression). Do this run AS the recording in step 2:
+   one trip answers all four and produces the bundle. Tick
    M3-06 rows as they verify. If rail balls clip, read the size delta the
    app shows at calibration lock BEFORE touching the slack — the 8 % snap
    keeps the measured centroid as origin, so a mis-tapped table can put the
@@ -394,10 +404,13 @@ Retrained weights + all export variants persist outside the repo
    replay suite runs on synthetic data only.
 3. **M2-04/M2-05** — ingest that bundle as the fixed eval set; promote
    `Replay golden (Linux)` from the scripted fixture to real data.
-4. **T1.3 ANE, tested correctly** — SHIPPED on `claude/ane-compute-units`
-   (2026-09-07): `.cpuAndNeuralEngine` behind the crash-safe probe. What
-   remains is the device run: launch, lock, read `detectorCompute` in
-   `/state.json`, report per the four outcomes in the ANE section.
+4. **T1.3 ANE, tested correctly** — SHIPPED and merged as #20 (`e3e2581`).
+   Loaded on the iPad 2026-09-08; launch alone does NOT exercise it
+   (marker read back `armed:false`, zero successes, zero crashes). What
+   remains is a session at the table: lock a table, let the detector run,
+   then read `detectorCompute` in `/state.json` or Settings and report per
+   the four outcomes in the ANE section. Folded into step 1 — it costs
+   nothing extra once the camera is on a table.
 5. **Independent re-review of the agent-runner remediation** before the
    PAUSED file is cleared (#3).
 6. **Connect `visibleMissGrace`** — settings persists and mirrors it; the
@@ -411,8 +424,11 @@ Retrained weights + all export variants persist outside the repo
   `App/Config/Secrets.xcconfig`).
 - [x] Push the T1 device-verification work (2026-09-07, redacted squash
   `b9f03b2` → merged as #6).
-- [ ] **Table run on the current build** — the three questions in step 1.
-- [ ] **Record one session** once the recorder ships.
+- [ ] **Table run on the current build** — the four questions in step 1.
+  Tracked as ClickUp CS-07 (https://app.clickup.com/t/86e35y0h5); the iPad
+  was loaded with `e3e2581` on 2026-09-08, so nothing blocks it.
+- [ ] **Record one session** — the recorder shipped (#18); walkthrough in
+  `docs/recording-a-session.md`. Same trip as the row above.
 - [ ] One-time review of the M1-03 golden fixtures (then tick M1-03's
   "human-reviewed" exit criterion in 06-MILESTONES.md).
 - [ ] Agent-runner go/no-go: GitHub App + `/opt/cuesync-agent` + secrets
