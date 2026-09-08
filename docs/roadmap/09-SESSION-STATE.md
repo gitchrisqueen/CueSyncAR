@@ -4,47 +4,20 @@
 (or human) can resume without a prior chat session. Update this file whenever
 a work session ends or a major finding lands.
 
-**Last update: 2026-07-23 (post-loop, shot session), branch
-`claude/T1-tier1-verification`.** The operator shot 4 balls through the mirror →
-two findings (docs/validation): (1) the on-device detector is BLIND to a
-ball at shot speed — every shot is a start→end teleport with zero
-mid-flight detections, so predicted-vs-ACTUAL bank *path* capture is gated
-on detection speed (T1.3) or lag-speed shots, not tracker tuning; (2)
-phantom track lingers ~3.5 s at a shot's origin (BallTracker retires far
-duplicates only within gatingDistance) — queued as task, fix via a
-replay-test-driven change (identity handoff, NOT empty-neighborhood
-retirement — that breaks occlusion robustness; see task). Also RESEARCH
-(offline): the T1.3 crash was tested wrong — only `.all` (GPU/MPSGraph)
-was tried, never `.cpuAndNeuralEngine` (the documented crash-avoider +
-correct camera-app unit); next experiment is a one-line compute-unit flip
-behind a crash-safe probe (see ANE section). Earlier: AR overlay
-relocalization-rotation bug
-FIXED (`c0e3ecf`): `OverlayRenderer` now places entities in true world
-space (`setPosition(relativeTo: nil)`) instead of the `world − rootOrigin`
-shortcut that ignored the relocalized anchor's yaw — overlays no longer
-float off the cloth after relaunch; strip orientation kept anchor-local on
-purpose (table-space heading + anchor rotates with the table). Before/after
-frames in docs/validation. App on the known-good `.cpuOnly` build. Earlier
-this session (autonomous loop): stick aim VERIFIED engaging on device and
-its flicker fixed (2.5 s time-based hold; duty 50%→86% — `0e62a3d`); the
-on-table stick gate (`b8c805a`) holds. Mirror now exposes the predicted
-trajectory (`prediction` field: path + cushion/rest/pocket in table space —
-`bfcd097`), so bank ground truth is numerically loggable. First numeric
-bank prediction captured (docs/validation). App healthy on the `.cpuOnly`
-known-good build; no new crashes. STILL OPEN and needing a human at the
-table: object ball often untracked on black cloth at CPU cadence (detection
-sparsity — same root as T1.3); predicted-vs-ACTUAL bank still needs real
-shots [HUMAN]; T1.4 freeze not reproduced this session. Prior context from
-the third session below.
+**Last update: 2026-09-07 (agent session, `main` @ `77f097d`).** Nine PRs
+merged in one session; the two device-visible bugs the operator reported are
+both fixed and both need a table run to confirm. Read the 2026-09-07 section
+below first — it supersedes the July notes, which are kept for context.
 
-That session:
-`Tools/DetectionEval` offline eval CLI (runs the bundled model on stills via
-the app's provider — EXIF-aware; `img/` has real-table photos, `img/upright/`
-rotated copies); T1.2 (cushion-nose HUD copy, StandardSizeComparison + raw
-pre-snap size on TableCalibration, relocalization stopwatch, mirror keys
-`sizeVsStandard`/`relocalizationSeconds`) and T1.4 instrumentation
-(FrameDiagnostics counters + `frameDiag` in the mirror state) landed
-code-complete, `needs-device-run`; T1.3 retraining/export findings below.
+**The single most important finding of that session:** the sphere-centre
+projection had never run on device. `raycastToTablePlane(...planeHeightOffset:)`
+was declared only in the `PlaneRaycasting` protocol EXTENSION, so the
+pipeline's call through `any PlaneRaycasting` bound statically to the
+no-lift fallback. Every ball projected `r / tan(elevation)` long — 6.1 cm at
+25 degrees of camera elevation, 2.9 cm at 45. Fixed in #8 by promoting the
+method to a protocol requirement; guarded by `PlaneRaycastingDispatchTests`.
+Commit `cc37d92` ("Locate balls by sphere center") had shipped inert.
+
 
 ## Where the project stands
 
@@ -102,6 +75,102 @@ table and across a relocalization; if it stays at a few mm, this fix is
 a guard rail and C's is the whole story; if it climbs to 1–3 cm (loop
 closures, post-relocalization refinement), the A/B should show pockets
 and cushion lines snapping back onto the physical table with ON.
+
+## 2026-09-07 session — what landed, and what it needs from the table
+
+Nine PRs merged to `main` (`83bd090` → `77f097d`), plus #16 (SessionReplay)
+in flight. Everything below is `needs-device-run` unless stated otherwise.
+
+**Fixes aimed at what the operator actually saw**
+
+- **#8 PlaneRaycasting dispatch** — see the header. This is the bulk of the
+  "overlays sit a few cm off" symptom. Found independently by two
+  workstreams (the synthetic harness and the replay work), reproduced
+  end-to-end through the real pipeline before the fix.
+- **#7 phantom tracks** — `BallTracker` retired unmatched tracks on a frame
+  COUNT (`disappearanceFrames` 30). Frame counts are not a clock: at the
+  observed ~8.7 Hz that is 3.45 s, exactly the reported phantom lifetime.
+  Added `TrackerConfig.visibleMissGrace` (0.75 s, time-based, visibility
+  gated). The out-of-view occlusion guarantee is structurally preserved —
+  neither counter moves while nobody is looking. **0.75 s is a judgement
+  call, not a measurement**: if the detector drops a visible ball for
+  longer than that on real cloth, rings will flicker. That is the knob.
+- **#11 off-table tracks** — the surface gate only ever checked incoming
+  OBSERVATIONS; the tracker's output (what becomes `TableState`) was never
+  checked at all. The gate also admitted `halfExtents + 2r` while a real
+  ball centre cannot exceed `halfExtents − r` — 8.6 cm of physically
+  impossible space, a margin tuned while #8's bug was inflating every
+  projection. New `PlayingSurfaceGate` runs at both ends: observations are
+  admitted within a 4.5 cm slack band and CLAMPED onto the envelope (a rail
+  ball renders on the rail, never clipped), and tracker output is filtered.
+  Note the Kalman filter itself cannot overshoot — its update is a convex
+  combination — so tracks were off-table because the gate let them in, not
+  through filter drift. The output gate is enforced anyway because a
+  future velocity-state filter WOULD predict through cushions.
+- **#13 anchor following** — the pipeline held calibration frozen at lock
+  while overlays used the anchor's current transform. Now re-derived per
+  frame behind `PerceptionConfig.followsTableAnchor` (default on,
+  A/B via `/cmd?action=followAnchor&v=0|1`). **Sized honestly: this is
+  second-order next to #8.** For a horizontal table, horizontal and yaw
+  refinement do not move a ball ring at all; only vertical refinement does,
+  by `δy/tan(elevation)`. The mirror now reports `anchorDriftMm` — that
+  number is what decides whether this matters at all.
+
+**Instruments that make iteration table-free**
+
+- **#9 synthetic pinhole harness** (`CueSyncTestSupport`) — exact ground
+  truth, no hardware. Ideal round trip closes to 0.343 mm at 3.3 m. It is
+  what found #8. Any projection change is now measurable in millimetres on
+  Linux. It also measured a second, independent error source: rail-top
+  calibration taps at a realistic pose shift the ORIGIN by 48.5 mm.
+- **#16 SessionReplay** (in flight) — byte-exact replay on Linux, verified
+  in a `swift:6.1` container against a macOS-authored golden. Canonical
+  JSON writer, `Date()` purged from the ingest throttle, dictionary
+  iteration removed from `nearestEvent`. `SessionModel` runs the same value
+  types with an injectable clock, so replay judges the SHIPPED decision
+  logic rather than a copy.
+- **Session recorder** — the missing half. Nothing can yet produce a bundle
+  from the real table. Until one exists, the replay loop runs only on
+  synthetic and scripted data.
+
+**Product surface**
+
+- **#10 settings** (`SettingsModel` in CoachKit, `UserDefaults` seam typed
+  by value kind because `UserDefaults` bridges through `NSNumber` and an
+  untyped API reads a guide speed of `1.0` back as `true`). `visibleMissGrace`
+  is exposed and persisted but **the tracker does not read it yet** — a
+  one-line follow-up, and the UI says so rather than pretending.
+- **#12 build identity** — SHA/branch/dirty/built in the HUD, the mirror
+  and the startup log. `ENABLE_USER_SCRIPT_SANDBOXING` is `NO` on the app
+  target as a deliberate trade-off (the sandbox blocks both reading git and
+  writing the built plist); accepted by the owner 2026-09-07.
+- **#15 app icon** — and a silent failure fixed: the app had NEVER shipped
+  an icon. The catalog was wired in `project.yml` but empty, so `actool`
+  emitted no `Assets.car` and the build stayed green. Verify icon changes
+  by inspecting the built bundle (`assetutil --info Assets.car`), never by
+  a green build alone.
+- **#3 agent runner** — merged, but installed PAUSED and inert until the
+  GitHub App, host setup and an explicit go (CS-01/02/04). An adversarial
+  review found five blocking issues (write token reachable from the model's
+  shell, public review threads dispatched as work, a 100-file path check,
+  host FQDN in commit authors, and three defects that stopped it completing
+  a cycle); all were remediated, but **the remediation has not been
+  independently re-reviewed** — do that before clearing PAUSED.
+
+**Hazards worth not re-learning**
+
+- `App/Sources/SessionModel.swift` sits near SwiftLint's 1000-line
+  `file_length` ERROR. Three separate problems in one session traced to it,
+  including a CI break when two agents independently moved the same block to
+  different files (duplicate `PixelBufferImage` conformance). A proper split
+  is queued.
+- **`Scripts/test-all.sh` does not compile the app target.** A branch went
+  red in CI on the Simulator build while every package test was green.
+  Always run `xcodegen generate && xcodebuild -scheme CueSyncAR
+  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO
+  build` before claiming a change is verified.
+- Running `swift test` and `xcodebuild` concurrently in one worktree
+  produces spurious "cannot find type" failures from stale artifacts.
 
 ## RESOLVED 2026-07-22 (late session): guides + designation work at the table
 
@@ -257,27 +326,42 @@ outside the repo (best.pt, best_ios16_fixed, best_ios17_fixed).
 
 ## Next steps (ordered)
 
-1. Run the instrumented build on the iPad at the table; read
-   `com.cuesync.ar` logs + debug mirror; fix the ball-observation rejection
-   (this closes the designation/guides bug). → then tick M3-06 checklist
-   rows as they verify.
-2. Swap in the iOS16-target ANE export; un-pin `.cpuOnly`; measure Hz.
-3. M2-04 fixture capture tool (debug menu) — capture real-table fixtures;
-   M2-05 replay suite over them.
-4. M6-06 auto table detection (Vision rectangle pass over cloth mask →
-   corner proposal; manual flow stays as fallback) — answers "should the
-   table edge be detected".
-5. M6-01 practice-modes framework, then M6-03 guided drills
-   (08-PRACTICE-MODES.md). M4-02/03/04 polish as parallel work.
-6. Dataset rev: add dotted/measle cue-ball images; retrain per
-   `docs/model-testing.md`.
+1. **Table run on the current build** — this is the gate on everything
+   perception-related. Three questions, in order of value: (a) do the rings
+   and guides sit ON the balls now (#8); (b) does anything still render past
+   the cushion nose, and do rail-frozen balls still render at the contact
+   line (#11); (c) do phantom rings clear within ~1 s of a shot (#7). Tick
+   M3-06 rows as they verify. If rail balls clip, read the size delta the
+   app shows at calibration lock BEFORE touching the slack — the 8 % snap
+   keeps the measured centroid as origin, so a mis-tapped table can put the
+   modelled nose line ~10 cm off the real one.
+2. **Record one session** (`docs/recording-a-session.md`) — the recorder is
+   the last piece of the table-free loop. One five-minute bundle converts
+   every later perception change into a CI measurement. Until it exists the
+   replay suite runs on synthetic data only.
+3. **M2-04/M2-05** — ingest that bundle as the fixed eval set; promote
+   `Replay golden (Linux)` from the scripted fixture to real data.
+4. **T1.3 ANE, tested correctly** — the crash was only ever reproduced with
+   `.all` (GPU/MPSGraph); `.cpuAndNeuralEngine` (the documented
+   crash-avoider) has never been tried. One-line compute-unit flip behind a
+   crash-safe probe, before any re-export work. See the ANE section.
+5. **Independent re-review of the agent-runner remediation** before the
+   PAUSED file is cleared (#3).
+6. **Connect `visibleMissGrace`** — settings persists and mirrors it; the
+   tracker does not read it yet. One line in `trackerConfigFromSettings()`.
+7. M6-06 auto table detection; M4-02/03 polish; dataset rev for
+   dotted/measle cue balls (`docs/model-testing.md`).
 
 ## Human-action checklist
 
-- [x] Rotate/revoke pre-M0 Roboflow key (done 2026-07-21; new key in
-  untracked `App/Config/Secrets.xcconfig`).
-- [ ] Push `main`, `claude/M3-02-calibration-flow`,
-  `claude/ar-billiards-2026-roadmap-n1asv8` via SourceTree (all fast-forward).
+- [x] Rotate/revoke pre-M0 Roboflow key (2026-07-21; new key in untracked
+  `App/Config/Secrets.xcconfig`).
+- [x] Push the T1 device-verification work (2026-09-07, redacted squash
+  `b9f03b2` → merged as #6).
+- [ ] **Table run on the current build** — the three questions in step 1.
+- [ ] **Record one session** once the recorder ships.
 - [ ] One-time review of the M1-03 golden fixtures (then tick M1-03's
   "human-reviewed" exit criterion in 06-MILESTONES.md).
+- [ ] Agent-runner go/no-go: GitHub App + `/opt/cuesync-agent` + secrets
+  (CS-01), rulesets (CS-02), probe read (CS-04), seeded issues (CS-05).
 - [ ] Delete `_to_delete/` at the repo root whenever convenient.
