@@ -31,6 +31,13 @@ import Testing
 /// this file is a ratchet: it cannot silently get worse, and each Phase-2
 /// PR tightens the numbers it improves.
 private struct StabilityBars {
+    /// Guards the whole set: every other bar improves when nothing is
+    /// drawn, so without a floor here a change that suppressed the guide
+    /// entirely would look like a clean sweep.
+    var minAimedFrameRate: Double = 0
+    /// Ceiling on how often a guide is drawn, for clips where drawing one
+    /// is the fault.
+    var maxAimedFrameRate: Double = 1
     var maxStickPresentRate: Double = 1
     var minStickAimRate: Double = 0
     var maxSourceTransitionsPerMinute: Double = .infinity
@@ -75,13 +82,14 @@ private let goldenBundles: [GoldenBundle] = [
     // measured.
     GoldenBundle(name: "device-aimed-cue",
                  stability: StabilityBars(
-                    minStickAimRate: 0.75,
-                    maxSourceTransitionsPerMinute: 5.0,
+                    minAimedFrameRate: 0.35,
+                    minStickAimRate: 0.95,
+                    maxSourceTransitionsPerMinute: 1.0,
                     maxHeadingDeltaMax: 7.0,
-                    maxPlanChangedRate: 0.26,
+                    maxPlanChangedRate: 0.23,
                     maxSegmentCount: 4,
-                    maxPredictionLengthP95: 2.2,
-                    maxFarEndShiftP95: 1.4,
+                    maxPredictionLengthP95: 2.0,
+                    maxFarEndShiftP95: 1.3,
                     maxTrackChurn: 16,
                     maxCueIDChanges: 6)),
 
@@ -92,10 +100,14 @@ private let goldenBundles: [GoldenBundle] = [
     // inversion is the bug; `maxStickPresentRate` is the ratchet on it.
     GoldenBundle(name: "device-lying-cue",
                  stability: StabilityBars(
+                    // A CEILING, not a floor: on this clip a guide is a
+                    // false positive, so fewer is better. It exists to
+                    // catch a regression that starts drawing them again.
+                    maxAimedFrameRate: 0.55,
                     maxStickPresentRate: 1.0,
                     maxSourceTransitionsPerMinute: 1.0,
                     maxHeadingDeltaMax: 5.0,
-                    maxPlanChangedRate: 0.44,
+                    maxPlanChangedRate: 0.27,
                     maxSegmentCount: 3,
                     maxPredictionLengthP95: 0.8,
                     maxFarEndShiftP95: 0.2,
@@ -237,6 +249,8 @@ struct GoldenReplayTests {
         let report = StabilityReport.compute(outputs: result.outputs)
         print("StabilityReport [\(name)] \(report.summary)")
 
+        #expect(report.aimedFrameRate >= bars.minAimedFrameRate, "\(report.summary)")
+        #expect(report.aimedFrameRate <= bars.maxAimedFrameRate, "\(report.summary)")
         #expect(report.stickPresentRate <= bars.maxStickPresentRate, "\(report.summary)")
         #expect(report.stickAimRate >= bars.minStickAimRate, "\(report.summary)")
         #expect(report.sourceTransitionsPerMinute <= bars.maxSourceTransitionsPerMinute,

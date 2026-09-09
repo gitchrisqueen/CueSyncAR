@@ -63,6 +63,11 @@ public struct RecordingInfo: Sendable, Equatable, Codable {
     /// B3 A/B switch in force: whether the live pipeline re-derived the
     /// calibration from the table anchor each frame. The replay honours it.
     public var followsTableAnchor: Bool
+    /// Whether the device was parked (tripod, propped) rather than held.
+    /// Replay needs it because it decides whether the device-pose sighting
+    /// model is a legitimate aim source; optional so bundles recorded
+    /// before the setting existed still decode.
+    public var deviceParked: Bool?
     /// "user" | "cap" | "error: <short reason>".
     public var stopReason: String
 
@@ -75,7 +80,8 @@ public struct RecordingInfo: Sendable, Equatable, Codable {
                 capSeconds: Int, durationSeconds: Double,
                 videoCodec: String? = nil, videoFrames: Int, videoDroppedFrames: Int,
                 guideSpeed: Double, visibleMissGrace: Double, practiceMode: String,
-                metricPalette: Bool, followsTableAnchor: Bool = true, stopReason: String) {
+                metricPalette: Bool, followsTableAnchor: Bool = true,
+                deviceParked: Bool? = nil, stopReason: String) {
         self.appCommit = appCommit
         self.appBranch = appBranch
         self.appDirty = appDirty
@@ -102,6 +108,7 @@ public struct RecordingInfo: Sendable, Equatable, Codable {
         self.practiceMode = practiceMode
         self.metricPalette = metricPalette
         self.followsTableAnchor = followsTableAnchor
+        self.deviceParked = deviceParked
         self.stopReason = stopReason
     }
 
@@ -121,6 +128,7 @@ public struct RecordingInfo: Sendable, Equatable, Codable {
             "guideSpeed": .double(guideSpeed), "visibleMissGrace": .double(visibleMissGrace),
             "practiceMode": .string(practiceMode),
             "metricPalette": .bool(metricPalette), "followsTableAnchor": .bool(followsTableAnchor),
+            "deviceParked": .optional(deviceParked.map(JSONValue.bool)),
             "stopReason": .string(stopReason)
         ]
         if let modelName { object["modelName"] = .string(modelName) }

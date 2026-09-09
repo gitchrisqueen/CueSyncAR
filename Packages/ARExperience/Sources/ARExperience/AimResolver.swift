@@ -36,6 +36,20 @@ public struct AimResolver: Sendable {
         public var stickHoldSeconds: TimeInterval
         /// Bounds on what counts as a cue being aimed (see `StickAim.Gate`).
         public var gate: StickAim.Gate
+        /// Whether the device-pose sighting model may supply an aim.
+        ///
+        /// Turn it OFF when the device is parked on a tripod. That model
+        /// aims from the cue ball toward wherever the CAMERA is looking,
+        /// which is a sound reading of "sight down the phone" and a
+        /// meaningless one for a device that is not moving: it becomes a
+        /// fixed line to whatever the tripod happens to face, and every
+        /// stick dropout snaps the guide onto it and back. On the
+        /// operator's recording 571 of 712 aimed frames came from device
+        /// pose that way.
+        public var allowDevicePose: Bool
+        /// How long a cue must sit still before it stops counting as an
+        /// aim source (see `StickDwell`).
+        public var dwell: StickDwell.Config
         /// A stick reading that DISAGREES with the current one (by more
         /// than `gate.continuityDegrees`) must repeat this many frames
         /// running before it takes over.
@@ -51,10 +65,14 @@ public struct AimResolver: Sendable {
 
         public init(stickHoldSeconds: TimeInterval = 2.5,
                     gate: StickAim.Gate = .default,
-                    reacquireFrames: Int = 3) {
+                    reacquireFrames: Int = 3,
+                    allowDevicePose: Bool = true,
+                    dwell: StickDwell.Config = .default) {
             self.stickHoldSeconds = stickHoldSeconds
             self.gate = gate
             self.reacquireFrames = reacquireFrames
+            self.allowDevicePose = allowDevicePose
+            self.dwell = dwell
         }
 
         public static let `default` = Config()
@@ -68,12 +86,17 @@ public struct AimResolver: Sendable {
     /// consecutive frames it has now been seen for.
     private var pendingStickAim: AimRay?
     private var pendingStickFrames = 0
+    private var dwell: StickDwell
+    /// Whether the last seen cue was judged furniture — surfaced so the
+    /// HUD can say WHY there is no guide instead of just not drawing one.
+    public private(set) var stickIsResting = false
     /// Source of the most recent resolution (device pose until a stick is seen).
     public private(set) var source: Source = .devicePose
 
     public init(config: Config = .default, engine: AimEngine = AimEngine()) {
         self.config = config
         self.engine = engine
+        self.dwell = StickDwell(config: config.dwell)
     }
 
     /// Resolve the raw (unsmoothed) aim for one update.
@@ -91,10 +114,29 @@ public struct AimResolver: Sendable {
                                  cameraTransform: Transform3D,
                                  calibration: TableCalibration,
                                  at time: TimeInterval) -> (aim: AimRay?, source: Source) {
+        // Track where the cue has been, whether or not this frame's quad
+        // is usable: dwell is about the OBJECT, not about the reading.
+        if let stickQuad, let centre = StickDwell.centroid(of: stickQuad) {
+            dwell.record(centre, at: time)
+        }
+        // A cue that has not moved in eight seconds is lying on the cloth.
+        // Suppressing it here rather than in `StickAim` is deliberate: the
+        // per-frame geometry genuinely cannot tell the two apart, and every
+        // attempt to make it do so rejected real aiming first.
+        stickIsResting = dwell.isStatic
+        if stickIsResting {
+            // Drop the hold too, or the last reading from this cue keeps
+            // being served for its full 2.5 s and nothing changes.
+            lastStickAim = nil
+            lastStickSeenAt = nil
+            pendingStickAim = nil
+            pendingStickFrames = 0
+        }
+
         // `previous:` is what makes the stick reading stable frame to
         // frame: without it the diagonal choice and the tip/butt choice are
         // both bistable, and a pixel of box jitter reverses the aim.
-        if let stickQuad,
+        if !stickIsResting, let stickQuad,
            let stickAim = StickAim.estimate(stickQuad: stickQuad, cueBall: cueBall,
                                             gate: config.gate, previous: lastStickAim) {
             if let held = lastStickAim, !agrees(stickAim, held) {
@@ -132,6 +174,11 @@ public struct AimResolver: Sendable {
             return (held, .stick)
         }
         source = .devicePose
+        guard config.allowDevicePose else {
+            // Parked: no stick, and sighting down a tripod means nothing.
+            // No guide is the honest answer, and the HUD says why.
+            return (nil, .devicePose)
+        }
         let aim = engine.aimRay(cameraTransform: cameraTransform,
                                 cueBall: cueBall,
                                 calibration: calibration)
@@ -150,6 +197,8 @@ public struct AimResolver: Sendable {
         lastStickSeenAt = nil
         pendingStickAim = nil
         pendingStickFrames = 0
+        dwell.reset()
+        stickIsResting = false
         source = .devicePose
     }
 }

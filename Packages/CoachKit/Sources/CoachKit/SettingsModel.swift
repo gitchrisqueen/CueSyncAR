@@ -110,6 +110,8 @@ public enum SettingsKey {
     public static let visibleMissGrace = "visibleMissGrace"
     /// T1.3: the owner's deliberate CPU pin for the bundled detector.
     public static let detectorPinnedToCPU = "detectorPinnedToCPU"
+    /// The device is on a tripod rather than in a hand.
+    public static let deviceParked = "deviceParked"
 }
 
 /// Everything the owner can change without a rebuild.
@@ -142,6 +144,15 @@ public struct SettingsModel: Sendable, Equatable {
     /// Whether the LAN debug mirror starts with the app. On by default —
     /// the device usually sits at the table out of arm's reach.
     public var debugMirrorEnabled = true
+    /// The device is parked (tripod, propped on a rail) rather than held.
+    ///
+    /// It disables the device-pose aim source. That model aims from the cue
+    /// ball toward where the CAMERA looks — a fair reading of "sight down
+    /// the phone", and meaningless from a tripod, where it becomes a fixed
+    /// line to whatever the mount happens to face. On the operator's
+    /// recording 571 of 712 aimed frames came from device pose that way,
+    /// and every stick dropout snapped the guide onto it and back.
+    public var deviceParked = false
     /// Selected practice mode (M6-01).
     public var practiceMode: PracticeMode = .freePlay
     /// Tracker tuning: how long a ball that is in view but undetected
@@ -180,6 +191,9 @@ public struct SettingsModel: Sendable, Equatable {
             guideSpeed = Self.clamped(raw, to: Self.guideSpeedRange,
                                       fallback: Self.defaultGuideSpeed)
         }
+        if let raw = store.bool(forKey: SettingsKey.deviceParked) {
+            deviceParked = raw
+        }
         if let raw = store.bool(forKey: SettingsKey.debugMirrorEnabled) {
             debugMirrorEnabled = raw
         }
@@ -214,6 +228,7 @@ public struct SettingsModel: Sendable, Equatable {
             SettingsKey.detectionProvider: .string(detectionProvider.rawValue),
             SettingsKey.guideSpeed: .double(guideSpeed),
             SettingsKey.debugMirrorEnabled: .bool(debugMirrorEnabled),
+            SettingsKey.deviceParked: .bool(deviceParked),
             SettingsKey.practiceMode: .string(practiceMode.rawValue),
             SettingsKey.visibleMissGrace: .double(visibleMissGrace),
             SettingsKey.detectorPinnedToCPU: .bool(detectorPinnedToCPU)

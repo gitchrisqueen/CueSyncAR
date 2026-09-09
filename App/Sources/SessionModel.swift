@@ -461,6 +461,10 @@ final class SessionModel {
             shotGuide = nil
             if state.cueBall == nil {
                 logNoGuides("no cue ball among \(state.balls.count) tracked balls (tap one to mark it)")
+            } else if shotPlanner.stickIsResting {
+                logNoGuides("cue is resting on the table — pick it up to aim")
+            } else if settings.deviceParked {
+                logNoGuides("no cue in view — the device is parked, so aim with the cue")
             } else {
                 logNoGuides("no aim yet — point the cue at the cue ball")
             }
@@ -717,6 +721,12 @@ extension SessionModel {
             guard let raw = params["mode"], let mode = PracticeMode(rawValue: raw)
             else { return }
             selectPracticeMode(mode)
+        case "parked":
+            guard let v = params["v"].flatMap(Int.init) else { return }
+            updateSettings { $0.deviceParked = v != 0 }
+            showTapFeedback(settings.deviceParked
+                            ? "Parked: aiming from the cue only (remote)"
+                            : "Hand-held: device-pose aiming on (remote)")
         case "followAnchor":
             guard let v = params["v"].flatMap(Int.init) else { return }
             setFollowsTableAnchor(v != 0)

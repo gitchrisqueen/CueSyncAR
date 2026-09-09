@@ -219,6 +219,7 @@ struct SettingsModelTests {
         settings.practiceMode = .calledShots
         settings.debugMirrorEnabled = false
         settings.detectorPinnedToCPU = true
+        settings.deviceParked = true
 
         let snapshot = settings.snapshot
         #expect(snapshot[SettingsKey.detectorPinnedToCPU] == .bool(true))
@@ -228,9 +229,10 @@ struct SettingsModelTests {
         #expect(snapshot[SettingsKey.detectionProvider] == .string("hosted"))
         #expect(snapshot[SettingsKey.practiceMode] == .string("calledShots"))
         #expect(snapshot[SettingsKey.debugMirrorEnabled] == .bool(false))
+        #expect(snapshot[SettingsKey.deviceParked] == .bool(true))
         // Every setting is in the snapshot: the mirror is how the owner
         // confirms a change took effect without touching the device.
-        #expect(snapshot.count == 7)
+        #expect(snapshot.count == 8)
     }
 
     // MARK: Pipeline restart hints
