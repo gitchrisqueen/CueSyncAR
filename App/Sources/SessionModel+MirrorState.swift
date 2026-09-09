@@ -76,6 +76,7 @@ extension SessionModel {
             state["ballCount"] = balls.count
             state["balls"] = balls.map(mirrorBallEntry)
         }
+        state["detection"] = mirrorDetectionHealth()
         if let fit = lastPocketFit {
             // Sticky: the number that says whether the calibration can be
             // trusted must outlive the 2.5 s toast that announced it.
@@ -157,6 +158,27 @@ extension SessionModel {
         if let tapFeedback { state["tapFeedback"] = tapFeedback }
         return try? JSONSerialization.data(withJSONObject: state,
                                            options: [.sortedKeys])
+    }
+
+    /// Recall health: the number that says whether "Tracking N balls"
+    /// means the table has N balls on it or the app has gone half-blind.
+    private func mirrorDetectionHealth() -> [String: Any] {
+        var health: [String: Any] = [
+            "peak": detectionHealth.peak,
+            "current": detectionHealth.current
+        ]
+        if let lux = detectionHealth.luminance {
+            health["luminance"] = (lux * 1000).rounded() / 1000
+        }
+        guard case .thin(let seen, let peak, let dark) = detectionVerdict else {
+            health["thin"] = false
+            return health
+        }
+        health["thin"] = true
+        health["seen"] = seen
+        health["of"] = peak
+        health["dark"] = dark
+        return health
     }
 
     /// One ball's row in `/state.json`.

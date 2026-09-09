@@ -37,14 +37,39 @@ public struct PerceptionOutput: Sendable {
     /// which are normal, and none of which the consumer must special-case
     /// beyond feeding what arrives to `BallIdentity`.
     public var appearances: [BallID: AppearanceObservation]
+    /// This frame's raw ball detections, and the pose they were taken
+    /// against.
+    ///
+    /// Carried out because the cloth-plane estimator needs both, and
+    /// until now the only thing that fed it was the pre-tracking preview
+    /// path — so the estimate froze the moment tracking started and a bad
+    /// one could never recover. Measured on device: the app sat on a
+    /// cloth height of -0.307 m for a whole session while the same maths
+    /// over the recording of that session said -0.488.
+    ///
+    /// `pose` carries NO pixel buffer (ARKit's pool is tiny and the rule
+    /// is that nothing outlives the frame), only the transform and
+    /// intrinsics.
+    public var detections: [Detection2D]
+    public var pose: CapturedFrame?
+    /// Mean brightness of the frame, 0...1, or nil when the frame carried
+    /// no readable pixels. The HUD uses it to decide whether "more light
+    /// would help" is a measurement or a guess.
+    public var luminance: Double?
 
     public init(state: TableState, stickQuad: [Vec2]? = nil,
                 detectionLabels: [String] = [],
-                appearances: [BallID: AppearanceObservation] = [:]) {
+                appearances: [BallID: AppearanceObservation] = [:],
+                detections: [Detection2D] = [],
+                pose: CapturedFrame? = nil,
+                luminance: Double? = nil) {
         self.state = state
         self.stickQuad = stickQuad
         self.detectionLabels = detectionLabels
         self.appearances = appearances
+        self.detections = detections
+        self.pose = pose
+        self.luminance = luminance
     }
 }
 
@@ -314,7 +339,12 @@ public actor PerceptionPipeline {
                                     stickQuad: stickQuad(in: detections, frame: frame),
                                     detectionLabels: Array(labels),
                                     appearances: appearances(of: balls, at: located,
-                                                             in: frame))
+                                                             in: frame),
+                                    detections: detections,
+                                    pose: CapturedFrame(timestamp: frame.timestamp,
+                                                        cameraTransform: frame.cameraTransform,
+                                                        intrinsics: frame.intrinsics),
+                                    luminance: luminance(of: frame))
         } catch {
             // A failed frame is dropped; the previous state stands — but
             // NEVER silently: a permanently-failing detector looks like
@@ -369,6 +399,38 @@ public actor PerceptionPipeline {
         return result
         #else
         return [:]
+        #endif
+    }
+
+    /// Mean brightness of a frame, from a sparse grid.
+    ///
+    /// A grid rather than every pixel: this runs on the pipeline actor
+    /// once a frame, and a few hundred samples give the mean to well
+    /// inside the precision anyone needs to answer "is this room dark".
+    /// Measured on the owner's table, afternoon against dusk: 0.528 and
+    /// 0.399 over the whole frame.
+    private func luminance(of frame: CapturedFrame) -> Double? {
+        #if canImport(CoreVideo)
+        guard let image = frame.image as? PixelBufferImage else { return nil }
+        return image.withReader { reader -> Double? in
+            let steps = 24
+            guard reader.pixelWidth > steps, reader.pixelHeight > steps else { return nil }
+            let dx = reader.pixelWidth / steps
+            let dy = reader.pixelHeight / steps
+            var total = 0.0
+            var count = 0
+            for row in 0..<steps {
+                for column in 0..<steps {
+                    guard let rgb = reader.rgb(x: column * dx, y: row * dy) else { continue }
+                    // Rec. 601 luma, matching the buffers this reads.
+                    total += 0.299 * rgb.x + 0.587 * rgb.y + 0.114 * rgb.z
+                    count += 1
+                }
+            }
+            return count > 0 ? total / Double(count) : nil
+        } ?? nil
+        #else
+        return nil
         #endif
     }
 

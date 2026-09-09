@@ -177,6 +177,13 @@ struct RootView: View {
             if model.tableState?.cueBall == nil {
                 return .awaitingCueBall
             }
+            // Below the cue-ball prompt and ARKit's own troubles, above
+            // the reassuring ball count: "Tracking 3 balls" is true and
+            // useless when the app saw seven a minute ago, because the
+            // player cannot tell it from a table with three balls left.
+            if case .thin(let seen, let peak, let dark) = model.detectionVerdict {
+                return .losingBalls(seen: seen, peak: peak, dark: dark)
+            }
             if model.calledShotOnLine {
                 return .onLine
             }
