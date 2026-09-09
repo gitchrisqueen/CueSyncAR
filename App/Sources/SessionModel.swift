@@ -20,6 +20,7 @@ import ARExperience
 import BilliardsPhysics
 import CoachKit
 import CueSyncCore
+import CueSyncUI
 import DetectionRoboflow
 import Foundation
 import Observation
@@ -54,13 +55,14 @@ final class SessionModel {
     /// Set when the user has denied camera access (drives an explicit
     /// error state instead of a silent black screen).
     var cameraDenied = false
-    /// Why tracking is degraded, if it is — the structured half of
-    /// `sessionEvent`, so the status capsule can say "Need more light"
-    /// instead of showing a raw ARKit enum name.
-    var trackingTrouble: ARSessionCoordinator.TrackingTrouble?
+    /// What ARKit says tracking is doing, mirrored from the coordinator.
+    /// The status capsule reads its cause from here, so it can say "Need
+    /// more light" instead of showing a raw ARKit enum name.
+    var trackingCondition: TrackingCondition = .normal
 
-    /// Latest AR session health message (errors/interruptions/tracking
-    /// limits), mirrored from the coordinator for the HUD.
+    /// Latest AR session health message (errors, interruptions, tracking
+    /// limits). Developer-facing: it goes to the log and the debug
+    /// mirror's /state.json, never to the player's HUD.
     var sessionEvent: String?
 
     // MARK: Calibration (M3-02) — flow in SessionModel+Calibration.swift

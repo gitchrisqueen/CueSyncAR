@@ -151,13 +151,11 @@ struct RootView: View {
         // aimed or predicted without it).
         if model.isLiveTracking {
             // Degraded tracking outranks everything below: a guide drawn on
-            // a table ARKit has lost is worse than saying so.
-            if let trouble = model.trackingTrouble {
-                switch trouble {
-                case .fastMotion: return .degraded(reason: .fastMotion)
-                case .lowLight: return .degraded(reason: .lowLight)
-                case .relocalizing, .unavailable: return .degraded(reason: .trackingLost)
-                }
+            // a table ARKit has lost is worse than saying so. Which reason
+            // maps to which sentence is decided (and tested) in
+            // CueSyncUI.TrackingCondition, not here.
+            if let reason = model.trackingCondition.degradedReason {
+                return .degraded(reason: reason)
             }
             if model.tableState?.cueBall == nil {
                 return .awaitingCueBall
@@ -574,7 +572,7 @@ struct ARCameraView: View {
                 model.updateFrameDiagnostics(coordinator.frameDiagnostics())
             }
             model.sessionEvent = coordinator.sessionEvent
-            model.trackingTrouble = coordinator.trackingTrouble
+            model.trackingCondition = coordinator.trackingCondition
             if model.calibrationVisible, !planeDetectionStarted {
                 coordinator.enablePlaneDetection()
                 planeDetectionStarted = true

@@ -99,7 +99,7 @@ struct CalibrationOverlayView: View {
                 guard let world = coordinator.raycastHorizontalPlane(
                     screenPoint: location,
                     fallbackPlaneHeight: cornerPlaneHeight) else {
-                    model.showTapFeedback(Self.missedTapAdvice(model.trackingTrouble))
+                    model.showTapFeedback(model.trackingCondition.missedTapAdvice)
                     return
                 }
                 // First corner drops the shared cluster anchor: all corners
@@ -281,21 +281,6 @@ struct CalibrationOverlayView: View {
             // session (observed as a frozen camera on device).
             try? await Task.sleep(for: .seconds(3))
             try? await coordinator.saveWorldMap(to: CalibrationStore.worldMapURL)
-        }
-    }
-
-    /// Why a corner tap found nothing, in terms of what to do about it.
-    /// Split out and static so it is testable without an ARSession.
-    static func missedTapAdvice(_ trouble: ARSessionCoordinator.TrackingTrouble?) -> String {
-        switch trouble {
-        case .fastMotion:
-            "Hold the device still, then tap the corner again"
-        case .lowLight:
-            "Too dark to place a corner — more light on the table"
-        case .relocalizing, .unavailable:
-            "Finding the table again — tap the corner in a moment"
-        case nil:
-            "Aim at the cloth inside the cushions, then tap the corner"
         }
     }
 
