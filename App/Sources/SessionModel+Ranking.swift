@@ -232,9 +232,58 @@ extension SessionModel {
         case "clearTarget":
             clearTarget()
             showTapFeedback("Back to the suggested shot (remote)")
+        case "correctBall":
+            return correctBallIdentity(params)
         default:
             return false
         }
         return true
+    }
+
+    /// Pin what a ball actually is, overriding the classifier for as long
+    /// as the track lives.
+    ///
+    /// `/cmd?action=correctBall&id=3&kind=stripe11`, or `kind=clear` to
+    /// hand the ball back to the classifier. Warm colours are not
+    /// separable under this room's light and the app says so rather than
+    /// guessing, which makes a correction the normal way a ball gets its
+    /// number — not an admission of failure.
+    func correctBallIdentity(_ params: [String: String]) -> Bool {
+        guard let raw = params["id"], let id = Int(raw),
+              let kindText = params["kind"] else { return false }
+        let ballID = BallID(rawValue: id)
+        guard tableState?.balls.contains(where: { $0.id == ballID }) == true else {
+            showTapFeedback("No ball #\(id) on the table (remote)")
+            return true
+        }
+        guard let kind = Self.ballKind(fromMirror: kindText) else { return false }
+        applyBallCorrection(kind, to: ballID)
+        showTapFeedback(kind == nil ? "Ball #\(id) back to the classifier (remote)"
+                                    : "Ball #\(id) is \(kindText) (remote)")
+        return true
+    }
+
+    /// "solid3", "stripe11", "eight", "cue", "clear" — the vocabulary the
+    /// mirror page and, later, the tap-to-correct sheet both speak.
+    ///
+    /// Returns `.some(nil)` for "clear": a valid instruction to forget an
+    /// override, distinct from a word this does not understand.
+    static func ballKind(fromMirror text: String) -> Ball.Kind?? {
+        switch text.lowercased() {
+        case "clear", "unknown": return .some(nil)
+        case "cue": return .some(.cue)
+        case "eight", "8": return .some(.eight)
+        default: break
+        }
+        let lowered = text.lowercased()
+        if lowered.hasPrefix("solid"), let number = Int(lowered.dropFirst(5)),
+           (1...7).contains(number) {
+            return .some(.solid(number))
+        }
+        if lowered.hasPrefix("stripe"), let number = Int(lowered.dropFirst(6)),
+           (9...15).contains(number) {
+            return .some(.stripe(number))
+        }
+        return nil
     }
 }
