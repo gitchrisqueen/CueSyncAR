@@ -112,6 +112,10 @@ public enum SettingsKey {
     public static let detectorPinnedToCPU = "detectorPinnedToCPU"
     /// The device is on a tripod rather than in a hand.
     public static let deviceParked = "deviceParked"
+    /// Which half of the rack the player is shooting at.
+    public static let ballGroup = "ballGroup"
+    /// Whose aim the shot percentages are quoted for.
+    public static let skillLevel = "skillLevel"
 }
 
 /// Everything the owner can change without a rebuild.
@@ -155,6 +159,12 @@ public struct SettingsModel: Sendable, Equatable {
     public var deviceParked = false
     /// Selected practice mode (M6-01).
     public var practiceMode: PracticeMode = .freePlay
+    /// Which balls the shot ranking offers. `.any` by default: a player
+    /// who has not chosen a side, or is practising, wants every ball.
+    public var ballGroup: BallGroup = .any
+    /// Whose aiming precision the percentages are quoted for. A shot
+    /// percentage is meaningless without saying for whom.
+    public var skillLevel: SkillLevel = .intermediate
     /// Tracker tuning: how long a ball that is in view but undetected
     /// keeps its track. Clamped to `visibleMissGraceRange`.
     public var visibleMissGrace: Double = SettingsModel.defaultVisibleMissGrace {
@@ -208,6 +218,14 @@ public struct SettingsModel: Sendable, Equatable {
         if let raw = store.bool(forKey: SettingsKey.detectorPinnedToCPU) {
             detectorPinnedToCPU = raw
         }
+        if let raw = store.string(forKey: SettingsKey.ballGroup),
+           let value = BallGroup(rawValue: raw) {
+            ballGroup = value
+        }
+        if let raw = store.string(forKey: SettingsKey.skillLevel),
+           let value = SkillLevel(rawValue: raw) {
+            skillLevel = value
+        }
     }
 
     /// Write every setting. Writing all of them (rather than only what
@@ -231,7 +249,9 @@ public struct SettingsModel: Sendable, Equatable {
             SettingsKey.deviceParked: .bool(deviceParked),
             SettingsKey.practiceMode: .string(practiceMode.rawValue),
             SettingsKey.visibleMissGrace: .double(visibleMissGrace),
-            SettingsKey.detectorPinnedToCPU: .bool(detectorPinnedToCPU)
+            SettingsKey.detectorPinnedToCPU: .bool(detectorPinnedToCPU),
+            SettingsKey.ballGroup: .string(ballGroup.rawValue),
+            SettingsKey.skillLevel: .string(skillLevel.rawValue)
         ]
     }
 

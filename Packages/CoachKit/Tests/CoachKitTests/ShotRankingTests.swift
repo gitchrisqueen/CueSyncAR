@@ -433,3 +433,83 @@ struct ShotRankingRealTableTests {
         #expect(ShotRanking.best(state: state, group: .eight).isEmpty)
     }
 }
+
+@Suite("Stable recommendation")
+struct StableRecommendationTests {
+    private func rating(_ ball: Int, _ probability: Double,
+                        blocked: Bool = false) -> ShotRating {
+        ShotRating(ball: BallID(ball), pocket: .cornerTopRight, probability: probability,
+                   difficulty: blocked ? .blocked : .band(probability: probability),
+                   cutAngleDegrees: 10, cueTravel: 0.5, objectTravel: 0.5,
+                   aimTolerance: 0.01, ghostBall: .zero,
+                   blocker: blocked ? .cutTooThin : nil)
+    }
+
+    @Test("With nothing held, the best shot wins")
+    func picksTheLeaderFromCold() throws {
+        let pick = try #require(ShotRanking.stableRecommendation(
+            previous: nil, candidates: [rating(1, 0.4), rating(2, 0.8), rating(3, 0.6)]))
+        #expect(pick.ball == BallID(2))
+    }
+
+    @Test("A point or two does not move the suggestion off the held ball")
+    func holdsThroughJitter() throws {
+        let pick = try #require(ShotRanking.stableRecommendation(
+            previous: BallID(2), candidates: [rating(1, 0.62), rating(2, 0.60)]))
+        #expect(pick.ball == BallID(2), "a 2-point lead should not steal the suggestion")
+    }
+
+    @Test("A clearly better shot does take over")
+    func switchesOnAMaterialGap() throws {
+        let pick = try #require(ShotRanking.stableRecommendation(
+            previous: BallID(2), candidates: [rating(1, 0.80), rating(2, 0.60)]))
+        #expect(pick.ball == BallID(1))
+    }
+
+    @Test("A held ball that has gone or become blocked is given up")
+    func releasesWhenTheHeldBallLeaves() throws {
+        let pocketed = try #require(ShotRanking.stableRecommendation(
+            previous: BallID(2), candidates: [rating(1, 0.30)]))
+        #expect(pocketed.ball == BallID(1))
+        let blocked = try #require(ShotRanking.stableRecommendation(
+            previous: BallID(2), candidates: [rating(1, 0.30), rating(2, 0, blocked: true)]))
+        #expect(blocked.ball == BallID(1))
+    }
+
+    @Test("Nothing shootable means no suggestion")
+    func nothingToSuggest() {
+        #expect(ShotRanking.stableRecommendation(previous: nil, candidates: []) == nil)
+        #expect(ShotRanking.stableRecommendation(
+            previous: BallID(2), candidates: [rating(2, 0, blocked: true)]) == nil)
+    }
+
+    @Test("The hold is not sticky enough to survive a real change of layout")
+    func marginIsBounded() throws {
+        // Exactly at the margin the incumbent keeps it; a hair past, it does not.
+        let atMargin = try #require(ShotRanking.stableRecommendation(
+            previous: BallID(2), candidates: [rating(1, 0.65), rating(2, 0.60)], margin: 0.05))
+        #expect(atMargin.ball == BallID(2))
+        let past = try #require(ShotRanking.stableRecommendation(
+            previous: BallID(2), candidates: [rating(1, 0.6501), rating(2, 0.60)], margin: 0.05))
+        #expect(past.ball == BallID(1))
+    }
+}
+
+@Suite("SkillLevel")
+struct SkillLevelTests {
+    @Test("Each level maps to a distinct aiming precision, ordered")
+    func levelsAreOrdered() {
+        #expect(SkillLevel.beginner.rankingConfig.aimSigma
+                > SkillLevel.intermediate.rankingConfig.aimSigma)
+        #expect(SkillLevel.intermediate.rankingConfig.aimSigma
+                > SkillLevel.advanced.rankingConfig.aimSigma)
+    }
+
+    @Test("Raw values are stable for persistence")
+    func rawValuesArePersistable() {
+        // SkillLevel is CueSyncCore's; only BallGroup is new here.
+        let groups: [String] = BallGroup.allCases.map(\.rawValue)
+        #expect(groups == ["any", "solids", "stripes", "eight"])
+        #expect(SkillLevel(rawValue: "intermediate") == .intermediate)
+    }
+}
