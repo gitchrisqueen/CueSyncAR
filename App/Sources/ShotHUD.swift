@@ -34,7 +34,8 @@ struct ShotAdviceCluster: View {
                              confidence: ShotConfidence(shot.difficulty),
                              chosenByPlayer: model.targetIsPlayerChosen,
                              blockedReason: shot.blocker == nil ? nil : shot.headline,
-                             group: model.ballGroup == .any ? nil : model.ballGroup.label)
+                             group: model.ballGroup == .any ? nil : model.ballGroup.label,
+                             aimAdvice: model.targetCorrection?.advice)
                 }
                 Spacer(minLength: 0)
             }

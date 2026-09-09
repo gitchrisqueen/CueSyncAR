@@ -58,6 +58,23 @@ struct ShotCardTests {
         #expect(!card.accessibilityText.contains("0"))
     }
 
+    @Test("Aim advice is announced after the shot, not instead of it")
+    func aimAdviceIsAppended() {
+        let card = ShotCard(percentage: 71, pocket: "top side", confidence: .medium,
+                            chosenByPlayer: false, aimAdvice: "Aim a little left")
+        #expect(card.accessibilityText.hasSuffix(". Aim a little left"))
+        #expect(card.accessibilityText.contains("71 per cent"))
+    }
+
+    @Test("A blocked shot is not given aiming advice it cannot use")
+    func blockedShotsSkipAdvice() {
+        let card = ShotCard(percentage: nil, pocket: nil, confidence: .blocked,
+                            chosenByPlayer: false,
+                            blockedReason: "Blocked — a ball is in the cue ball's way",
+                            aimAdvice: "Aim a little right")
+        #expect(!card.accessibilityText.contains("right"))
+    }
+
     @Test("A card with nothing to say still names who chose it")
     func degradesWithoutNumbers() {
         #expect(ShotCard(percentage: nil, pocket: nil, confidence: .hard,

@@ -155,10 +155,17 @@ extension SessionModel {
             return row
         }
         if let active = activeShot {
-            out["active"] = ["ball": active.ball.rawValue,
-                             "pocket": active.pocket.rawValue,
-                             "percent": active.percentage,
-                             "headline": active.headline]
+            var row: [String: Any] = ["ball": active.ball.rawValue,
+                                      "pocket": active.pocket.rawValue,
+                                      "percent": active.percentage,
+                                      "headline": active.headline,
+                                      "ghost": [cm(active.ghostBall.x), cm(active.ghostBall.y)]]
+            // The gap between where the player is aiming and where they
+            // should be: the number this whole feature exists to shrink.
+            if let correction = targetCorrection { row["correction"] = correction.rawValue }
+            if let error = targetAimErrorDegrees { row["aimErrorDeg"] = (error * 10).rounded() / 10 }
+            row["planSegments"] = targetOverlay?.prediction.segments.count ?? 0
+            out["active"] = row
         }
         return out
     }

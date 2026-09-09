@@ -698,50 +698,62 @@ public final class OverlayRenderer {
             place(entity, at: worldPoint(ball.position, lift: Self.stripLift))
         }
 
-        for strip in layout.strips {
-            let mesh = MeshResource.generateBox(
-                width: Float(strip.length),
-                height: Float(Self.stripWidth / 2),
-                depth: Float(Self.stripWidth))
-            let stripColor = metric
-                ? MetricPalette.color(for: MetricPalette.stripMarker(forDesignColor: strip.color))
-                : strip.color
-            var material = UnlitMaterial(color: uiColor(from: stripColor))
-            material.blending = metric ? .opaque
-                : .transparent(opacity: .init(floatLiteral: strip.dashed ? 0.7 : 0.95))
-            let entity = ModelEntity(mesh: mesh, materials: [material])
-            place(entity, at: worldPoint(strip.midpoint, lift: Self.stripLift))
-            // Orientation in WORLD space, the same frame as the position
-            // set by `place` above.
-            //
-            // This previously took a TABLE-space heading and applied it
-            // about the anchor's local Y, on the belief that the table
-            // anchor "rotates with the table". It does not: placeTableAnchor
-            // builds it from matrix_identity_float4x4 plus a translation,
-            // so its rotation is identity and nothing mapped table axes to
-            // world axes. Every strip therefore pointed the wrong way by
-            // the table's yaw — a right angle on a table whose long axis
-            // ran along world +z — while its midpoint stayed correct. It is
-            // also what made mid-session anchor rotation spin the strips
-            // about their own midpoints: position was world, orientation
-            // was local. Both are world now.
-            //
-            // Yaw about the cloth normal rather than simd_quatf(from:to:),
-            // which is ambiguous for an exactly-reversed direction.
-            if let direction = strip.direction {
-                let d = SIMD3<Float>(Float(direction.x), Float(direction.y),
-                                     Float(direction.z))
-                let n = SIMD3<Float>(Float(layout.planeNormal.x),
-                                     Float(layout.planeNormal.y),
-                                     Float(layout.planeNormal.z))
-                let axis = planeNormalUp ? n : -n
-                let reference = SIMD3<Float>(1, 0, 0)
-                let yaw = atan2(simd_dot(simd_cross(reference, d), axis),
-                                simd_dot(reference, d))
-                entity.setOrientation(simd_quatf(angle: yaw, axis: axis),
-                                      relativeTo: nil)
+        // The recommended shot is drawn UNDER the live aim, thinner and
+        // fainter. Same colour language, different weight: a plan reads as
+        // a plan, and the live line stays the one the eye follows.
+        func renderStrips(_ strips: [OverlayLayout.Strip]) {
+            for strip in strips {
+                let plan = strip.role == .plan
+                let width = Self.stripWidth * (plan ? 0.5 : 1)
+                let mesh = MeshResource.generateBox(
+                    width: Float(strip.length),
+                    height: Float(width / 2),
+                    depth: Float(width))
+                let stripColor = metric
+                    ? MetricPalette.color(for: MetricPalette.stripMarker(forDesignColor: strip.color))
+                    : strip.color
+                var material = UnlitMaterial(color: uiColor(from: stripColor))
+                let opacity: Float = plan ? 0.4 : (strip.dashed ? 0.7 : 0.95)
+                material.blending = metric ? .opaque
+                    : .transparent(opacity: .init(floatLiteral: opacity))
+                let entity = ModelEntity(mesh: mesh, materials: [material])
+                place(entity, at: worldPoint(strip.midpoint,
+                                             lift: Self.stripLift * (plan ? 0.6 : 1)))
+                // Orientation in WORLD space, the same frame as the position
+                // set by `place` above.
+                //
+                // This previously took a TABLE-space heading and applied it
+                // about the anchor's local Y, on the belief that the table
+                // anchor "rotates with the table". It does not: placeTableAnchor
+                // builds it from matrix_identity_float4x4 plus a translation,
+                // so its rotation is identity and nothing mapped table axes to
+                // world axes. Every strip therefore pointed the wrong way by
+                // the table's yaw — a right angle on a table whose long axis
+                // ran along world +z — while its midpoint stayed correct. It is
+                // also what made mid-session anchor rotation spin the strips
+                // about their own midpoints: position was world, orientation
+                // was local. Both are world now.
+                //
+                // Yaw about the cloth normal rather than simd_quatf(from:to:),
+                // which is ambiguous for an exactly-reversed direction.
+                if let direction = strip.direction {
+                    let d = SIMD3<Float>(Float(direction.x), Float(direction.y),
+                                         Float(direction.z))
+                    let n = SIMD3<Float>(Float(layout.planeNormal.x),
+                                         Float(layout.planeNormal.y),
+                                         Float(layout.planeNormal.z))
+                    let axis = planeNormalUp ? n : -n
+                    let reference = SIMD3<Float>(1, 0, 0)
+                    let yaw = atan2(simd_dot(simd_cross(reference, d), axis),
+                                    simd_dot(reference, d))
+                    entity.setOrientation(simd_quatf(angle: yaw, axis: axis),
+                                          relativeTo: nil)
+                }
             }
         }
+
+        renderStrips(layout.targetStrips)
+        renderStrips(layout.strips)
 
         if let ghost = layout.ghostBall {
             let mesh = MeshResource.generateSphere(radius: Float(ghost.radius))
@@ -775,6 +787,36 @@ public final class OverlayRenderer {
             material.blending = metric ? .opaque : .transparent(opacity: satisfied ? 0.85 : 0.6)
             let entity = ModelEntity(mesh: mesh, materials: [material])
             place(entity, at: worldPoint(called.position, lift: Self.stripLift * 2))
+        }
+
+        // The ball being shot at, the pocket it is going to, and where the
+        // cue ball has to arrive to send it there. Drawn last so the ball
+        // the percentage refers to is never buried under a path.
+        if let target = layout.targetBall {
+            let mesh = MeshResource.generateCylinder(height: Float(Self.stripWidth / 2),
+                                                     radius: Float(target.radius))
+            var material = UnlitMaterial(color: uiColor(
+                from: metric ? MetricPalette.color(for: .pocket) : 0x2FA36B))
+            material.blending = metric ? .opaque : .transparent(opacity: 0.75)
+            let entity = ModelEntity(mesh: mesh, materials: [material])
+            place(entity, at: worldPoint(target.position, lift: Self.stripLift * 1.6))
+        }
+        if let pocket = layout.targetPocket {
+            let mesh = MeshResource.generateCylinder(height: Float(Self.stripWidth / 2),
+                                                     radius: Float(pocket.radius * 1.35))
+            var material = UnlitMaterial(color: uiColor(
+                from: metric ? MetricPalette.color(for: .pocket) : 0x2FA36B))
+            material.blending = metric ? .opaque : .transparent(opacity: 0.4)
+            let entity = ModelEntity(mesh: mesh, materials: [material])
+            place(entity, at: worldPoint(pocket.position, lift: Self.stripLift))
+        }
+        if let ghost = layout.targetGhostBall {
+            let mesh = MeshResource.generateSphere(radius: Float(ghost.radius))
+            var material = UnlitMaterial(color: metric
+                ? uiColor(from: MetricPalette.color(for: .ghostBall)) : uiColor(from: 0x2FA36B))
+            material.blending = metric ? .opaque : .transparent(opacity: 0.25)
+            let entity = ModelEntity(mesh: mesh, materials: [material])
+            place(entity, at: worldPoint(ghost.position, lift: ghost.radius))
         }
     }
 
