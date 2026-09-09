@@ -101,6 +101,15 @@ extension SessionModel {
         // has moved since lock — the measurement the next table run reads.
         state["followsTableAnchor"] = followsTableAnchor
         state["calibrationState"] = String(describing: calibration.state).prefix(40).description
+        if let plane = estimateClothPlane() {
+            state["clothFromBalls"] = [
+                "height": (plane.height * 1000).rounded() / 1000,
+                "samples": plane.sampleCount,
+                "spreadMm": Int((plane.spread * 1000).rounded()),
+                "nearestM": (plane.nearestRange * 100).rounded() / 100,
+                "furthestM": (plane.furthestRange * 100).rounded() / 100
+            ]
+        }
         state["pendingCorners"] = pendingCorners.count
         if let cal = tableCalibration {
             let field = cal.size.playField

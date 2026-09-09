@@ -13,6 +13,7 @@
 //  for SwiftLint's file_length limit.
 //
 
+import PerceptionKit
 import CueSyncCore
 import Foundation
 import TableSpace
@@ -472,6 +473,19 @@ extension SessionModel {
                                  towards: CGPoint(x: n[4], y: n[5]),
                                  size: size,
                                  planeHeight: params["h"].flatMap(Double.init))
+        case "calibrateFromBalls":
+            let n = ["ax", "ay", "bx", "by", "tx", "ty"].compactMap { params[$0].flatMap(Double.init) }
+            guard n.count == 6 else { return false }
+            let ballSize: TableSize
+            switch params["v"] ?? "eightFoot" {
+            case "sevenFoot": ballSize = .sevenFoot
+            case "nineFoot": ballSize = .nineFoot
+            default: ballSize = .eightFoot
+            }
+            calibrateFromBalls(a: CGPoint(x: n[0], y: n[1]),
+                               b: CGPoint(x: n[2], y: n[3]),
+                               towards: CGPoint(x: n[4], y: n[5]),
+                               size: ballSize)
         case "tableSize":
             // measured | sevenFoot | eightFoot | nineFoot | w,h in metres
             guard let raw = params["v"] else { return false }
@@ -500,5 +514,39 @@ extension SessionModel {
             return false
         }
         return true
+    }
+}
+
+extension SessionModel {
+    /// Where the cloth is, according to the balls resting on it.
+    ///
+    /// Preferred over every other source of a plane height. ARKit's plane
+    /// detection needs parallax a tripod never provides; a tap on a
+    /// cushion nose is only as good as the pixel it lands on, and a few
+    /// pixels of error moved the solved plane 20 cm on this table. The
+    /// balls need neither.
+    func estimateClothPlane() -> ClothPlaneEstimate? {
+        ClothPlaneEstimator.estimate(frames: clothPlaneSamples)
+    }
+
+    /// Calibrate using the balls for the cloth height and the visible end
+    /// rail for position and heading.
+    @discardableResult
+    func calibrateFromBalls(a: CGPoint, b: CGPoint, towards: CGPoint,
+                            size: TableSize) -> Bool {
+        guard let plane = estimateClothPlane() else {
+            let seen = clothPlaneSamples.reduce(0) { $0 + $1.detections.count }
+            showTapFeedback("Not enough balls to find the cloth (\(seen) detections) — "
+                            + "put a few on the table (remote)")
+            return false
+        }
+        let summary = String(format: "cloth y=%.3f from %d balls, spread %.0f mm, range %.2f-%.2f m",
+                             plane.height, plane.sampleCount, plane.spread * 1000,
+                             plane.nearestRange, plane.furthestRange)
+        Self.log.notice("\(summary, privacy: .public)")
+        let ok = calibrateFromEndRail(a: a, b: b, towards: towards,
+                                      size: size, planeHeight: plane.height)
+        if ok { showTapFeedback(summary + " (remote)") }
+        return ok
     }
 }
