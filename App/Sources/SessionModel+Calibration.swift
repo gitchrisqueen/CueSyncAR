@@ -282,7 +282,9 @@ extension SessionModel {
 
     /// The playing-surface envelope is fixed when the pipeline is built, so
     /// a calibration change only takes effect after a restart.
-    private func restartPipelineForCalibrationChange() {
+    /// Not private: the pocket route (SessionModel+PocketCalibration)
+    /// installs a calibration the same way and needs the same restart.
+    func restartPipelineForCalibrationChange() {
         guard isLiveTracking else { return }
         stopLiveTracking()
         startLiveTrackingIfReady()
@@ -503,6 +505,7 @@ extension SessionModel {
         }
         return true
     }
+
 }
 
 extension SessionModel {
@@ -626,6 +629,8 @@ extension SessionModel {
                                end: CGPoint(x: r[8], y: r[9]),
                                size: railSize,
                                planeHeight: params["h"].flatMap(Double.init))
+        case "calibrateFromPockets":
+            return handlePocketCalibrationCommand(params)
         case "calibrateFromBalls":
             let n = ["ax", "ay", "bx", "by", "tx", "ty"].compactMap { params[$0].flatMap(Double.init) }
             guard n.count == 6 else { return false }

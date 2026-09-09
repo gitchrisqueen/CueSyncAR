@@ -214,6 +214,11 @@ final class SessionModel {
     /// costs the player nothing but a less specific label.
     private(set) var ballIdentity = BallIdentity()
 
+    /// Record the last pocket-calibration fit. Lives here because
+    /// `lastPocketFit` is `private(set)`, which in Swift means private to
+    /// this FILE.
+    func notePocketFit(_ line: String) { lastPocketFit = line }
+
     /// Pin what a ball is, overriding the classifier for the life of the
     /// track, and re-label the table immediately so the player sees the
     /// correction land rather than waiting for the next frame.
@@ -228,6 +233,13 @@ final class SessionModel {
         tableState = cueIdentity.apply(to: ballIdentity.apply(to: state))
         recomputeRanking()
     }
+
+    /// The last pocket-calibration fit, verbatim, for the mirror.
+    ///
+    /// Sticky rather than transient: `tapFeedback` lives 2.5 s and the
+    /// mirror publishes at about 1 Hz, so a remote observer would miss
+    /// the one number that says whether the calibration is trustworthy.
+    private(set) var lastPocketFit: String?
 
     /// Transient feedback line for the HUD after a tap — designation
     /// success/misses must never be silent (device debugging showed taps
