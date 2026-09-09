@@ -30,12 +30,21 @@ public struct PerceptionOutput: Sendable {
     /// Raw detector labels for this frame ("white-ball 82%"), strongest
     /// first — ground truth for debugging class/kind mapping live.
     public var detectionLabels: [String]
+    /// This frame's colour reading of each tracked ball, for whichever
+    /// balls could be read. Empty on frames where appearance was not
+    /// sampled, where no cue ball was in view to serve as the white
+    /// reference, or where the frame carried no readable pixels — all of
+    /// which are normal, and none of which the consumer must special-case
+    /// beyond feeding what arrives to `BallIdentity`.
+    public var appearances: [BallID: AppearanceObservation]
 
     public init(state: TableState, stickQuad: [Vec2]? = nil,
-                detectionLabels: [String] = []) {
+                detectionLabels: [String] = [],
+                appearances: [BallID: AppearanceObservation] = [:]) {
         self.state = state
         self.stickQuad = stickQuad
         self.detectionLabels = detectionLabels
+        self.appearances = appearances
     }
 }
 
@@ -64,6 +73,8 @@ public actor PerceptionPipeline {
     private var prepared = false
     private var frameCount = 0
     private var errorCount = 0
+    /// Frames whose pixel buffer the colour sampler could not read.
+    private var unreadableBufferCount = 0
     private var suppressedCount = 0
     #if canImport(os)
     private static let log = Logger(subsystem: "com.cuesync.ar", category: "pipeline")
@@ -189,6 +200,7 @@ public actor PerceptionPipeline {
             // this table and must never seed a track.
             var rejected = 0
             var clamped = 0
+            var located: [LocatedDetection] = []
             let detections = try await detector.detect(in: frame)
             let observations = detections.compactMap { detection -> BallObservation? in
                 // Cue-stick detections are not balls — feeding them to the
@@ -212,6 +224,8 @@ public actor PerceptionPipeline {
                     return nil
                 }
                 if position != table { clamped += 1 }
+                located.append(LocatedDetection(position: position, box: box,
+                                                kind: detection.ballKind))
                 return BallObservation(kind: detection.ballKind,
                                        position: position,
                                        confidence: detection.confidence)
@@ -298,7 +312,9 @@ public actor PerceptionPipeline {
                 .map { "\($0.element.classLabel) \(Int($0.element.confidence * 100))%" }
             return PerceptionOutput(state: state,
                                     stickQuad: stickQuad(in: detections, frame: frame),
-                                    detectionLabels: Array(labels))
+                                    detectionLabels: Array(labels),
+                                    appearances: appearances(of: balls, at: located,
+                                                             in: frame))
         } catch {
             // A failed frame is dropped; the previous state stands — but
             // NEVER silently: a permanently-failing detector looks like
@@ -312,6 +328,48 @@ public actor PerceptionPipeline {
             #endif
             return nil
         }
+    }
+
+    /// Read this frame's colour off each tracked ball.
+    ///
+    /// Rate-limited rather than run every frame. Appearance is a
+    /// property of the ball, not of the moment: it changes only when the
+    /// ball rolls, and `BallIdentity` accumulates over dozens of looks
+    /// anyway. Sampling a sixth of the frames keeps a few thousand pixel
+    /// reads per second off the pipeline actor, which shares a
+    /// cooperative pool with detector inference and must never be the
+    /// thing that starves it.
+    ///
+    /// Returns empty when the frame carries no readable image — replay
+    /// bundles have detections but no pixels, and appearance is simply
+    /// absent there rather than fabricated.
+    private func appearances(of balls: [Ball], at located: [LocatedDetection],
+                             in frame: CapturedFrame) -> [BallID: AppearanceObservation] {
+        guard config.colourFrameInterval > 0,
+              frameCount % config.colourFrameInterval == 0 else { return [:] }
+        #if canImport(CoreVideo)
+        guard let image = frame.image as? PixelBufferImage else { return [:] }
+        guard let result = image.withReader({ reader in
+            BallAppearancePass.run(balls: balls, detections: located, image: reader,
+                                   config: config.colour)
+        }) else {
+            // A format the reader does not understand. Colour goes quiet
+            // and everything else keeps working — but never silently:
+            // "no ball is ever named" with no explanation is exactly the
+            // kind of thing that costs a debugging session.
+            unreadableBufferCount += 1
+            #if canImport(os)
+            if unreadableBufferCount == 1 || unreadableBufferCount % 100 == 0 {
+                Self.log.error(
+                    "ball colour unavailable (#\(self.unreadableBufferCount)): unsupported pixel format")
+            }
+            #endif
+            return [:]
+        }
+        return result
+        #else
+        return [:]
+        #endif
     }
 
     /// Project stick detections' box corners onto the table plane (image
