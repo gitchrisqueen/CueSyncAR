@@ -79,9 +79,9 @@ private let goldenBundles: [GoldenBundle] = [
                     maxSourceTransitionsPerMinute: 5.0,
                     maxHeadingDeltaMax: 7.0,
                     maxPlanChangedRate: 0.26,
-                    maxSegmentCount: 11,
-                    maxPredictionLengthP95: 4.0,
-                    maxFarEndShiftP95: 1.7,
+                    maxSegmentCount: 4,
+                    maxPredictionLengthP95: 2.2,
+                    maxFarEndShiftP95: 1.4,
                     maxTrackChurn: 16,
                     maxCueIDChanges: 6)),
 
@@ -96,9 +96,9 @@ private let goldenBundles: [GoldenBundle] = [
                     maxSourceTransitionsPerMinute: 1.0,
                     maxHeadingDeltaMax: 5.0,
                     maxPlanChangedRate: 0.44,
-                    maxSegmentCount: 11,
-                    maxPredictionLengthP95: 5.6,
-                    maxFarEndShiftP95: 2.2,
+                    maxSegmentCount: 3,
+                    maxPredictionLengthP95: 0.8,
+                    maxFarEndShiftP95: 0.2,
                     maxTrackChurn: 6,
                     maxCueIDChanges: 1))
 ]

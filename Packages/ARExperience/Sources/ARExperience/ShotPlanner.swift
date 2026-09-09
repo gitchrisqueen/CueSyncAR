@@ -39,15 +39,19 @@ public struct ShotPlanner: Sendable {
         public var layoutTolerance: Double
         /// Hard cap on simulated events per shot (SolverOptions.maxEvents).
         public var maxEvents: Int
+        /// How much of the solved shot is drawn (see `GuidePolicy`).
+        public var guide: GuidePolicy
 
         public init(resolver: AimResolver.Config = .default,
                     stabilizer: AimStabilizer.Config = .default,
                     layoutTolerance: Double = 0.005,
-                    maxEvents: Int = 8) {
+                    maxEvents: Int = 8,
+                    guide: GuidePolicy = .default) {
             self.resolver = resolver
             self.stabilizer = stabilizer
             self.layoutTolerance = layoutTolerance
             self.maxEvents = maxEvents
+            self.guide = guide
         }
 
         public static let `default` = Config()
@@ -115,9 +119,16 @@ public struct ShotPlanner: Sendable {
             return (plan, false)
         }
         lastPredictedState = state
-        let prediction = solver.predict(
+        let solved = solver.predict(
             state: state, aim: aim,
             options: SolverOptions(initialSpeed: guideSpeed, maxEvents: config.maxEvents))
+        // Solve the whole shot, draw the part worth looking at. Trimming
+        // here rather than shrinking `maxEvents` because that budget is
+        // spent depth-first — a small one starves the object ball, which is
+        // the leg the player most wants.
+        let prediction = state.cueBall.map {
+            GuidePolicy.trim(solved, cueID: $0.id, policy: config.guide)
+        } ?? solved
         let newPlan = ShotPlan(aim: aim, source: source, prediction: prediction)
         plan = newPlan
         return (newPlan, true)
