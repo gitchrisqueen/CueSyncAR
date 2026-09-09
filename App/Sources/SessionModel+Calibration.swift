@@ -258,6 +258,27 @@ extension SessionModel {
         return true
     }
 
+    /// Slide the locked table across the cloth without resizing or
+    /// re-aiming it.
+    @discardableResult
+    func translateCalibration(by delta: Vec2) -> Bool {
+        guard let current = tableCalibration, calibration.isLocked else {
+            showTapFeedback("Nothing to move — the table isn't calibrated")
+            return false
+        }
+        let moved = current.translated(by: delta)
+        calibration.handle(.resetRequested)
+        calibration.handle(.restored(moved))
+        if let anchorTransform = lockAnchorTransform {
+            persistCalibration(moved, anchorTransform: anchorTransform)
+        }
+        restartPipelineForCalibrationChange()
+        startLiveTrackingIfReady()
+        showTapFeedback(String(format: "Table moved %+.3f, %+.3f m (remote)", delta.x, delta.y))
+        Self.log.notice("calibration translated \(delta.x, privacy: .public), \(delta.y, privacy: .public)")
+        return true
+    }
+
     /// The playing-surface envelope is fixed when the pipeline is built, so
     /// a calibration change only takes effect after a restart.
     private func restartPipelineForCalibrationChange() {
@@ -349,7 +370,8 @@ extension SessionModel {
     /// calibration from there came out short.
     @discardableResult
     func calibrateFromEndRail(a: CGPoint, b: CGPoint, towards: CGPoint,
-                              size: TableSize) -> Bool {
+                              size: TableSize,
+                              planeHeight: Double? = nil) -> Bool {
         guard let coordinator = arCoordinator else {
             showTapFeedback("No AR session to calibrate in")
             return false
@@ -372,7 +394,15 @@ extension SessionModel {
             return false
         }
         // length(h) = l0 + (l1 - l0) * (h - h0)/(h1 - h0); solve for target.
-        let height = h0 + (target - l0) * (h1 - h0) / (l1 - l0)
+        //
+        // An explicit height overrides the solve. The solve is only as
+        // good as the two rail taps: points a few pixels inside the
+        // cushion noses shorten the measured rail, which pushes the plane
+        // further away and inflates every distance on it. Measured on the
+        // owner's table as a 2.40 m spread of ball centres on a 2.34 m
+        // field, which is impossible and is how the error announces
+        // itself. Supplying the height closes that loop from the outside.
+        let height = planeHeight ?? (h0 + (target - l0) * (h1 - h0) / (l1 - l0))
         guard height.isFinite, height < 0 else {
             showTapFeedback(String(format: "Solved an impossible cloth height (%.2f m) — check the rail points", height))
             return false
@@ -440,7 +470,8 @@ extension SessionModel {
             calibrateFromEndRail(a: CGPoint(x: n[0], y: n[1]),
                                  b: CGPoint(x: n[2], y: n[3]),
                                  towards: CGPoint(x: n[4], y: n[5]),
-                                 size: size)
+                                 size: size,
+                                 planeHeight: params["h"].flatMap(Double.init))
         case "tableSize":
             // measured | sevenFoot | eightFoot | nineFoot | w,h in metres
             guard let raw = params["v"] else { return false }
@@ -456,6 +487,10 @@ extension SessionModel {
             guard let size else { return false }
             updateSettings { $0.tableSize = .standard(size) }
             resizeCalibration(to: size)
+        case "nudgeOrigin":
+            let dx = params["dx"].flatMap(Double.init) ?? 0
+            let dy = params["dy"].flatMap(Double.init) ?? 0
+            translateCalibration(by: Vec2(dx, dy))
         case "nudgeCorner":
             guard let index = params["i"].flatMap(Int.init) else { return false }
             let dx = params["dx"].flatMap(Double.init) ?? 0
