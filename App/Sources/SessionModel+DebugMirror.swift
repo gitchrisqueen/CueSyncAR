@@ -52,7 +52,20 @@ extension SessionModel {
                 }
             }
             debugMirror = server
-            server.sessionsRoot = SessionRecorder.sessionsRoot()
+            // NOT `server.sessionsRoot = ...` here, deliberately.
+            //
+            // The mirror runs by default and has no authentication, so
+            // handing it the recordings directory at startup made every
+            // bundle on the device — including ~200 MB of video of whatever
+            // room the table is in — downloadable by anything on the same
+            // Wi-Fi, for the life of the app, whether or not anyone had
+            // recorded anything that session.
+            //
+            // The live surfaces stay open, because that is the whole point
+            // of the mirror: /state.json, /frame.jpg and /cmd all work as
+            // before. Only the FILES wait, and only until a recording is
+            // started (see `startRecording`), which is the moment the owner
+            // has plainly said they intend to pull something off.
             server.setActiveSession(recorder?.sessionID)
             let host = DebugMirrorServer.deviceIPAddress() ?? "<device-ip>"
             debugMirrorURL = "http://\(host):\(DebugMirrorServer.port)"

@@ -93,7 +93,14 @@ extension DebugMirrorServer {
                                  "complete": names.contains("manifest.json")])
             }
         }
-        let payload: [String: Any] = ["sessions": sessions]
+        var payload: [String: Any] = ["sessions": sessions]
+        if sessionsRoot == nil {
+            // An empty list and a withheld list look identical, and a
+            // caller staring at `{"sessions":[]}` should not have to guess
+            // which one it is holding.
+            payload["note"] = "Recordings are not served until a recording "
+                + "has been started on the device this launch."
+        }
         return (try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]))
             ?? Data("{\"sessions\":[]}".utf8)
     }

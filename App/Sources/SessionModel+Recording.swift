@@ -110,6 +110,11 @@ extension SessionModel {
         // Order matters: install the sink, THEN rebuild the pipeline, so
         // the fresh tracker's very first frame is frame 0 of the record.
         recordingTap.install(recorder)
+        // Starting a recording is the act that arms file serving on the
+        // mirror. It stays armed for the rest of the launch so
+        // Scripts/pull-session.sh can still fetch the bundle after the
+        // recording is stopped.
+        debugMirror?.sessionsRoot = SessionRecorder.sessionsRoot()
         self.recorder = recorder
         overlayPaletteMode = .metric
         stopLiveTracking()

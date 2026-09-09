@@ -1,5 +1,10 @@
 # CueSync AR - Billiards Augmented Reality App
 
+**[gitchrisqueen.github.io/CueSyncAR](https://gitchrisqueen.github.io/CueSyncAR/)** — what
+this is, how it works, and where it honestly stands. Built from
+[`docs/site/`](docs/site/) and deployed by
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push to `main`.
+
 ## Status (2026-09)
 
 - **What runs:** eleven SwiftPM packages (physics, table geometry, perception pipeline, AR shell, UI,
