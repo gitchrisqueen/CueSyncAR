@@ -202,8 +202,15 @@ struct RootView: View {
             case .locked: return .tracking(ballCount: 0)
             }
         }
+        // A detector is loaded and firing, but with no calibrated table
+        // the pipeline is not running and PlayingSurfaceGate has no
+        // surface to gate against — so these boxes land on floor tiles,
+        // window frames and furniture. Reporting that count as
+        // "Tracking N balls" told the player the app was working when it
+        // was not, and counted things that are neither balls nor on the
+        // table.
         if model.selectedModel != nil {
-            return .tracking(ballCount: model.previewStats.detectionCount)
+            return .needsCalibration(seeing: model.previewStats.detectionCount)
         }
         switch model.phase {
         case .launching: return .launching
@@ -498,6 +505,13 @@ struct ARCameraView: View {
                 if !model.usingFrontCamera {
                     if model.isLiveTracking, !model.calibrationVisible {
                         PocketCallCatcher(coordinator: coordinator)
+                            .ignoresSafeArea()
+                    }
+                    // Nothing tracked and no calibration in progress: the
+                    // camera area is otherwise inert, so let it be the way
+                    // in rather than requiring an unlabelled icon.
+                    if !model.isLiveTracking, !model.calibrationVisible {
+                        CalibrationInviteCatcher()
                             .ignoresSafeArea()
                     }
                     if model.calibrationVisible {

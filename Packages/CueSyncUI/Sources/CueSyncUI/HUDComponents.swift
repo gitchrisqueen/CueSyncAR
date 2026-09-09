@@ -28,6 +28,16 @@ public enum HUDStatus: Sendable, Equatable {
     /// called pocket.
     case onLine
     case tracking(ballCount: Int)
+    /// A detector is loaded and firing, but the table is not calibrated,
+    /// so the pipeline is not running and NOTHING is being tracked.
+    ///
+    /// This state exists because the capsule used to report the raw
+    /// detector's box count as "Tracking N balls" here. Off a calibrated
+    /// table there is no playing surface to gate against, so those boxes
+    /// land on floor tiles, window frames and furniture — and the player
+    /// was told the app was tracking twenty balls while it tracked none.
+    /// `seeing` is deliberately called objects, not balls.
+    case needsCalibration(seeing: Int)
     case degraded(reason: DegradedReason)
 
     public enum DegradedReason: String, Sendable {
@@ -45,6 +55,10 @@ public enum HUDStatus: Sendable, Equatable {
         case .awaitingCueBall: "Place the cue ball — or tap a ball to mark it"
         case .onLine: "On line — send it"
         case .tracking(let count): "Tracking \(count) balls"
+        case .needsCalibration(let seeing):
+            seeing > 0
+                ? "Tap anywhere to calibrate — seeing \(seeing) objects, tracking none"
+                : "Tap anywhere to calibrate the table"
         case .degraded(.fastMotion): "Hold steady…"
         case .degraded(.lowLight): "Need more light"
         case .degraded(.trackingLost): "Re-finding the table…"
@@ -60,6 +74,9 @@ public enum HUDStatus: Sendable, Equatable {
         case .awaitingCueBall: "circle.dashed"
         case .onLine: "target"
         case .tracking: "checkmark.circle"
+        // Not a checkmark: nothing is working yet, and the icon should not
+        // say otherwise before the words are read.
+        case .needsCalibration: "rectangle.dashed"
         case .degraded: "exclamationmark.triangle"
         }
     }
