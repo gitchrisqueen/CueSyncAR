@@ -725,7 +725,14 @@ extension SessionModel {
     /// the remote debugging agent iterate with the device untouched at
     /// the table. Internal only so SessionModel+DebugMirror can install it
     /// as the server's command handler — nothing else should call it.
+    /// Remote control from the mirror page. Split across three handlers
+    /// rather than one switch: the calibration and shot-selection command
+    /// sets each grew past the point where a single `switch` stayed under
+    /// SwiftLint's complexity limit, and they are separate concerns
+    /// anyway. Each returns whether it consumed the action.
     func handleMirrorCommand(_ params: [String: String]) {
+        if handleCalibrationMirrorCommand(params) { return }
+        if handleShotSelectionMirrorCommand(params) { return }
         switch params["action"] {
         case "resetTracking":
             resetBallTracking()
@@ -772,75 +779,6 @@ extension SessionModel {
             showTapFeedback(settings.deviceParked
                             ? "Parked: aiming from the cue only (remote)"
                             : "Hand-held: device-pose aiming on (remote)")
-        case "setGroup":
-            guard let raw = params["group"], let group = BallGroup(rawValue: raw) else { return }
-            setBallGroup(group)
-        case "setSkill":
-            guard let raw = params["skill"], let level = SkillLevel(rawValue: raw) else { return }
-            setSkillLevel(level)
-            showTapFeedback("Skill: \(level.title) (remote)")
-        case "target":
-            // Same generous radius as `designate`: the caller clicked a
-            // listed ball's own coordinates, not a screen guess.
-            guard let x = params["x"].flatMap(Double.init),
-                  let y = params["y"].flatMap(Double.init) else { return }
-            if !selectTarget(near: Vec2(x, y), maxDistance: 0.4) {
-                showTapFeedback("No rankable ball near that point (remote)")
-            }
-        case "clearTarget":
-            clearTarget()
-            showTapFeedback("Back to the suggested shot (remote)")
-        case "beginCalibration":
-            beginCalibration()
-            showTapFeedback("Calibration started — place four corners (remote)")
-        case "placeCorner":
-            guard let x = params["x"].flatMap(Double.init),
-                  let y = params["y"].flatMap(Double.init) else { return }
-            placeCornerRemotely(at: CGPoint(x: x, y: y),
-                                planeHeight: params["h"].flatMap(Double.init))
-        case "lockCalibration":
-            if !requestCalibrationLock() {
-                let reason = calibration.lastError.map(String.init(describing:)) ?? "not ready"
-                showTapFeedback("Lock refused: \(reason) (remote)")
-            }
-        case "cancelCalibration":
-            cancelCalibration()
-            showTapFeedback("Calibration cancelled (remote)")
-        case "calibrateEndRail":
-            // ax,ay bx,by = the visible short rail; tx,ty = any point on
-            // the cloth further down the table; v = table size.
-            let n = ["ax", "ay", "bx", "by", "tx", "ty"].compactMap { params[$0].flatMap(Double.init) }
-            guard n.count == 6 else { return }
-            let size: TableSize
-            switch params["v"] ?? "eightFoot" {
-            case "sevenFoot": size = .sevenFoot
-            case "nineFoot": size = .nineFoot
-            default: size = .eightFoot
-            }
-            calibrateFromEndRail(a: CGPoint(x: n[0], y: n[1]),
-                                 b: CGPoint(x: n[2], y: n[3]),
-                                 towards: CGPoint(x: n[4], y: n[5]),
-                                 size: size)
-        case "tableSize":
-            // measured | sevenFoot | eightFoot | nineFoot | w,h in metres
-            guard let raw = params["v"] else { return }
-            let size: TableSize?
-            switch raw {
-            case "sevenFoot": size = .sevenFoot
-            case "eightFoot": size = .eightFoot
-            case "nineFoot": size = .nineFoot
-            default:
-                let parts = raw.split(separator: ",").compactMap { Double($0) }
-                size = parts.count == 2 ? .custom(width: parts[0], height: parts[1]) : nil
-            }
-            guard let size else { return }
-            updateSettings { $0.tableSize = .standard(size) }
-            resizeCalibration(to: size)
-        case "nudgeCorner":
-            guard let index = params["i"].flatMap(Int.init) else { return }
-            let dx = params["dx"].flatMap(Double.init) ?? 0
-            let dy = params["dy"].flatMap(Double.init) ?? 0
-            nudgeLockedCorner(index: index, by: Vec2(dx, dy))
         case "followAnchor":
             guard let v = params["v"].flatMap(Int.init) else { return }
             setFollowsTableAnchor(v != 0)
