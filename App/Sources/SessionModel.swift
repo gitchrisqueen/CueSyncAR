@@ -171,7 +171,13 @@ final class SessionModel {
     /// balls (practice/measle balls with red dots read as color-ball).
     /// Tapping a tracked ball marks it as the cue ball by its stable track
     /// id; tapping the designated ball again clears the override.
-    private(set) var designatedCueBallID: BallID?
+    /// Durable cue-ball identity (ARExperience.CueBallIdentity): the tap,
+    /// plus adoption of whatever the detector last called a cue ball, held
+    /// across the label flickering. Same value type the replay harness
+    /// runs, so what is judged offline is what ships.
+    private(set) var cueIdentity = CueBallIdentity()
+    /// The track currently treated as the cue ball, for the mirror.
+    var designatedCueBallID: BallID? { cueIdentity.currentID }
 
     /// Transient feedback line for the HUD after a tap — designation
     /// success/misses must never be silent (device debugging showed taps
@@ -365,7 +371,7 @@ final class SessionModel {
                 let count = outputCount
                 await MainActor.run {
                     guard let self else { return }
-                    self.tableState = self.applyingCueDesignation(output.state)
+                    self.tableState = self.cueIdentity.apply(to: output.state)
                     self.stickQuad = output.stickQuad
                     self.latestDetectionLabels = output.detectionLabels
                     if count == 1 || count % 40 == 0 {
@@ -373,7 +379,7 @@ final class SessionModel {
                         let summary = "balls=\(state?.balls.count ?? 0)"
                             + " cueBall=\(state?.cueBall != nil)"
                             + " stick=\(output.stickQuad != nil)"
-                            + " designated=\(self.designatedCueBallID != nil)"
+                            + " designated=\(self.cueIdentity.designatedID != nil)"
                         Self.log.info("pipeline output #\(count): \(summary, privacy: .public)")
                     }
                 }
@@ -395,7 +401,11 @@ final class SessionModel {
         aimSource = .devicePose
         calledPocket = nil
         calledShotOnLine = false
-        designatedCueBallID = nil
+        // trackingReset, NOT reset: the ids die with the pipeline but the
+        // balls are still on the felt, so the last known cue-ball position
+        // has to outlive the restart or every recalibration and every
+        // reset costs the user another tap.
+        cueIdentity.trackingReset(at: clock())
         usingOnDeviceDetection = false
         shotPlanner.reset()
         trackingIngestThrottle.reset()
@@ -692,11 +702,11 @@ extension SessionModel {
             designateCueBall(near: Vec2(x, y), maxDistance: 0.4)
         case "clearCue":
             // For the record: a designation tap on the marked ball clears it.
-            if let id = designatedCueBallID,
+            if let id = cueIdentity.designatedID,
                let ball = tableState?.balls.first(where: { $0.id == id }) {
                 noteRecordingEvent(.designateCueBall, x: ball.position.x, y: ball.position.y)
             }
-            designatedCueBallID = nil
+            cueIdentity.clearDesignation()
             showTapFeedback("Cue-ball mark cleared (remote)")
         case "callPocket":
             guard let id = params["id"],
@@ -771,39 +781,18 @@ extension SessionModel {
             showTapFeedback(String(format: "Nearest tracked ball is %.2f m from your tap", distance))
             return
         }
-        if designatedCueBallID == nearest.id {
-            designatedCueBallID = nil
-            showTapFeedback("Cue-ball mark cleared")
-        } else {
-            designatedCueBallID = nearest.id
-            showTapFeedback("Marked as cue ball")
+        let wasDesignated = cueIdentity.designatedID == nearest.id
+        if let state = tableState {
+            cueIdentity.toggle(near: tablePoint, in: state, maxDistance: maxDistance)
         }
+        showTapFeedback(wasDesignated ? "Cue-ball mark cleared" : "Marked as cue ball")
         noteRecordingEvent(.designateCueBall, x: tablePoint.x, y: tablePoint.y)
         // Re-apply immediately so the HUD/overlays react on this frame
         // instead of waiting for the next pipeline output.
         if let state = tableState {
-            tableState = applyingCueDesignation(state)
+            tableState = cueIdentity.apply(to: state)
         }
     }
 
-    /// Apply the cue-ball designation to a pipeline state: the designated
-    /// ball becomes .cue; any other .cue claims demote to .unknown so
-    /// exactly one cue ball exists.
-    private func applyingCueDesignation(_ state: TableState) -> TableState {
-        guard let designatedCueBallID,
-              state.balls.contains(where: { $0.id == designatedCueBallID }) else {
-            return state
-        }
-        var adjusted = state
-        adjusted.balls = state.balls.map { ball in
-            var ball = ball
-            if ball.id == designatedCueBallID {
-                ball.kind = .cue
-            } else if ball.kind == .cue {
-                ball.kind = .unknown
-            }
-            return ball
-        }
-        return adjusted
-    }
 }
+
