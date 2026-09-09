@@ -54,6 +54,11 @@ final class SessionModel {
     /// Set when the user has denied camera access (drives an explicit
     /// error state instead of a silent black screen).
     var cameraDenied = false
+    /// Why tracking is degraded, if it is — the structured half of
+    /// `sessionEvent`, so the status capsule can say "Need more light"
+    /// instead of showing a raw ARKit enum name.
+    var trackingTrouble: ARSessionCoordinator.TrackingTrouble?
+
     /// Latest AR session health message (errors/interruptions/tracking
     /// limits), mirrored from the coordinator for the HUD.
     var sessionEvent: String?

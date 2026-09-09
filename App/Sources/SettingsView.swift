@@ -133,6 +133,8 @@ struct SettingsView: View {
 
     private var guidesSection: some View {
         Section {
+            Toggle("Device is parked", isOn: binding(\.deviceParked))
+                .accessibilityIdentifier("settings-device-parked")
             slider(binding(\.guideSpeed),
                    range: SettingsModel.guideSpeedRange,
                    step: 0.1,
@@ -143,8 +145,15 @@ struct SettingsView: View {
             Text("Guides")
         } footer: {
             Text("""
-                How hard the predicted shot is struck. Slower lines die \
-                mid-table; faster ones spend the path budget on ricochets.
+                Turn "device is parked" on whenever the phone or iPad is on \
+                a tripod or propped on a rail. Held in the hand, the app can \
+                aim from where the camera looks; parked, that becomes a \
+                fixed line to wherever the mount happens to face, so it \
+                aims from the cue only and tells you when it cannot see one.
+
+                Guide speed is how hard the predicted shot is struck. Slower \
+                lines die mid-table; faster ones spend the path budget on \
+                ricochets.
                 """)
         }
     }
@@ -162,9 +171,11 @@ struct SettingsView: View {
         } footer: {
             Text("""
                 How long a ball that is in view but undetected keeps its \
-                track. Longer survives detector dropouts; shorter clears \
-                phantom balls sooner. Stored and shown in the debug mirror; \
-                the tracker reads it once the PerceptionKit change lands.
+                track — a ball hidden behind your bridge hand while you \
+                aim, for instance. Longer survives that; shorter clears \
+                stray balls sooner. A ball that vanishes while another \
+                appears is treated as struck and always gives up its ring \
+                quickly, whatever this is set to.
                 """)
         }
     }

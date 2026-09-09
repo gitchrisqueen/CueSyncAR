@@ -1,0 +1,74 @@
+# pages.yml / CueSync AR
+#
+# >>> THIS FILE IS NOT ACTIVE WHERE IT SITS. <<<
+# GitHub Actions only reads workflows from .github/workflows/. This copy lives
+# in docs/design/ because .github/** is an owner-merged surface in this
+# repository (CLAUDE.md: agents never author .github/**), so the agent that
+# drafted the site could not place it there. To turn it on, the owner runs:
+#
+#     git mv docs/design/pages.yml .github/workflows/pages.yml
+#
+# and then sets Settings -> Pages -> Build and deployment -> Source
+# = "GitHub Actions". Until BOTH of those happen, nothing is published.
+#
+# Publishes the one-page public site in docs/site/ to GitHub Pages.
+#
+# Deliberately NOT triggered by pull_request: a pull request from a fork must
+# never be able to publish to the live site. Push to main, and manual
+# dispatch, only.
+
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+# One live deployment at a time; never cancel one that is already mid-flight.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Package docs/site
+    runs-on: ubuntu-latest
+    # Least privilege, scoped per job rather than once for the whole workflow:
+    # this job reads the tree and asks the Pages API for the site config. It
+    # never deploys, so it gets no OIDC token.
+    permissions:
+      contents: read
+      pages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    # This job never checks out the repository, so it gets no contents access
+    # at all — only the Pages deployment and the OIDC token it is signed with.
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
