@@ -213,8 +213,13 @@ struct BallTrackerTests {
         #expect(balls.first?.position.distance(to: resting) ?? 1 < 0.05)
 
         // Back in view with nothing detected: the visible grace now applies,
-        // and it expires on wall clock well before 30 missed frames.
-        for _ in 0..<20 {
+        // and it expires on frame-clock time well before 30 missed frames.
+        // Derived from the config rather than hard-coded, so tuning the
+        // grace does not silently turn this into a test of the frame count.
+        let ticksToExpire = Int((config.visibleMissGrace / tick).rounded(.up)) + 2
+        #expect(ticksToExpire < config.disappearanceFrames,
+                "the time budget must run out before the frame budget")
+        for _ in 0..<ticksToExpire {
             now += tick
             balls = tracker.update(observations: [], timestamp: now, isVisible: { _ in true })
         }

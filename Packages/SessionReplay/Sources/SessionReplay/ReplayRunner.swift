@@ -124,7 +124,7 @@ public struct ReplayRunner: Sendable {
                                        timestamp: state.timestamp)
                 }
             }
-            state = session.applyingCueDesignation(state)
+            state = session.cueIdentity.apply(to: state)
             let (plan, changed) = session.planner.update(
                 state: state, stickQuad: output.stickQuad,
                 cameraTransform: frame.cameraTransform,
@@ -183,7 +183,7 @@ struct ReplaySession {
     let lockAnchorTransform: Transform3D?
     var pipeline: PerceptionPipeline
     var planner: ShotPlanner
-    var designatedCueBallID: BallID?
+    var cueIdentity = CueBallIdentity()
     var calledPocket: PocketID?
 
     init(config: ReplayConfig, calibration: TableCalibration,
@@ -213,7 +213,8 @@ struct ReplaySession {
         switch event.kind {
         case .designateCueBall:
             guard let x = event.x, let y = event.y else { return }
-            designateCueBall(near: Vec2(x, y), in: state)
+            cueIdentity.toggle(near: Vec2(x, y), in: state,
+                               maxDistance: config.designateMaxDistance)
         case .callPocket:
             guard let raw = event.pocket, let pocket = PocketID(rawValue: raw) else { return }
             calledPocket = calledPocket == pocket ? nil : pocket
@@ -221,43 +222,14 @@ struct ReplaySession {
             pipeline = Self.makePipeline(config: config, calibration: calibration,
                                          detector: detector, lockAnchorTransform: lockAnchorTransform)
             planner.reset()
-            designatedCueBallID = nil
+            // Keep where the cue ball WAS: the ids are new, the balls are
+            // not, so it can be re-adopted in place instead of demanding
+            // another tap.
+            cueIdentity.trackingReset(at: state.timestamp)
             calledPocket = nil
         case .note:
             break
         }
-    }
-
-    /// SessionModel.designateCueBall: nearest tracked ball within range
-    /// becomes the cue ball; tapping the designated ball again clears it.
-    mutating func designateCueBall(near point: Vec2, in state: TableState) {
-        guard let nearest = state.balls.min(by: {
-            let da = $0.position.distance(to: point)
-            let db = $1.position.distance(to: point)
-            return da != db ? da < db : $0.id.rawValue < $1.id.rawValue
-        }) else { return }
-        guard nearest.position.distance(to: point) <= config.designateMaxDistance else { return }
-        designatedCueBallID = designatedCueBallID == nearest.id ? nil : nearest.id
-    }
-
-    /// SessionModel.applyingCueDesignation: the designated ball becomes
-    /// .cue; any other .cue demotes to .unknown so exactly one cue exists.
-    func applyingCueDesignation(_ state: TableState) -> TableState {
-        guard let designatedCueBallID,
-              state.balls.contains(where: { $0.id == designatedCueBallID }) else {
-            return state
-        }
-        var adjusted = state
-        adjusted.balls = state.balls.map { ball in
-            var ball = ball
-            if ball.id == designatedCueBallID {
-                ball.kind = .cue
-            } else if ball.kind == .cue {
-                ball.kind = .unknown
-            }
-            return ball
-        }
-        return adjusted
     }
 
     /// M6-02: an OBJECT ball predicted into the called pocket.
