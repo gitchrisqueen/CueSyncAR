@@ -74,12 +74,7 @@ extension SessionModel {
         }
         if let balls = tableState?.balls {
             state["ballCount"] = balls.count
-            state["balls"] = balls.map { ball -> [String: Any] in
-                ["kind": String(describing: ball.kind),
-                 "x": (ball.position.x * 100).rounded() / 100,
-                 "y": (ball.position.y * 100).rounded() / 100,
-                 "confidence": (ball.confidence * 100).rounded() / 100]
-            }
+            state["balls"] = balls.map(mirrorBallEntry)
         }
         if let quad = stickQuad {
             // Raw stick footprint (table space) — lets a remote observer
@@ -158,6 +153,40 @@ extension SessionModel {
         return try? JSONSerialization.data(withJSONObject: state,
                                            options: [.sortedKeys])
     }
+
+    /// One ball's row in `/state.json`.
+    ///
+    /// Split out of `mirrorStateJSON` because it publishes the
+    /// classifier's working, not just its answer: at the table the
+    /// useful question is never "what did it say" but "on how many
+    /// looks, and how close was the runner-up".
+    private func mirrorBallEntry(_ ball: Ball) -> [String: Any] {
+        var entry: [String: Any] = [
+            "id": ball.id.rawValue,
+            "kind": String(describing: ball.kind),
+            "x": (ball.position.x * 100).rounded() / 100,
+            "y": (ball.position.y * 100).rounded() / 100,
+            "confidence": (ball.confidence * 100).rounded() / 100
+        ]
+        if let group = ballIdentity.group(for: ball.id) {
+            entry["group"] = group.rawValue
+        }
+        if let colour = ballIdentity.family(for: ball.id) {
+            entry["colour"] = colour.family.rawValue
+            entry["colourConfidence"] = (colour.confidence * 100).rounded() / 100
+        }
+        if let record = ballIdentity.record(for: ball.id) {
+            entry["looks"] = record.observations.count
+            if let spread = record.peakHueSpread {
+                entry["hueSpread"] = (spread * 10).rounded() / 10
+            }
+            entry["peakWhite"] = (record.peakWhiteFraction * 100).rounded() / 100
+            if record.override != nil { entry["corrected"] = true }
+        }
+        entry["tentative"] = ballIdentity.isTentative(for: ball.id)
+        return entry
+    }
+
 
     /// The ranked shots, the app's suggestion and the player's override.
     /// Positions are included so a browser at the table can click a ball

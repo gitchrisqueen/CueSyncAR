@@ -39,13 +39,25 @@ public struct BallPatch: Sendable, Equatable, Codable {
     /// How many pixels the patch was built from. Small patches are not
     /// trusted; the classifier says so rather than guessing.
     public var sampleCount: Int
+    /// Interquartile spread of the patch's hues, in degrees, or nil when
+    /// too few pixels carried a hue to measure one (the cue ball and the
+    /// eight, every frame, correctly).
+    ///
+    /// This is what separates a stripe from a solid. A solid ball is one
+    /// pigment and hue survives shading, so its lit pixels agree; a
+    /// stripe has two materials and does not. Whiteness cannot do the
+    /// job on real balls, whose bands are a warm cream rather than a
+    /// neutral white - see BallPatchSampler for the measurements.
+    public var hueSpread: Double?
 
     public init(meanRGB: Vec3, whiteFraction: Double,
-                chromaFraction: Double, sampleCount: Int) {
+                chromaFraction: Double, sampleCount: Int,
+                hueSpread: Double? = nil) {
         self.meanRGB = meanRGB
         self.whiteFraction = whiteFraction
         self.chromaFraction = chromaFraction
         self.sampleCount = sampleCount
+        self.hueSpread = hueSpread
     }
 }
 
@@ -119,11 +131,18 @@ public struct AppearanceObservation: Sendable, Equatable {
     /// Passed through untouched for the aggregator, which needs the
     /// MAXIMUM seen over time rather than any single frame's value.
     public var whiteFraction: Double
+    /// Likewise passed through: the aggregator takes the maximum hue
+    /// spread ever seen, because a stripe showing its solid pole looks
+    /// exactly like a solid and averaging hides the one look that told
+    /// the truth.
+    public var hueSpread: Double?
 
-    public init(family: ColorFamily, confidence: Double, whiteFraction: Double) {
+    public init(family: ColorFamily, confidence: Double, whiteFraction: Double,
+                hueSpread: Double? = nil) {
         self.family = family
         self.confidence = confidence
         self.whiteFraction = whiteFraction
+        self.hueSpread = hueSpread
     }
 }
 
@@ -170,14 +189,16 @@ public enum BallAppearance {
         if patch.whiteFraction >= config.whiteFractionFloor,
            patch.chromaFraction <= config.blackChromaCeiling {
             return AppearanceObservation(family: .white, confidence: 0.9,
-                                         whiteFraction: patch.whiteFraction)
+                                         whiteFraction: patch.whiteFraction,
+                                         hueSpread: patch.hueSpread)
         }
         if patch.chromaFraction <= config.blackChromaCeiling,
            value <= config.blackValueCeiling {
             // The eight is the one ball that must never be wrong: in
             // eight-ball, shooting it early is the game.
             return AppearanceObservation(family: .black, confidence: 0.9,
-                                         whiteFraction: patch.whiteFraction)
+                                         whiteFraction: patch.whiteFraction,
+                                         hueSpread: patch.hueSpread)
         }
         guard let hue = Self.hue(of: balanced) else { return nil }
 
@@ -206,7 +227,8 @@ public enum BallAppearance {
         // for the warm balls this room's light pushes together.
         let confidence = Swift.max(0, Swift.min(1, best.fit - runnerUp))
         return AppearanceObservation(family: family, confidence: confidence,
-                                     whiteFraction: patch.whiteFraction)
+                                     whiteFraction: patch.whiteFraction,
+                                     hueSpread: patch.hueSpread)
     }
 
     /// Hue in degrees of a linear RGB triple, or nil when it is neutral.

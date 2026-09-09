@@ -171,3 +171,189 @@ struct BallIdentityTests {
         }
     }
 }
+
+@Suite("Ball identity applied to a table")
+struct BallIdentityApplyTests {
+
+    private func observation(_ family: ColorFamily, confidence: Double = 0.9,
+                             white: Double = 0, hueSpread: Double? = nil)
+        -> AppearanceObservation {
+        AppearanceObservation(family: family, confidence: confidence,
+                              whiteFraction: white, hueSpread: hueSpread)
+    }
+
+    private func state(_ balls: [Ball]) -> TableState {
+        TableState(table: Table(size: .eightFoot), balls: balls, timestamp: 0)
+    }
+
+    @Test("A ball the classifier has named is renamed in the state")
+    func namedBallIsRenamed() {
+        var identity = BallIdentity()
+        let id = BallID(rawValue: 3)
+        for _ in 0..<6 { identity.observe(observation(.blue), for: id) }
+        let result = identity.apply(to: state([
+            Ball(id: id, kind: .unknown, position: Vec2(0.5, 0.5))
+        ]))
+        #expect(result.balls[0].kind == .solid(2))
+    }
+
+    @Test("The cue ball is never renamed by a colour vote")
+    func cueBallIsNeverRenamed() {
+        var identity = BallIdentity()
+        let id = BallID(rawValue: 1)
+        // The classifier is confidently, and wrongly, sure this is orange.
+        for _ in 0..<10 { identity.observe(observation(.orange), for: id) }
+        let result = identity.apply(to: state([
+            Ball(id: id, kind: .cue, position: Vec2(0.5, 0.5))
+        ]))
+        #expect(result.balls[0].kind == .cue)
+    }
+
+    @Test("A ball with no verdict keeps whatever kind it had")
+    func unnamedBallIsUntouched() {
+        let identity = BallIdentity()
+        let result = identity.apply(to: state([
+            Ball(id: BallID(rawValue: 7), kind: .unknown, position: Vec2(0.5, 0.5))
+        ]))
+        #expect(result.balls[0].kind == .unknown)
+    }
+
+    @Test("Hue spread names a stripe that white fraction never would")
+    func hueSpreadFindsAStripe() {
+        var identity = BallIdentity()
+        let id = BallID(rawValue: 5)
+        // The measured case: a red stripe whose band is warm cream, so
+        // its white fraction sits at zero all day while its hue spread
+        // is thirty-four degrees.
+        for _ in 0..<8 {
+            identity.observe(observation(.red, white: 0, hueSpread: 34), for: id)
+        }
+        #expect(identity.group(for: id) == .stripe)
+        #expect(identity.kind(for: id) == .stripe(11))
+    }
+
+    @Test("One clear look at a band outweighs many looks at a solid pole")
+    func oneLookAtTheBandIsEnough() {
+        var identity = BallIdentity()
+        let id = BallID(rawValue: 6)
+        for _ in 0..<20 {
+            identity.observe(observation(.blue, white: 0, hueSpread: 3), for: id)
+        }
+        #expect(identity.group(for: id) == .solid)
+        // The ball rolls once and shows its band.
+        identity.observe(observation(.blue, white: 0, hueSpread: 31), for: id)
+        #expect(identity.group(for: id) == .stripe)
+    }
+
+    @Test("A solid's hue spread never drifts it into the stripe half")
+    func solidStaysSolid() {
+        var identity = BallIdentity()
+        let id = BallID(rawValue: 4)
+        // The widest spread either solid on the owner's table ever showed.
+        for _ in 0..<40 {
+            identity.observe(observation(.orange, white: 0, hueSpread: 9.0), for: id)
+        }
+        #expect(identity.group(for: id) == .solid)
+    }
+
+    @Test("A whole frame of readings is taken in one call")
+    func batchObserveMatchesIndividualCalls() {
+        var batched = BallIdentity()
+        var individually = BallIdentity()
+        let readings: [BallID: AppearanceObservation] = [
+            BallID(rawValue: 1): observation(.blue),
+            BallID(rawValue: 2): observation(.orange)
+        ]
+        for _ in 0..<6 {
+            batched.observe(readings)
+            for (id, reading) in readings { individually.observe(reading, for: id) }
+        }
+        #expect(batched.kind(for: BallID(rawValue: 1))
+            == individually.kind(for: BallID(rawValue: 1)))
+        #expect(batched.kind(for: BallID(rawValue: 2))
+            == individually.kind(for: BallID(rawValue: 2)))
+    }
+
+    @Test("A player's correction survives every later reading")
+    func correctionOutlivesTheClassifier() {
+        var identity = BallIdentity()
+        let id = BallID(rawValue: 2)
+        identity.setOverride(.stripe(14), for: id)
+        for _ in 0..<40 { identity.observe(observation(.orange), for: id) }
+        #expect(identity.kind(for: id) == .stripe(14))
+        let result = identity.apply(to: state([
+            Ball(id: id, kind: .unknown, position: Vec2(0.5, 0.5))
+        ]))
+        #expect(result.balls[0].kind == .stripe(14))
+    }
+}
+
+@Suite("Ball identity confidence")
+struct BallIdentityConfidenceTests {
+
+    private func observation(_ family: ColorFamily, _ confidence: Double)
+        -> AppearanceObservation {
+        AppearanceObservation(family: family, confidence: confidence, whiteFraction: 0)
+    }
+
+    @Test("Unanimous uncertainty stays uncertain")
+    func agreementIsNotCertainty() {
+        var identity = BallIdentity()
+        let id = BallID(rawValue: 1)
+        // The measured case: the orange solid read 0.12 on every single
+        // frame. Every look agreed, and every look was a shrug. A vote
+        // share alone scores this 1.0 and names the ball.
+        for _ in 0..<20 { identity.observe(observation(.orange, 0.12), for: id) }
+        let verdict = identity.family(for: id)
+        #expect(verdict?.family == .orange)
+        #expect((verdict?.confidence ?? 1) < BallIdentity.Config.default.namingConfidence)
+        #expect(identity.kind(for: id) == .unknown)
+    }
+
+    @Test("Two warm balls are never given the same number")
+    func warmBallsDoNotCollide() {
+        // Both of the owner's warm balls classify as orange; the honest
+        // outcome is that at most one is named, never two with the same
+        // number. This is a real defect that shipped and was caught on
+        // real pixels: the maroon stripe and the red stripe were both
+        // called the 13.
+        var identity = BallIdentity()
+        let maroon = BallID(rawValue: 1)
+        let red = BallID(rawValue: 2)
+        for _ in 0..<8 {
+            identity.observe(observation(.orange, 0.57), for: maroon)
+            identity.observe(observation(.orange, 0.25), for: red)
+        }
+        let names = [identity.kind(for: maroon), identity.kind(for: red)]
+        let named = names.filter { $0 != .unknown }
+        #expect(Set(named.map { String(describing: $0) }).count == named.count,
+                "two balls share a number: \(names)")
+    }
+
+    @Test("Confident agreement is still confident")
+    func realAgreementSurvives() {
+        var identity = BallIdentity()
+        let id = BallID(rawValue: 3)
+        // Blue has no near neighbour on the hue circle and scores 0.65 a
+        // frame. The fix must not throw that away.
+        for _ in 0..<8 { identity.observe(observation(.blue, 0.65), for: id) }
+        #expect(identity.kind(for: id) == .solid(2))
+        // Named, but not asserted: the HUD shows it dim and tappable.
+        #expect(identity.isTentative(for: id))
+    }
+
+    @Test("A disputed colour scores below an undisputed one at the same strength")
+    func disputeCostsConfidence() {
+        var agreed = BallIdentity()
+        var disputed = BallIdentity()
+        let id = BallID(rawValue: 4)
+        for _ in 0..<8 { agreed.observe(observation(.blue, 0.8), for: id) }
+        for _ in 0..<4 {
+            disputed.observe(observation(.blue, 0.8), for: id)
+            disputed.observe(observation(.purple, 0.8), for: id)
+        }
+        let a = agreed.family(for: id)?.confidence ?? 0
+        let d = disputed.family(for: id)?.confidence ?? 0
+        #expect(d < a, "disputed \(d) should score under agreed \(a)")
+    }
+}

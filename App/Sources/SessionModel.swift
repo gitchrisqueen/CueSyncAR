@@ -204,6 +204,30 @@ final class SessionModel {
     /// The track currently treated as the cue ball, for the mirror.
     var designatedCueBallID: BallID? { cueIdentity.currentID }
 
+    /// What each tracked ball is, accumulated over many looks at it.
+    ///
+    /// Fed from `PerceptionOutput.appearances`; read back by the ranking,
+    /// which filters on the player's chosen half of the rack. Naming is
+    /// deliberately allowed to stay `.unknown` — `BallGroup.includes`
+    /// admits unnamed balls into both halves, so an unsure classifier
+    /// costs the player nothing but a less specific label.
+    private(set) var ballIdentity = BallIdentity()
+
+    /// Pin what a ball is, overriding the classifier for the life of the
+    /// track, and re-label the table immediately so the player sees the
+    /// correction land rather than waiting for the next frame.
+    ///
+    /// Lives here rather than in +Ranking because `ballIdentity`,
+    /// `cueIdentity` and `tableState` are all `private(set)`, which in
+    /// Swift means private to this FILE — a setter in an extension in
+    /// another file cannot reach them.
+    func applyBallCorrection(_ kind: Ball.Kind?, to id: BallID) {
+        ballIdentity.setOverride(kind, for: id)
+        guard let state = tableState else { return }
+        tableState = cueIdentity.apply(to: ballIdentity.apply(to: state))
+        recomputeRanking()
+    }
+
     /// Transient feedback line for the HUD after a tap — designation
     /// success/misses must never be silent (device debugging showed taps
     /// swallowed by guards with no visible reaction).
@@ -415,7 +439,13 @@ final class SessionModel {
                 let count = outputCount
                 await MainActor.run {
                     guard let self else { return }
-                    self.tableState = self.cueIdentity.apply(to: output.state)
+                    // Colour first, cue designation last: the player's
+                    // tap and the detector's own white-ball class both
+                    // outrank a colour vote.
+                    self.ballIdentity.observe(output.appearances)
+                    self.ballIdentity.retain(Set(output.state.balls.map(\.id)))
+                    self.tableState = self.cueIdentity.apply(
+                        to: self.ballIdentity.apply(to: output.state))
                     self.recomputeRanking()
                     self.stickQuad = output.stickQuad
                     self.latestDetectionLabels = output.detectionLabels
@@ -460,6 +490,10 @@ final class SessionModel {
         // The conversation ends with the session: nothing said about the
         // last rack should suppress the same line about the next one.
         narrator.reset()
+        // Colours, unlike the cue-ball position, are keyed to track ids
+        // and nothing else. A restarted tracker reuses ids, so keeping
+        // them would paint the last session's balls onto this one's.
+        ballIdentity.clear()
         usingOnDeviceDetection = false
         shotPlanner.reset()
         trackingIngestThrottle.reset()
