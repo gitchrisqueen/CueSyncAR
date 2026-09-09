@@ -78,10 +78,14 @@
       <p>
         Tap the four corners of the playing surface, drag to fine-tune, then
         lock. That builds a table-space coordinate system rooted to an AR
-        anchor on the real table, snapping to a standard table size when your
-        corners land within 8&nbsp;% of one. The measurement is saved along with
-        ARKit's map of the room, so a table you have already set up can be
-        recognised again on a later launch instead of re-measured.
+        anchor on the real table. A measurement close to a standard size
+        snaps to it, but only within 3&nbsp;cm when your table reads
+        <em>smaller</em> than the standard &mdash; tapping the rail top
+        instead of the cushion nose inflates the measurement, and that error
+        is worth absorbing, while a table that is genuinely shorter is not.
+        The measurement is saved along with ARKit's map of the room, so a
+        table you have already set up can be recognised again on a later
+        launch instead of re-measured.
       </p>
     </li>
     <li>
@@ -92,9 +96,13 @@
         frame; a tracker gives them stable identities in table space; a pure
         Swift solver works out the ghost ball, the post-impact paths and
         cushion rebounds. RealityKit draws the result anchored to the table.
-        Aim comes from the cue stick when it is visible, and falls back to
-        where the device is pointing when it is not. Tap a pocket to call a
-        shot.
+        Aim comes from the cue stick when it is visible. Held in the hand,
+        it falls back to where the device is pointing; on a tripod that
+        fallback means nothing, so a &ldquo;device is parked&rdquo; setting
+        turns it off and the app says why it has no line rather than drawing
+        a wrong one. A cue left lying on the cloth is told from one being
+        aimed by whether it has moved, not by how it looks. Tap a pocket to
+        call a shot.
       </p>
     </li>
   </ol>
@@ -140,7 +148,7 @@
     <article class="card card-open">
       <h3>Not done, and not claimed</h3>
       <ul>
-        <li>Overlay positions still sit a few centimetres off the real balls. Two causes have been found and fixed in code; neither fix has been confirmed at a table yet.</li>
+        <li>Overlay positions still sit a few centimetres off the real balls. Several causes have been found and fixed in code &mdash; the largest was guide lines drawn at the wrong heading entirely on any table not aligned with the session's world axes &mdash; and every one of those fixes is still waiting on a table run to confirm it.</li>
         <li>Predicted-versus-actual bank paths: one uncalibrated data point so far.</li>
         <li>External-display (TV) output exists as a tested package but is not yet wired into the app. Projector output with geometric alignment is not built at all.</li>
         <li>Guided drill content, a game-rules engine, spin and english physics: all planned, none built.</li>
