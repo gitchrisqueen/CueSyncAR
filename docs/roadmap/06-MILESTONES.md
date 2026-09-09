@@ -64,7 +64,7 @@ Goal: the MVP core loop on a phone.
 - [x] **M3-03** `AimEngine` (device pose → `AimRay`: look-point model with forward-projection fallback) + unit tests on transform fixtures. *(deps: M1-01)*
 - [x] **M3-04** Overlay rendering: pure `OverlayLayout` (strip placement/styling, ghost, pocket glow — tested) + RealityKit `OverlayRenderer`. *(needs-device-run: visual latency/occlusion; occlusion + snapshots tracked in M3-06/M4-03)* *(deps: M1-02, M3-01)*
 - [x] (needs-device-run) **M3-05** `SessionModel` composition root wiring pipeline→solver→renderer; HUD assembly; degraded-tracking states. *Live loop landed (frames→pipeline→TableState; stick-aim with device-pose fallback→solver→anchor-rooted overlays; ShotGuide card; pocket calling; cue-ball designation; diagnostics + debug mirror). Device checklist rows verify at the table (M3-06).* *(deps: M3-01…04)*
-- [ ] **M3-06** Device checklist run #1 at a real table; file issues; iterate. *In progress — first table run surfaced the ball-observation rejection bug (see 09-SESSION-STATE.md). Use the debug mirror (HUD antenna button → http://<device-ip>:8787) when the device is out of reach.* *(deps: M3-05; **device session**)*
+- [ ] **M3-06** Device checklist run #1 at a real table; file issues; iterate. *In progress — first table run surfaced the ball-observation rejection bug (see 09-SESSION-STATE.md). Use the debug mirror (⋯ → Debug mirror → http://<device-ip>:8787) when the device is out of reach.* *(deps: M3-05; **device session**)*
 
 **Exit:** MVP items 1–4 demonstrably working on device; checklist committed.
 

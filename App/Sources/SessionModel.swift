@@ -586,6 +586,19 @@ final class SessionModel {
     /// world tracking cannot run on the front camera.
     var usingFrontCamera = false
 
+    /// Hand the camera to (or take it back from) the front detection
+    /// preview. One entry point, because a running recording has to be
+    /// closed properly first: the AR loop goes away with the back camera,
+    /// and a bundle left half-written is a bundle that replays wrong.
+    func setUsingFrontCamera(_ front: Bool) {
+        guard usingFrontCamera != front else { return }
+        if isRecording {
+            Task { await stopRecording(reason: .user) }
+        }
+        usingFrontCamera = front
+        Self.log.info("camera: \(front ? "front preview" : "back (AR)", privacy: .public)")
+    }
+
     // MARK: Detection preview state
 
     /// Currently selected hosted model; nil = preview off.

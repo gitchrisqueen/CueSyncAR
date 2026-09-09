@@ -23,9 +23,11 @@ struct RootView: View {
     /// Manual trim ON TOP of the orientation-derived rotation, for devices
     /// whose sensor mounting differs. Cycled by the rotate button.
     @AppStorage("previewBoxRotationTrim") private var rotationTrimRaw = NormalizedRotation.none.rawValue
-    /// Whether the Settings sheet is up (05-UX-DESIGN: settings is a
-    /// sheet, never a nav stack over the live view).
-    @State private var showingSettings = false
+    /// Which sheet is up, if any (05-UX-DESIGN: settings is a sheet, never
+    /// a nav stack over the live view). One piece of state rather than two
+    /// booleans, because two sheets can never be presented at once and
+    /// modelling it as if they could is how a sheet ends up swallowed.
+    @State private var sheet: HUDSheet?
     /// Measured height of the bottom HUD cluster, handed to overlays that
     /// draw underneath it (the calibration controls) so they clear it.
     @State private var hudBottomInset: CGFloat = 84
@@ -33,6 +35,14 @@ struct RootView: View {
     /// tracks the free-floating phone via orientation notifications, and
     /// works even when the UI orientation is locked).
     @State private var autoRotation: NormalizedRotation = .clockwise90
+
+    /// The sheets the HUD can raise.
+    enum HUDSheet: String, Identifiable {
+        case more
+        case settings
+
+        var id: String { rawValue }
+    }
 
     private var boxRotation: NormalizedRotation {
         autoRotation.combined(with: NormalizedRotation(rawValue: rotationTrimRaw) ?? .none)
@@ -88,7 +98,7 @@ struct RootView: View {
                 Spacer()
                 ShotAdviceCluster()
                 VStack {
-                    bottomBar
+                    HUDControlBar { sheet = .more }
                     // Bottom-most, under the control bar: always answers
                     // "which build is this?" without a cable, and sits below
                     // the table in frame so it never occludes the cloth
@@ -116,8 +126,15 @@ struct RootView: View {
             hudBottomInset = height + 12
         }
         .environment(\.hudBottomInset, hudBottomInset)
-        .sheet(isPresented: $showingSettings) {
-            SettingsView()
+        .sheet(item: $sheet) { which in
+            switch which {
+            case .more:
+                // Raising Settings from inside More would be a sheet over a
+                // sheet; More closes itself and hands the choice back here.
+                MoreSheet(onOpenSettings: { sheet = .settings })
+            case .settings:
+                SettingsView()
+            }
         }
         .onAppear {
             UIDevice.current.beginGeneratingDeviceOrientationNotifications()
@@ -191,138 +208,9 @@ struct RootView: View {
         }
     }
 
-    private var bottomBar: some View {
-        HUDBar {
-            cameraFlipButton
-            if !model.usingFrontCamera {
-                calibrateButton
-            }
-            mirrorButton
-            if !model.usingFrontCamera {
-                RecordButton()
-            }
-            modeMenu
-            BallGroupButton()
-            modelPicker
-            settingsButton
-            if model.selectedModel != nil {
-                Text("\(model.previewStats.latencyMilliseconds) ms")
-                    .font(.footnote.weight(.semibold))
-                    .monospacedDigit()
-                Button {
-                    rotationTrimRaw = (NormalizedRotation(rawValue: rotationTrimRaw) ?? .none)
-                        .next.rawValue
-                } label: {
-                    Label("Nudge box rotation", systemImage: "rotate.right")
-                        .labelStyle(.iconOnly)
-                }
-                .accessibilityLabel("Nudge detection box rotation")
-            }
-        }
-    }
-
-    /// Practice-mode picker (M6-01): free play, called shots, guided drill.
-    private var modeMenu: some View {
-        Menu {
-            ForEach(PracticeMode.allCases, id: \.rawValue) { mode in
-                Button {
-                    model.selectPracticeMode(mode)
-                } label: {
-                    if model.practiceMode == mode {
-                        Label(mode.title, systemImage: "checkmark")
-                    } else {
-                        Text(mode.title)
-                    }
-                }
-            }
-        } label: {
-            Label("Practice mode", systemImage: "figure.billiards")
-                .labelStyle(.iconOnly)
-        }
-        .accessibilityLabel("Practice mode: \(model.practiceMode.title)")
-        .accessibilityIdentifier("practice-mode-menu")
-    }
-
-    /// Opens the Settings sheet (M4-04) — table size, detector, guide
-    /// speed, tracker tuning, practice mode and the debug mirror, all
-    /// changeable at the table without a rebuild.
-    private var settingsButton: some View {
-        Button {
-            showingSettings = true
-        } label: {
-            Label("Settings", systemImage: "gearshape")
-                .labelStyle(.iconOnly)
-        }
-        .accessibilityLabel("Settings")
-        .accessibilityIdentifier("settings-button")
-    }
-
-    /// Debug mirror toggle: serves the live screen + tracking state to any
-    /// browser on the same Wi-Fi (the iPad usually sits at the table, out
-    /// of reach of the Mac and its USB cable).
-    private var mirrorButton: some View {
-        Button {
-            model.toggleDebugMirror()
-        } label: {
-            Label("Debug mirror",
-                  systemImage: model.debugMirrorURL == nil
-                      ? "dot.radiowaves.left.and.right"
-                      : "dot.radiowaves.left.and.right")
-                .labelStyle(.iconOnly)
-                .foregroundStyle(model.debugMirrorURL == nil
-                                 ? Color.primary : Color.green)
-        }
-        .accessibilityLabel(model.debugMirrorURL == nil
-                            ? "Start debug mirror"
-                            : "Stop debug mirror")
-        .accessibilityIdentifier("debug-mirror-button")
-    }
-
-    /// Toggle between the AR back camera and the plain front-camera
-    /// detection preview (AR/calibration are back-camera-only by ARKit
-    /// design; the button explains via accessibility label).
-    private var cameraFlipButton: some View {
-        Button {
-            if model.isRecording {
-                // The AR loop goes away with the back camera; close the
-                // bundle properly rather than leaving it half-written.
-                Task { await model.stopRecording(reason: .user) }
-            }
-            model.usingFrontCamera.toggle()
-        } label: {
-            Label("Flip camera", systemImage: "arrow.triangle.2.circlepath.camera")
-                .labelStyle(.iconOnly)
-        }
-        .accessibilityLabel(model.usingFrontCamera
-                            ? "Switch to back camera (AR)"
-                            : "Switch to front camera (preview only)")
-        .accessibilityIdentifier("camera-flip-button")
-    }
-
-    /// Enters (or re-enters) the calibration flow; shows the locked table
-    /// size once calibrated (tappable to recalibrate — 05-UX-DESIGN).
-    private var calibrateButton: some View {
-        Button {
-            if model.calibrationVisible {
-                model.cancelCalibration()
-            } else {
-                model.beginCalibration()
-            }
-        } label: {
-            if let size = model.tableCalibration?.size {
-                Text(Self.sizeBadge(for: size))
-                    .font(.footnote.weight(.semibold))
-            } else {
-                Label("Calibrate", systemImage: "rectangle.dashed")
-                    .labelStyle(.iconOnly)
-            }
-        }
-        .accessibilityLabel(model.tableCalibration == nil
-                            ? "Calibrate table"
-                            : "Table calibrated — tap to recalibrate")
-        .accessibilityIdentifier("calibrate-button")
-    }
-
+    /// Kept here beside `hudStatus` because both answer "what does the
+    /// player see about the table right now"; the bar itself moved to
+    /// HUDControlBar.swift.
     static func sizeBadge(for size: TableSize) -> String {
         switch size {
         case .sevenFoot: "7-ft"
@@ -331,30 +219,6 @@ struct RootView: View {
         case .custom(let width, let height):
             String(format: "%.1f×%.1f m", width, height)
         }
-    }
-
-    private var modelPicker: some View {
-        Menu {
-            Button("Preview off") { model.selectModel(nil) }
-            Divider()
-            ForEach(DetectionModelCatalog.candidates) { candidate in
-                Button {
-                    model.selectModel(candidate)
-                } label: {
-                    if model.selectedModel == candidate {
-                        Label(candidate.label, systemImage: "checkmark")
-                    } else {
-                        Text(candidate.label)
-                    }
-                }
-            }
-        } label: {
-            Label(model.selectedModel?.label ?? "Model", systemImage: "brain")
-                .font(.footnote.weight(.semibold))
-                .lineLimit(1)
-        }
-        .accessibilityIdentifier("model-picker")
-        .disabled(!model.hasRoboflowKey && model.selectedModel == nil)
     }
 
     @ViewBuilder

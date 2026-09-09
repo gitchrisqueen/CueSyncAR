@@ -23,14 +23,16 @@ real table without you standing at it. Budget about 15 minutes total.
 ## Press, in this order
 
 6. Open the app. If the table restores by itself ("Table restored in …") skip
-   to step 8. Otherwise tap the **rectangle** button and tap the four
+   to step 8. Otherwise tap **Set up table** and tap the four
    **cushion-nose corners**, drag the dots onto the noses, then **Lock**.
 7. Wait for the status capsule to say **Tracking N balls** and for rings to
    appear on the balls. If the cue ball has no white ring, **tap it** once
    ("Marked as cue ball").
-8. Tap the **antenna** button so the HUD shows `Mirror: http://…:8787` (this
-   is how the Mac pulls the file later; leave it on).
-9. Tap the **●** button, read the size line, tap **Start recording**.
+8. Tap **⋯ → Debug mirror** (it is on by default) and read the **Address**
+   row, `http://…:8787` — this is how the Mac pulls the file later, so leave
+   it on. Switching it on by hand also says the address once on the HUD.
+9. Tap the **●** button — pinned in the HUD in debug builds, otherwise
+   **⋯ → Record session** — read the size line, tap **Start recording**.
 
 ## How to tell it is recording
 
@@ -95,4 +97,5 @@ real table without you standing at it. Budget about 15 minutes total.
   say so — that is the ARFrame-retention symptom and the recorder must be
   suspected first.
 - **pull-session.sh cannot reach the device**: same Wi-Fi? Mirror still on
-  (antenna green)? App still in the foreground?
+  (⋯ → Debug mirror, and an Address row under it)? App still in the
+  foreground?

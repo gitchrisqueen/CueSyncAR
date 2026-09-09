@@ -227,8 +227,9 @@ iPad, profile before shipping anything.
 ## Remote debugging setup (no cable needed)
 
 The iPad sits at the table, out of reach of the Mac. Use the **debug
-mirror**: tap the antenna button in the bottom HUD bar → the HUD shows
-`Mirror: http://<ipad-ip>:8787` → open that URL in any browser on the same
+mirror**: it is on by default; read its address under **⋯ → Debug mirror →
+Address** (also in Settings → Developer, and said once on the HUD when the
+switch is flipped by hand) → open that URL in any browser on the same
 Wi-Fi. It serves the *rendered* screen (camera + AR overlays, ~1 Hz) plus a
 live tracking-state JSON (`/state.json`: balls with table coords, cue/stick
 state, calibration, guide, errors). Implementation:
