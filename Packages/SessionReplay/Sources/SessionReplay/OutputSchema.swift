@@ -23,6 +23,18 @@ public struct OutputBall: Sendable, Equatable, Codable {
     public var radius: Double
     public var confidence: Double
 
+    /// Memberwise, for tests and tooling that build records directly
+    /// rather than from a live `Ball`.
+    public init(id: Int, kind: String, x: Double, y: Double,
+                radius: Double, confidence: Double) {
+        self.id = id
+        self.kind = kind
+        self.x = x
+        self.y = y
+        self.radius = radius
+        self.confidence = confidence
+    }
+
     public init(_ ball: Ball) {
         id = ball.id.rawValue
         kind = KindLabel.label(for: ball.kind)
@@ -49,6 +61,16 @@ public struct OutputAim: Sendable, Equatable, Codable {
     public var originY: Double
     public var directionX: Double
     public var directionY: Double
+
+    /// Memberwise, for tests and tooling.
+    public init(source: String, originX: Double, originY: Double,
+                directionX: Double, directionY: Double) {
+        self.source = source
+        self.originX = originX
+        self.originY = originY
+        self.directionX = directionX
+        self.directionY = directionY
+    }
 
     public init(_ plan: ShotPlan) {
         source = plan.source.rawValue
@@ -159,6 +181,39 @@ public struct OutputPrediction: Sendable, Equatable, Codable {
     }
 }
 
+/// One rendered guide strip, in WORLD space.
+///
+/// Endpoints rather than a heading, for the same reason `OverlayLayout`
+/// carries them: a heading has to name a frame, and naming the wrong one is
+/// what drew every guide line a right angle off the cloth. Endpoints are
+/// sums and products of the calibration basis, so they stay byte-identical
+/// across platforms — an `atan2` here would not.
+public struct OutputStrip: Sendable, Equatable, Codable {
+    public var ball: Int
+    public var start: [Double]
+    public var end: [Double]
+    public var dashed: Bool
+    public var color: Int
+
+    public init(ball: Int, start: [Double], end: [Double], dashed: Bool, color: Int) {
+        self.ball = ball
+        self.start = start
+        self.end = end
+        self.dashed = dashed
+        self.color = color
+    }
+
+    func canonical() -> JSONValue {
+        .object([
+            "ball": .int(ball),
+            "start": .doubles(start),
+            "end": .doubles(end),
+            "dashed": .bool(dashed),
+            "color": .int(color)
+        ])
+    }
+}
+
 /// One line of outputs.jsonl: everything the replay derived for a frame.
 public struct OutputRecord: Sendable, Equatable, Codable {
     public var frame: Int
@@ -174,11 +229,20 @@ public struct OutputRecord: Sendable, Equatable, Codable {
     public var planChanged: Bool
     public var calledPocket: String?
     public var calledShotOnLine: Bool
+    /// Consecutive aimed frames the current aim source has held, counting
+    /// this one; 0 when there is no aim. A source that flips every second
+    /// is the "guides move in weird formations" symptom stated as a number.
+    public var aimSourceRun: Int
+    /// What the renderer would draw this frame — the composed overlay,
+    /// which replay previously stopped short of. Without it "the strips
+    /// drawn are the strips solved" was unverifiable offline.
+    public var strips: [OutputStrip]?
 
     public init(frame: Int, timestamp: TimeInterval, balls: [OutputBall],
                 stick: [[Double]]?, labels: [String], aim: OutputAim?,
                 prediction: OutputPrediction?, planChanged: Bool,
-                calledPocket: String?, calledShotOnLine: Bool) {
+                calledPocket: String?, calledShotOnLine: Bool,
+                aimSourceRun: Int = 0, strips: [OutputStrip]? = nil) {
         self.frame = frame
         self.timestamp = timestamp
         self.balls = balls
@@ -189,6 +253,8 @@ public struct OutputRecord: Sendable, Equatable, Codable {
         self.planChanged = planChanged
         self.calledPocket = calledPocket
         self.calledShotOnLine = calledShotOnLine
+        self.aimSourceRun = aimSourceRun
+        self.strips = strips
     }
 
     func canonical() -> JSONValue {
@@ -202,7 +268,9 @@ public struct OutputRecord: Sendable, Equatable, Codable {
             "prediction": .optional(prediction?.canonical()),
             "planChanged": .bool(planChanged),
             "calledPocket": .optional(calledPocket.map(JSONValue.string)),
-            "calledShotOnLine": .bool(calledShotOnLine)
+            "calledShotOnLine": .bool(calledShotOnLine),
+            "aimSourceRun": .int(aimSourceRun),
+            "strips": .optional(strips.map { .array($0.map { $0.canonical() }) })
         ])
     }
 }

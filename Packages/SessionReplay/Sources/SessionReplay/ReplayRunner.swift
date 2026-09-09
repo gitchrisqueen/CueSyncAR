@@ -97,6 +97,9 @@ public struct ReplayRunner: Sendable {
 
         var outputs: [OutputRecord] = []
         var dropped: [Int] = []
+        // Aim-source run length, carried across frames.
+        var lastAimSource: String?
+        var sourceRun = 0
         for meta in bundle.frames {
             let frame = try meta.capturedFrame()
             guard let output = await session.pipeline.processFrame(
@@ -120,17 +123,42 @@ public struct ReplayRunner: Sendable {
                 cameraTransform: frame.cameraTransform,
                 calibration: calibration, at: frame.timestamp)
             let onLine = session.calledShotOnLine(plan: plan, cueID: state.cueBall?.id)
+            let aim = plan.map(OutputAim.init)
+            if let source = aim?.source {
+                sourceRun = (source == lastAimSource) ? sourceRun + 1 : 1
+                lastAimSource = source
+            } else {
+                sourceRun = 0
+                lastAimSource = nil
+            }
+            // Compose what the renderer would draw. Pure, and the only way
+            // for replay to judge the overlay rather than stopping at the
+            // plan behind it.
+            let strips = plan.map { plan in
+                OverlayLayout.compose(state: state, prediction: plan.prediction,
+                                      calibration: calibration,
+                                      calledPocket: session.calledPocket)
+                    .strips.map { strip in
+                        OutputStrip(ball: strip.ballID.rawValue,
+                                    start: [strip.start.x, strip.start.y, strip.start.z],
+                                    end: [strip.end.x, strip.end.y, strip.end.z],
+                                    dashed: strip.dashed,
+                                    color: Int(strip.color))
+                    }
+            }
             outputs.append(OutputRecord(
                 frame: meta.index,
                 timestamp: meta.timestamp,
                 balls: state.balls.map(OutputBall.init),
                 stick: output.stickQuad.map { $0.map { [$0.x, $0.y] } },
                 labels: output.detectionLabels,
-                aim: plan.map(OutputAim.init),
+                aim: aim,
                 prediction: plan.map { OutputPrediction($0.prediction) },
                 planChanged: changed,
                 calledPocket: session.calledPocket?.rawValue,
-                calledShotOnLine: onLine))
+                calledShotOnLine: onLine,
+                aimSourceRun: sourceRun,
+                strips: strips))
         }
         return ReplayResult(outputs: outputs, droppedFrames: dropped,
                             outputsText: SessionBundleWriter.outputsText(outputs))
