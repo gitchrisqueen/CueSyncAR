@@ -121,27 +121,69 @@ struct TargetGuideTests {
         let radians = 6 * Double.pi / 180
         let clockwise = AimRay(origin: ideal.origin, direction: ideal.direction.rotated(by: -radians))
         let anti = AimRay(origin: ideal.origin, direction: ideal.direction.rotated(by: radians))
-        let a = TargetGuide.correction(current: clockwise, ideal: ideal)
-        let b = TargetGuide.correction(current: anti, ideal: ideal)
+        let a = try #require(TargetGuide.correction(current: clockwise, ideal: ideal))
+        let b = try #require(TargetGuide.correction(current: anti, ideal: ideal))
         #expect(a != .onLine)
         #expect(b != .onLine)
-        #expect(a != b, "opposite errors must not give the same advice")
+        #expect(a.side != b.side, "opposite errors must not give the same advice")
         #expect(abs(TargetGuide.aimError(current: clockwise, ideal: ideal)! - 6) < 1e-6)
     }
 
-    /// A pot often needs better than a tenth of a degree. Telling a person
-    /// they are 0.09 degrees off is noise they cannot act on, so the
-    /// advice deadband is deliberately much coarser than the physics.
-    @Test("The advice deadband is for a human hand, not for the solver")
-    func toleranceIsCoarserThanThePhysics() throws {
+    /// "A little" has to mean a little, or the player learns to ignore the
+    /// line. At six degrees the cue tip moves several centimetres.
+    @Test("The wording scales with how far off the aim is")
+    func adviceWordingIsProportionate() throws {
         let object = Vec2(0.2, 0.1)
         let g = ghost(object: object, pocket: Vec2(he.x, he.y))
         let cue = Ball(id: cueID, kind: .cue, position: Vec2(-0.7, -0.35))
         let ideal = try #require(TargetGuide.aim(cueBall: cue, ghostBall: g))
-        let tiny = AimRay(origin: ideal.origin,
-                          direction: ideal.direction.rotated(by: 0.4 * .pi / 180))
-        #expect(TargetGuide.correction(current: tiny, ideal: ideal) == .onLine)
-        #expect(TargetGuide.correction(current: tiny, ideal: ideal, tolerance: 0.1) != .onLine)
+
+        func adviceAt(_ degrees: Double) throws -> String {
+            let ray = AimRay(origin: ideal.origin,
+                             direction: ideal.direction.rotated(by: degrees * .pi / 180))
+            return try #require(TargetGuide.correction(current: ray, ideal: ideal)).advice
+        }
+        #expect(try adviceAt(3).contains("a little"))
+        #expect(try !adviceAt(15).contains("a little"))
+        #expect(try adviceAt(15).contains("left") || (try adviceAt(15).contains("right")))
+    }
+
+    /// Measured at the table on 2026-09-09: a cue lying on the cloth
+    /// produced an "aim" 52 degrees off the recommended shot, and the card
+    /// was ready to offer to correct it. Past a point the player is not
+    /// making a small error on this shot — they are pointing somewhere
+    /// else — and a nudge is worse than silence.
+    @Test("Far past the shot, no advice is given at all")
+    func noAdviceWhenPointingElsewhere() throws {
+        let object = Vec2(0.2, 0.1)
+        let g = ghost(object: object, pocket: Vec2(he.x, he.y))
+        let cue = Ball(id: cueID, kind: .cue, position: Vec2(-0.7, -0.35))
+        let ideal = try #require(TargetGuide.aim(cueBall: cue, ghostBall: g))
+        for degrees in [26.0, 52.0, 120.0, 179.0] {
+            let ray = AimRay(origin: ideal.origin,
+                             direction: ideal.direction.rotated(by: degrees * .pi / 180))
+            #expect(TargetGuide.correction(current: ray, ideal: ideal) == nil,
+                    "\(degrees)° off should get no advice")
+            // The angle itself is still reported — the HUD stops advising,
+            // the mirror keeps measuring.
+            #expect(TargetGuide.aimError(current: ray, ideal: ideal) != nil)
+        }
+    }
+
+    @Test("The advice limit is where it says it is")
+    func advisableLimitIsHonoured() throws {
+        let object = Vec2(0.2, 0.1)
+        let g = ghost(object: object, pocket: Vec2(he.x, he.y))
+        let cue = Ball(id: cueID, kind: .cue, position: Vec2(-0.7, -0.35))
+        let ideal = try #require(TargetGuide.aim(cueBall: cue, ghostBall: g))
+        func at(_ degrees: Double, limit: Double) -> TargetGuide.Correction? {
+            let ray = AimRay(origin: ideal.origin,
+                             direction: ideal.direction.rotated(by: degrees * .pi / 180))
+            return TargetGuide.correction(current: ray, ideal: ideal, advisableWithin: limit)
+        }
+        #expect(at(24, limit: 25) != nil)
+        #expect(at(26, limit: 25) == nil)
+        #expect(at(40, limit: 45) != nil)
     }
 
     @Test("Missing either aim gives no advice rather than a guess")
@@ -154,11 +196,13 @@ struct TargetGuideTests {
 
     @Test("Every correction has advice a person could act on")
     func adviceIsUsable() {
-        for correction in [TargetGuide.Correction.onLine, .left, .right] {
+        let cases: [TargetGuide.Correction] = [.onLine, .left(degrees: 3), .right(degrees: 12)]
+        for correction in cases {
             #expect(!correction.advice.isEmpty)
         }
-        #expect(TargetGuide.Correction.left.advice.contains("left"))
-        #expect(TargetGuide.Correction.right.advice.contains("right"))
+        #expect(TargetGuide.Correction.left(degrees: 3).advice.contains("left"))
+        #expect(TargetGuide.Correction.right(degrees: 12).advice.contains("right"))
+        #expect(TargetGuide.Correction.onLine.side == nil)
     }
 }
 

@@ -89,8 +89,14 @@ extension SessionModel {
 
     /// Which way to move to get on the offered shot. Nil when the player
     /// is not aiming, or there is nothing to aim at.
+    ///
+    /// A cue lying on the cloth still produces an aim — that is what the
+    /// stick detector sees — so `stickIsResting` gates the advice as well
+    /// as the angle. Advising on a resting cue is how the card ended up
+    /// offering to correct a 52° error at the table on 2026-09-09.
     var targetCorrection: TargetGuide.Correction? {
-        TargetGuide.correction(current: shotPlanner.plan?.aim, ideal: idealAim)
+        guard !shotPlanner.stickIsResting else { return nil }
+        return TargetGuide.correction(current: shotPlanner.plan?.aim, ideal: idealAim)
     }
 
     /// How far off that aim is, in degrees — the number the feature exists

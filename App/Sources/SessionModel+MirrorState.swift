@@ -162,7 +162,10 @@ extension SessionModel {
                                       "ghost": [cm(active.ghostBall.x), cm(active.ghostBall.y)]]
             // The gap between where the player is aiming and where they
             // should be: the number this whole feature exists to shrink.
-            if let correction = targetCorrection { row["correction"] = correction.rawValue }
+            if let correction = targetCorrection {
+                row["correction"] = correction.side ?? "onLine"
+                row["advice"] = correction.advice
+            }
             if let error = targetAimErrorDegrees { row["aimErrorDeg"] = (error * 10).rounded() / 10 }
             row["planSegments"] = targetOverlay?.prediction.segments.count ?? 0
             out["active"] = row
