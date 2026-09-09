@@ -80,10 +80,28 @@ struct CalibrationOverlayView: View {
         Color.clear
             .contentShape(Rectangle())
             .onTapGesture(coordinateSpace: .local) { location in
-                guard case .planeFound = model.calibration.state else { return }
+                // Both guards below used to drop the touch in silence, which
+                // is the one thing the project forbids — and the second one
+                // fires for a REASON the user can act on. While ARKit
+                // reports limited tracking it returns nothing from a
+                // hit-test at all, so during those seconds a corner tap
+                // cannot succeed no matter where it lands. Saying so is the
+                // difference between "this app ignores me" and "hold still
+                // for a second".
+                guard case .planeFound = model.calibration.state else {
+                    if model.calibration.isLocked {
+                        model.showTapFeedback("Table already set — tap the rectangle button to redo it")
+                    } else {
+                        model.showTapFeedback("Looking for the table — point at the cloth and hold still")
+                    }
+                    return
+                }
                 guard let world = coordinator.raycastHorizontalPlane(
                     screenPoint: location,
-                    fallbackPlaneHeight: cornerPlaneHeight) else { return }
+                    fallbackPlaneHeight: cornerPlaneHeight) else {
+                    model.showTapFeedback(Self.missedTapAdvice(model.trackingTrouble))
+                    return
+                }
                 // First corner drops the shared cluster anchor: all corners
                 // rebase against its ARKit-refreshed position so the
                 // rectangle stays glued while the device moves.
@@ -264,6 +282,21 @@ struct CalibrationOverlayView: View {
             // session (observed as a frozen camera on device).
             try? await Task.sleep(for: .seconds(3))
             try? await coordinator.saveWorldMap(to: CalibrationStore.worldMapURL)
+        }
+    }
+
+    /// Why a corner tap found nothing, in terms of what to do about it.
+    /// Split out and static so it is testable without an ARSession.
+    static func missedTapAdvice(_ trouble: ARSessionCoordinator.TrackingTrouble?) -> String {
+        switch trouble {
+        case .fastMotion:
+            "Hold the device still, then tap the corner again"
+        case .lowLight:
+            "Too dark to place a corner — more light on the table"
+        case .relocalizing, .unavailable:
+            "Finding the table again — tap the corner in a moment"
+        case nil:
+            "Aim at the cloth inside the cushions, then tap the corner"
         }
     }
 

@@ -4,15 +4,22 @@
 (or human) can resume without a prior chat session. Update this file whenever
 a work session ends or a major finding lands.
 
-**Last update: 2026-09-08 (agent session, `main` @ `e3e2581`).** Fifteen PRs
-merged across two sessions (`83bd090` → `e3e2581`); the two device-visible
-bugs the operator reported are both fixed and both need a table run to
-confirm. **The iPad (9th gen, iPadOS 26.6) was loaded with `e3e2581` on
-2026-09-08** — install verified, app launches and stays up, and the probe
-marker is present but `armed:false` (the detector loads only once a session
-starts, so the ANE path is still unexercised). The next table run answers
-all four open device questions at once; see "Next steps". Read the 2026-09-07 section
-below first — it supersedes the July notes, which are kept for context.
+**Last update: 2026-09-09 (agent session, `main` @ `8a1f96d`).** Twelve PRs
+merged across three sessions. All four device-visible symptoms the operator
+reported now have fixes, each measured against recordings of his own table
+rather than argued from the code; every one of them still needs a table run
+to confirm. Read "2026-09-09" below first — it supersedes the 2026-09-07
+notes, which are kept for context.
+
+**The finding of that session:** every guide line had been rendering at the
+wrong heading on any table whose axes are not the session's world axes — a
+right angle on the operator's table. `OverlayLayout` emitted a TABLE-space
+heading and `OverlayRenderer` applied it about the anchor's LOCAL Y, on the
+belief that the table anchor rotates with the table. It does not:
+`placeTableAnchor` builds it from an identity rotation plus a translation.
+Midpoints were correct, so the strips traced the right path with every bar
+pointing the wrong way. The ARExperience test fixture has table +x equal to
+world +x, the one basis where the bug is invisible.
 
 **The single most important finding of that session:** the sphere-centre
 projection had never run on device. `raycastToTablePlane(...planeHeightOffset:)`

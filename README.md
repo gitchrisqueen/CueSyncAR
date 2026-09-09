@@ -2,7 +2,7 @@
 
 ## Status (2026-09)
 
-- **What runs:** ten SwiftPM packages (physics, table geometry, perception pipeline, AR shell, UI,
+- **What runs:** eleven SwiftPM packages (physics, table geometry, perception pipeline, AR shell, UI,
   display routing, coaching), Swift Testing suites on Linux and macOS, SwiftLint and secrets
   scanning in CI. The pure core (physics, calibration math, tracking) has no device dependencies.
 - **Device-verified, one session (2026-07-23, iPad, one 8 ft table —
@@ -34,7 +34,7 @@ describe the product vision; the roadmap describes how we get there.
 
 This is a work in progress, not a shipping app. What is in the tree today:
 
-- Ten local SwiftPM packages under [`Packages/`](Packages/) (domain types,
+- Eleven local SwiftPM packages under [`Packages/`](Packages/) (domain types,
   physics solver, table calibration math, perception pipeline, AR shell,
   external-display routing, UI components, coaching, a hosted-API detection
   adapter, and test support), each with Swift Testing suites that run on
