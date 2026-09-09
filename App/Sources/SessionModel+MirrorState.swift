@@ -76,6 +76,11 @@ extension SessionModel {
             state["ballCount"] = balls.count
             state["balls"] = balls.map(mirrorBallEntry)
         }
+        if let fit = lastPocketFit {
+            // Sticky: the number that says whether the calibration can be
+            // trusted must outlive the 2.5 s toast that announced it.
+            state["pocketFit"] = fit
+        }
         if let quad = stickQuad {
             // Raw stick footprint (table space) — lets a remote observer
             // debug why StickAim accepts/rejects without the Xcode console.
@@ -186,7 +191,6 @@ extension SessionModel {
         entry["tentative"] = ballIdentity.isTentative(for: ball.id)
         return entry
     }
-
 
     /// The ranked shots, the app's suggestion and the player's override.
     /// Positions are included so a browser at the table can click a ball
