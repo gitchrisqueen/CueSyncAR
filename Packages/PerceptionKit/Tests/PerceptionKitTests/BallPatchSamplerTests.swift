@@ -126,8 +126,10 @@ struct BallPatchSamplerTests {
                        body: Vec3(0.70, 0.15, 0.12), shading: false)
         // A blown-out highlight over a quarter of the ball.
         for y in 48...58 {
-            for x in 52...68 where (Double(x) - 60) * (Double(x) - 60)
-                + (Double(y) - 60) * (Double(y) - 60) <= 256 {
+            let dy: Double = Double(y) - 60
+            for x in 52...68 {
+                let dx: Double = Double(x) - 60
+                guard dx * dx + dy * dy <= 256 else { continue }
                 image.set(x, y, Vec3(1, 1, 1))
             }
         }
