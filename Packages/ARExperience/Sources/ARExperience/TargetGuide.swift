@@ -75,33 +75,64 @@ public enum TargetGuide {
 
     /// Which way the player has to move to close that gap, from the cue
     /// ball's point of view looking down the shot.
-    public enum Correction: String, Sendable, Equatable {
+    public enum Correction: Sendable, Equatable {
         case onLine
-        case left
-        case right
+        /// Within reach of a nudge — the copy names how big a nudge.
+        case left(degrees: Double)
+        case right(degrees: Double)
 
         public var advice: String {
             switch self {
-            case .onLine: "On line"
-            case .left: "Aim a little left"
-            case .right: "Aim a little right"
+            case .onLine:
+                return "On line"
+            case .left(let degrees):
+                return Self.phrase(side: "left", degrees: degrees)
+            case .right(let degrees):
+                return Self.phrase(side: "right", degrees: degrees)
+            }
+        }
+
+        /// "A little" has to mean a little. Saying it at twenty degrees
+        /// teaches the player to ignore the line.
+        private static func phrase(side: String, degrees: Double) -> String {
+            degrees < 5 ? "Aim a little \(side)" : "Aim \(side)"
+        }
+
+        public var side: String? {
+            switch self {
+            case .onLine: nil
+            case .left: "left"
+            case .right: "right"
             }
         }
     }
 
-    /// `tolerance` is in degrees; inside it the aim reads as on line.
+    /// How the player's aim relates to the offered shot.
     ///
-    /// The default is deliberately coarser than the aim tolerance a pot
-    /// actually needs (often under a tenth of a degree at distance). This
-    /// is guidance for a human hand, not a target-lock: telling someone
-    /// they are 0.09° left is noise they cannot act on.
+    /// `tolerance` is the deadband inside which the aim reads as on line,
+    /// in degrees. It is deliberately coarser than the aim tolerance a pot
+    /// actually needs (often under a tenth of a degree at distance): this
+    /// is guidance for a human hand, not a target lock, and telling
+    /// someone they are 0.09° left is noise they cannot act on.
+    ///
+    /// `advisableWithin` is where advice stops. Past it the player is not
+    /// making a small error on this shot — they are pointing at something
+    /// else entirely, or the "aim" is a cue lying on the cloth. Nudging
+    /// them "a little right" when they are 52° away is worse than saying
+    /// nothing, so nil is returned. Measured at the table on 2026-09-09: a
+    /// cue at rest produced exactly that 52°, with the card ready to
+    /// advise on it.
     public static func correction(current: AimRay?, ideal: AimRay?,
-                                  tolerance: Double = 1.0) -> Correction? {
+                                  tolerance: Double = 1.0,
+                                  advisableWithin: Double = 25) -> Correction? {
         guard let current, let ideal,
               let error = aimError(current: current, ideal: ideal) else { return nil }
+        guard error <= advisableWithin else { return nil }
         guard error > tolerance else { return .onLine }
         // Positive cross product = ideal lies counter-clockwise of current,
         // which in table space (x right, y up) is to the player's left.
-        return current.direction.cross(ideal.direction) > 0 ? .left : .right
+        return current.direction.cross(ideal.direction) > 0
+            ? .left(degrees: error)
+            : .right(degrees: error)
     }
 }
