@@ -123,8 +123,19 @@ extension SessionModel {
         if let locked = tableCalibration {
             let comparison = locked.standardSizeComparison
             let field = locked.size.playField
-            showTapFeedback(String(format: "Locked %.2f × %.2f m — %@",
-                                   field.width, field.height, comparison.summary))
+            // A field that locks as .custom is one the snap refused, which
+            // means it is genuinely not a standard table OR the corners
+            // were tapped somewhere other than the cushion nose. The user
+            // is the only one who can tell those apart, so say so instead
+            // of silently choosing — the size decides where every pocket
+            // and cushion is drawn.
+            var line = String(format: "Locked %.2f × %.2f m — %@",
+                              field.width, field.height, comparison.summary)
+            if case .custom = locked.size {
+                line += " — using your measurement. Re-tap if the corners "
+                    + "weren't on the cushion noses."
+            }
+            showTapFeedback(line)
             Self.log.notice("calibration locked: \(comparison.summary, privacy: .public) (max delta \(Int(comparison.maxDelta * 1000)) mm)")
             // Remember this table's size as the user's spec so future
             // re-pins snap to it (survives venue clears).

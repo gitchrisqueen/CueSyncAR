@@ -57,16 +57,13 @@ extension SessionModel {
     /// Tracker tuning derived from settings.
     ///
     /// `visibleMissGrace` — how long a ball that is in view but undetected
-    /// keeps its track — is the knob this exists for, but the matching
-    /// `TrackerConfig` property is still in flight in PerceptionKit (branch
-    /// `claude/B1-phantom-track`, not yet on `main`). The setting is
-    /// exposed, persisted and mirrored today; connecting it is the single
-    /// commented line below.
+    /// keeps its track — is the knob this exists for. It landed in
+    /// `TrackerConfig` with #7; the wiring below is what was missing, so
+    /// the Settings slider and the mirror's `missGrace` command moved a
+    /// number that nothing read.
     func trackerConfigFromSettings() -> TrackerConfig {
-        let config = TrackerConfig.default
-        // CONNECT ME once TrackerConfig has `visibleMissGrace` (make the
-        // binding above `var`):
-        // config.visibleMissGrace = settings.visibleMissGrace
+        var config = TrackerConfig.default
+        config.visibleMissGrace = settings.visibleMissGrace
         return config
     }
 
@@ -86,8 +83,9 @@ extension SessionModel {
         // request: the hosted adapter needs a key AND a selected model.
         payload["effectiveDetection"] = effectiveDetectionProviderTitle
         payload["hostedDetectionAvailable"] = hasRoboflowKey
-        // Restated plainly: the tracker knob is not connected yet.
-        payload["visibleMissGraceConnected"] = false
+        // Kept as a positive assertion rather than deleted: the mirror
+        // said `false` for long enough that a reader should see it flip.
+        payload["visibleMissGraceConnected"] = true
         return payload
     }
 

@@ -30,11 +30,25 @@ extension SessionModel {
             "calibrationVisible": calibrationVisible,
             // Sticky tap instrumentation — see SessionModel.noteRawTap.
             "rawTapCount": rawTapCount,
+            "rootTapCount": rootTapCount,
+            "tapCatcherMounted": tapCatcherMounted,
             "lastTapNote": lastTapNote ?? "",
 
             "aimSource": String(describing: aimSource),
-            "calledShotOnLine": calledShotOnLine
+            "calledShotOnLine": calledShotOnLine,
+            // The HUD capsule's text. `/frame.jpg` is an ARView snapshot
+            // with no SwiftUI in it, so this is the only way to read the
+            // HUD from a browser.
+            "hudStatus": hudStatusLabel
         ]
+        // Why nothing is drawn, when nothing is drawn.
+        if let noGuideReason { state["noGuideReason"] = noGuideReason }
+        // How long the aim source has held. A source that flips every
+        // second is the "guides move in weird formations" symptom as a
+        // number rather than an impression.
+        if let run = aimSourceRunSeconds {
+            state["aimSourceRunSeconds"] = (run * 10).rounded() / 10
+        }
         if let calibration = tableCalibration {
             let size = calibration.size
             state["tableSize"] = String(format: "%.2f x %.2f m",
@@ -90,6 +104,15 @@ extension SessionModel {
         state["hasPrediction"] = shotPrediction != nil
         if let prediction = shotPrediction, !prediction.segments.isEmpty {
             state["prediction"] = Self.predictionMirrorState(prediction)
+            // Length and event count size the guide directly: a 5 m,
+            // 10-segment polyline is the thing that sweeps metres across
+            // the cloth when the aim moves a degree.
+            let length = prediction.segments.reduce(0.0) {
+                $0 + $1.start.distance(to: $1.end)
+            }
+            state["predictionLengthM"] = (length * 100).rounded() / 100
+            state["predictionEvents"] = prediction.events.count
+            state["predictionSegments"] = prediction.segments.count
         }
         state["recording"] = recordingMirrorState()
         if let calledPocket { state["calledPocket"] = String(describing: calledPocket) }

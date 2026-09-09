@@ -107,11 +107,33 @@ struct TableCalibrationTests {
     }
 
     @Test func fromCornersSnapsWhenCloseToAStandardSize() throws {
-        // ~4% off a nine-foot field → snapped (the "slight adjustment").
+        // 2 cm off a nine-foot field → snapped (corner-tap noise).
+        let cal = try TableCalibration.fromCorners([
+            Vec3(0, 0, 0), Vec3(2.52, 0, 0), Vec3(2.52, 0, 1.27), Vec3(0, 0, 1.27)
+        ])
+        #expect(cal.size == .nineFoot)
+    }
+
+    @Test func fromCornersRefusesToSnapAFieldThatIsSimplySmaller() throws {
+        // 9 cm UNDER a nine-foot field: inside the 8 % fractional bound but
+        // far outside the 3 cm undersize bound. Snapping here would build
+        // pockets 4.5 cm from where the corners say they are.
         let cal = try TableCalibration.fromCorners([
             Vec3(0, 0, 0), Vec3(2.45, 0, 0), Vec3(2.45, 0, 1.23), Vec3(0, 0, 1.23)
         ])
-        #expect(cal.size == .nineFoot)
+        #expect(cal.size == .custom(width: 2.45, height: 1.23))
+    }
+
+    @Test func fromCornersStillSnapsAnInflatedFieldFromRailTopTaps() throws {
+        // The other direction is a KNOWN mis-tap with a known magnitude:
+        // tapping the rail top instead of the cushion nose inflates the
+        // field (+4 to +8 cm, measured in ProjectionRoundTripTests). It
+        // leaves origin and axes intact, so the snap absorbs it and must
+        // keep doing so — the undersize bound must not touch this case.
+        let cal = try TableCalibration.fromCorners([
+            Vec3(0, 0, 0), Vec3(2.42, 0, 0), Vec3(2.42, 0, 1.21), Vec3(0, 0, 1.21)
+        ])
+        #expect(cal.size == .eightFoot)
     }
 
     @Test func codableRoundTrip() throws {

@@ -143,8 +143,28 @@ final class SessionModel {
 
     func togglePocketCall(_ pocket: PocketID) {
         calledPocket = calledPocket == pocket ? nil : pocket
-        if calledPocket == nil { calledShotOnLine = false }
+        // Recompute here, not only in `updateAim`. That path returns early
+        // whenever the plan is unchanged, so calling a pocket while the aim
+        // sat inside the deadband left the HUD and the pocket ring stale
+        // until something else moved.
+        recomputeCalledShotOnLine()
         noteRecordingEvent(.callPocket, pocket: pocket)
+    }
+
+    /// Does the CURRENT prediction sink a non-cue ball into the called
+    /// pocket? Single definition, used by both triggers.
+    func recomputeCalledShotOnLine() {
+        guard let called = calledPocket, let prediction = shotPrediction else {
+            calledShotOnLine = false
+            return
+        }
+        let cueID = tableState?.cueBall?.id
+        calledShotOnLine = prediction.events.contains { event in
+            if case let .pocket(ball, pocket) = event {
+                return pocket == called && ball != cueID
+            }
+            return false
+        }
     }
 
     /// Manual cue-ball designation: the detector can miss non-plain cue
@@ -168,6 +188,26 @@ final class SessionModel {
     /// two need opposite fixes.
     private(set) var rawTapCount = 0
     private(set) var lastTapNote: String?
+
+    /// Whether the tap catcher is actually IN the view tree. The mirror's
+    /// `liveTracking`/`calibrationVisible` only prove the CONDITION that
+    /// should mount it; this proves the mount itself.
+    private(set) var tapCatcherMounted = false
+
+    /// Taps seen by a non-consuming recognizer on the ROOT view. Splits
+    /// "touches never reach SwiftUI at all" from "touches reach SwiftUI
+    /// but not the AR subtree" — which need completely different fixes.
+    private(set) var rootTapCount = 0
+
+    func setTapCatcherMounted(_ mounted: Bool) {
+        tapCatcherMounted = mounted
+        Self.log.info("tap catcher mounted=\(mounted, privacy: .public)")
+    }
+
+    func noteRootTap() {
+        rootTapCount += 1
+        Self.log.info("root tap #\(self.rootTapCount, privacy: .public)")
+    }
 
     /// Called FIRST in the tap handler, before any guard, so the count
     /// rises even when every downstream check rejects the tap.
@@ -225,7 +265,12 @@ final class SessionModel {
     /// SessionRecorder installed here sees exactly the frames the pipeline
     /// processes, so the bundle is 1:1 with live (SessionModel+Recording).
     @ObservationIgnored let recordingTap = RecordingTap()
-    @ObservationIgnored var recorder: SessionRecorder?
+    @ObservationIgnored var recorder: SessionRecorder? {
+        didSet {
+            let running = recorder != nil
+            if isRecordingFlag != running { isRecordingFlag = running }
+        }
+    }
     /// What the AR layer lends the recorder (installed by ARCameraView).
     @ObservationIgnored var recordingHooks: RecordingHooks?
     /// Live numbers for the HUD badge while recording; nil otherwise.
@@ -235,7 +280,17 @@ final class SessionModel {
     /// Overlay colours: metric (colour-keyable) while a recording runs.
     var overlayPaletteMode: OverlayPaletteMode = .design
 
-    @ObservationIgnored private var pipeline: PerceptionPipeline?
+    /// `didSet` rather than discipline: the observed shadow below cannot
+    /// drift out of sync with this store, because there is no assignment
+    /// site that does not run it. Keeping them paired by hand is exactly
+    /// how the original bug survived. (`didSet` does not run in `init` —
+    /// both default to the same "not tracking" state, so that is fine.)
+    @ObservationIgnored private var pipeline: PerceptionPipeline? {
+        didSet {
+            let live = pipeline != nil
+            if isLiveTracking != live { isLiveTracking = live }
+        }
+    }
     @ObservationIgnored private var statesTask: Task<Void, Never>?
     /// Bundled on-device detector (M2-01/02); nil when the compiled model
     /// resource is missing (e.g. simulator-only CI builds).
@@ -248,7 +303,22 @@ final class SessionModel {
     /// throttles identically under replay.
     @ObservationIgnored private var trackingIngestThrottle = IngestThrottle(minimumInterval: 0.5)
 
-    var isLiveTracking: Bool { pipeline != nil }
+    /// Stored and OBSERVED, deliberately — not `pipeline != nil`.
+    ///
+    /// `pipeline` is `@ObservationIgnored`, so a computed property derived
+    /// from it is invisible to Observation: SwiftUI registers no dependency
+    /// and never re-evaluates a body that branches on it. Every view gated
+    /// on live tracking therefore kept rendering its pre-tracking state
+    /// forever — the HUD still read "Point at the table" over a table it
+    /// was actively tracking, and `PocketCallCatcher`, the ONLY tap handler
+    /// for pocket calls and cue-ball designation, was never mounted at all,
+    /// so every tap landed on nothing. Maintained by `pipeline`'s `didSet`.
+    private(set) var isLiveTracking = false
+
+    /// Observed backing for `isRecording` (SessionModel+Recording) — the
+    /// class body is the only place `@Observable` tracks storage.
+    /// Maintained by `recorder`'s `didSet`.
+    private(set) var isRecordingFlag = false
 
     /// Build the perception pipeline once a calibration is locked and a
     /// detection provider is selected. Balls detected from then on are
@@ -283,6 +353,7 @@ final class SessionModel {
             trackerConfig: trackerConfigFromSettings(),
             tableAnchorTransform: lockAnchorTransform)
         pipeline = newPipeline
+        isLiveTracking = true
         // Spatial overlays take over — stale 2D preview boxes would linger
         // frozen over the camera otherwise.
         latestDetections = []
@@ -314,6 +385,7 @@ final class SessionModel {
         statesTask?.cancel()
         statesTask = nil
         pipeline = nil
+        isLiveTracking = false
         anchorFollowedCalibration = nil
         anchorDriftMillimeters = nil
         tableState = nil
@@ -383,31 +455,59 @@ final class SessionModel {
                                                  cameraTransform: cameraTransform,
                                                  calibration: calibration,
                                                  at: clock())
-        aimSource = shotPlanner.aimSource
+        noteAimSource(shotPlanner.aimSource)
         guard let plan else {
             shotPrediction = nil
             shotGuide = nil
             if state.cueBall == nil {
                 logNoGuides("no cue ball among \(state.balls.count) tracked balls (tap one to mark it)")
+            } else {
+                logNoGuides("no aim yet — point the cue at the cue ball")
             }
             return
         }
+        if noGuideReason != nil { noGuideReason = nil }
         guard changed else { return }
         shotPrediction = plan.prediction
         shotGuide = ShotGuide.recommend(state: state, prediction: plan.prediction)
-        calledShotOnLine = calledPocket.map { called in
-            plan.prediction.events.contains { event in
-                if case let .pocket(ball, pocket) = event {
-                    return pocket == called && ball != state.cueBall?.id
-                }
-                return false
-            }
-        } ?? false
+        recomputeCalledShotOnLine()
     }
 
-    /// Throttled: explain WHY no guides render (the #1 question when the
-    /// screen shows nothing). Logging cadence only — never affects state.
+    /// Why no guides render — the #1 question when the screen shows
+    /// nothing. Published to the HUD and the mirror, not only the log: a
+    /// device propped at the table has no console, and "nothing is drawn"
+    /// and "nothing is drawn BECAUSE there is no cue ball" look identical
+    /// from across the room. Nil whenever guides are rendering.
+    private(set) var noGuideReason: String?
+
+    /// The HUD capsule's current text, pushed in by RootView (which owns
+    /// the decision tree) so the mirror can publish it. `/frame.jpg` is an
+    /// ARView snapshot and contains no SwiftUI, so without this there is no
+    /// way to check the HUD from a browser.
+    var hudStatusLabel = ""
+
+    /// When `aimSource` last changed, for the mirror's `aimSourceRunSeconds`
+    /// — a source that flips every second is the "weird formations" symptom
+    /// stated as a number.
+    @ObservationIgnored private var aimSourceChangedAt: TimeInterval?
+
+    /// Seconds the current aim source has been in force, nil before the
+    /// first aim.
+    var aimSourceRunSeconds: TimeInterval? {
+        aimSourceChangedAt.map { clock() - $0 }
+    }
+
+    /// Record a source transition. Called from `updateAim`.
+    func noteAimSource(_ source: AimResolver.Source) {
+        if aimSource != source || aimSourceChangedAt == nil {
+            aimSourceChangedAt = clock()
+        }
+        aimSource = source
+    }
+
+    /// State every call (the HUD needs it live); log at most every 5 s.
     private func logNoGuides(_ reason: String) {
+        if noGuideReason != reason { noGuideReason = reason }
         guard Date().timeIntervalSince(lastAimNilLogAt) > 5 else { return }
         lastAimNilLogAt = Date()
         Self.log.info("updateAim: no guides — \(reason, privacy: .public)")

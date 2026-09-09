@@ -35,7 +35,12 @@ enum CalibrationStore {
         guard let data = UserDefaults.standard.data(forKey: calibrationKey) else {
             return nil
         }
-        return try? JSONDecoder().decode(AnchoredCalibration.self, from: data)
+        // Migrate venues locked under the old symmetric snap rule: an 8 ft
+        // label over a field measured 9 cm smaller draws every pocket
+        // outside the real one. Correcting on load means an existing table
+        // is fixed at next launch rather than needing a re-tap.
+        return (try? JSONDecoder().decode(AnchoredCalibration.self, from: data))?
+            .correctingUndersizedSnap()
     }
 
     static func save(_ anchored: AnchoredCalibration) {

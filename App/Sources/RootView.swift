@@ -150,6 +150,16 @@ struct RootView: View {
             .padding(.top, 8)
             .padding(.bottom, 12)
         }
+        // Non-consuming on purpose (simultaneousGesture): it observes
+        // every tap that reaches the root WITHOUT stealing it from the HUD
+        // buttons or the AR catchers below.
+        .simultaneousGesture(TapGesture().onEnded { model.noteRootTap() })
+        // RootView owns the status decision tree; the model owns what the
+        // mirror publishes. Pushed on change (never written during a body
+        // evaluation) so a browser can read the HUD.
+        .onChange(of: hudStatus.label, initial: true) { _, label in
+            model.hudStatusLabel = label
+        }
         .onPreferenceChange(HUDBottomInsetKey.self) { height in
             // + the VStack's own bottom padding: the calibration controls
             // must clear the whole cluster, not just its content box.
@@ -477,7 +487,14 @@ struct ARCameraView: View {
                 // Hidden, not unmounted, while the front preview owns the
                 // camera: unmounting is what used to lose the world origin.
                     .opacity(model.usingFrontCamera ? 0 : 1)
-                    .allowsHitTesting(!model.usingFrontCamera)
+                    // Nothing here needs RealityKit's own gestures — every
+                    // interaction goes through the SwiftUI overlays above,
+                    // which raycast via the coordinator themselves. Stated
+                    // as intent, NOT as a fix: taps were never being eaten
+                    // here. They were dead because `isLiveTracking` was
+                    // invisible to Observation, so the catcher was never
+                    // mounted at all (see SessionModel.isLiveTracking).
+                    .allowsHitTesting(false)
                 if !model.usingFrontCamera {
                     if model.isLiveTracking, !model.calibrationVisible {
                         PocketCallCatcher(coordinator: coordinator)
@@ -788,6 +805,10 @@ private struct PocketCallCatcher: View {
                 Tap a pocket to call it, or a ball to mark it as the cue \
                 ball; long-press to reset ball tracking
                 """)
+            // Proves the catcher is genuinely in the view tree, not merely
+            // that the condition which should mount it is true.
+            .onAppear { model.setTapCatcherMounted(true) }
+            .onDisappear { model.setTapCatcherMounted(false) }
     }
 }
 

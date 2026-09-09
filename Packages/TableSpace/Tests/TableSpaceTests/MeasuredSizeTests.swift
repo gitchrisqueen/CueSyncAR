@@ -98,9 +98,36 @@ import Testing
         #expect(calibration.size == .sevenFoot)
     }
 
-    @Test func nilSpecKeepsLegacyBehavior() throws {
+    /// The regression this pair exists for. 2.26 x 1.09 is 8 cm under the
+    /// 8 ft standard on both axes — 3.3 %, inside the old 8 % fractional
+    /// tolerance, so it used to snap. `Table(size:)` then built pockets and
+    /// cushions from the 2.34 x 1.17 standard while the origin and axes
+    /// came from the tapped corners, drawing every pocket ~4 cm outside the
+    /// real one. It must lock as measured instead.
+    @Test func aRealTableEightCentimetresUnderSpecLocksAsMeasured() throws {
         let calibration = try TableCalibration.fromCorners(realTableCorners)
-        #expect(calibration.size == .eightFoot) // 3.3% off -> standard snap
+        #expect(calibration.size == .custom(width: 2.26, height: 1.09))
+        #expect(abs((calibration.measuredWidth ?? 0) - 2.26) < 1e-9)
+        // Still reported against the nearest standard, so the HUD can tell
+        // the user how far off they are and offer a re-tap.
+        #expect(calibration.standardSizeComparison.summary == "8 ft -8.0 cm")
+    }
+
+    @Test func measurementNoiseInsideThreeCentimetresStillSnaps() throws {
+        // 2 cm under on the long axis, exact on the short: corner-tap noise,
+        // not a different table.
+        let corners = [Vec3(0, 0, 0), Vec3(2.32, 0, 0),
+                       Vec3(2.32, 0, 1.17), Vec3(0, 0, 1.17)]
+        let calibration = try TableCalibration.fromCorners(corners)
+        #expect(calibration.size == .eightFoot)
+    }
+
+    @Test func theSavedSpecIsAlsoBoundedByTheAbsoluteRule() throws {
+        // A spec 9 cm away must not capture a different table either.
+        let spec = TableSize.custom(width: 2.35, height: 1.18)
+        let calibration = try TableCalibration.fromCorners(realTableCorners,
+                                                           preferredSize: spec)
+        #expect(calibration.size == .custom(width: 2.26, height: 1.09))
     }
 }
 
@@ -115,4 +142,56 @@ private func jsonDictionary<T: Encodable>(_ value: T) throws -> [String: Any] {
             .init(codingPath: [], debugDescription: "encoded \(T.self) is not a JSON object"))
     }
     return object
+}
+
+/// Venues locked under the old symmetric snap rule carry a standard size
+/// over a measurement that contradicts it. They must self-correct on load,
+/// because the alternative is asking every user to re-tap their table.
+@Suite struct UndersizedSnapMigrationTests {
+    /// As persisted from Christopher's table: labelled 8 ft, measured 9 cm
+    /// smaller, drawing every pocket ~4.5 cm outside the real one.
+    private var legacy: TableCalibration {
+        TableCalibration(origin: .zero, xAxis: Vec3(1, 0, 0), yAxis: Vec3(0, 0, 1),
+                         size: .eightFoot,
+                         measuredWidth: 2.249, measuredHeight: 1.125)
+    }
+
+    @Test func aStandardLabelOverASmallerMeasurementBecomesCustom() {
+        let corrected = legacy.correctingUndersizedSnap()
+        #expect(corrected.size == .custom(width: 2.249, height: 1.125))
+        // Origin and axes are untouched — only the size label was wrong.
+        #expect(corrected.origin == legacy.origin)
+        #expect(corrected.xAxis == legacy.xAxis)
+        #expect(corrected.measuredWidth == legacy.measuredWidth)
+    }
+
+    @Test func aMeasurementInsideTheBoundIsLeftAlone() {
+        let fine = TableCalibration(origin: .zero, xAxis: Vec3(1, 0, 0),
+                                    yAxis: Vec3(0, 0, 1), size: .eightFoot,
+                                    measuredWidth: 2.32, measuredHeight: 1.17)
+        #expect(fine.correctingUndersizedSnap().size == .eightFoot)
+    }
+
+    @Test func anInflatedFieldIsLeftAlone() {
+        // Rail-top taps measure BIGGER; the snap is correct there.
+        let inflated = TableCalibration(origin: .zero, xAxis: Vec3(1, 0, 0),
+                                        yAxis: Vec3(0, 0, 1), size: .eightFoot,
+                                        measuredWidth: 2.42, measuredHeight: 1.21)
+        #expect(inflated.correctingUndersizedSnap().size == .eightFoot)
+    }
+
+    @Test func recordsWithoutAMeasurementAreLeftAlone() {
+        let preT12 = TableCalibration(origin: .zero, xAxis: Vec3(1, 0, 0),
+                                      yAxis: Vec3(0, 0, 1), size: .eightFoot)
+        #expect(preT12.correctingUndersizedSnap().size == .eightFoot)
+    }
+
+    @Test func theAnchoredRecordMigratesToo() {
+        let anchored = AnchoredCalibration(calibration: legacy,
+                                           anchorTransform: .identity)
+        let corrected = anchored.correctingUndersizedSnap()
+        #expect(corrected.size == .custom(width: 2.249, height: 1.125))
+        let world = corrected.worldCalibration(anchorTransform: .identity)
+        #expect(world.size == .custom(width: 2.249, height: 1.125))
+    }
 }

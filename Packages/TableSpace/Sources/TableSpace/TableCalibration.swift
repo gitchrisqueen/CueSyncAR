@@ -87,8 +87,33 @@ public struct TableCalibration: Sendable, Equatable, Codable {
     /// standard), then to the nearest standard size within `sizeTolerance`;
     /// anything else locks as `.custom` with the measured dimensions —
     /// never refuse a real table for being odd.
+    ///
+    /// The snap is deliberately ASYMMETRIC, because the tapping error it
+    /// exists to absorb has a direction.
+    ///
+    /// OVER-measurement is a documented, quantified mis-tap: tapping the
+    /// rail top instead of the cushion nose inflates the field by a
+    /// percentage of each corner's distance from centre — +4 cm from 2.4 m
+    /// overhead, +8 cm from 1.2 m, +6.5 cm from a realistic head-rail pose
+    /// (`ProjectionRoundTripTests.railTopTapsInflateTheFieldAndStillSnap`).
+    /// Symmetric inflation leaves the origin and axes untouched, so the
+    /// snap absorbs it entirely and ball error stays under 2 mm. Going up,
+    /// the fractional `sizeTolerance` is exactly the right instrument.
+    ///
+    /// UNDER-measurement has no such mechanism — nothing systematically
+    /// pulls taps inside the cushion nose — so a field measuring smaller
+    /// than a standard most likely IS smaller. Snapping it up moves every
+    /// pocket outward: a real 2.26 x 1.09 m table snapped to the 2.34 x
+    /// 1.17 m standard drew every pocket ~4 cm outside the real one, on
+    /// every shot, because `Table(size:)` builds pockets and cushions from
+    /// the snapped size while the tapped corners set the origin and axes.
+    /// Below a standard, therefore, `maxSnapUnder` (metres) governs and the
+    /// honest answer past it is `.custom` with what was actually measured —
+    /// with the HUD reporting the delta so a genuine mis-tap can be
+    /// re-tapped rather than silently absorbed.
     public static func fromCorners(_ corners: [Vec3],
                                    sizeTolerance: Double = 0.08,
+                                   maxSnapUnder: Double = 0.03,
                                    preferredSize: TableSize? = nil)
     throws -> TableCalibration {
         guard corners.count == 4 else { throw CalibrationError.needFourCorners }
@@ -112,12 +137,17 @@ public struct TableCalibration: Sendable, Equatable, Codable {
         let size: TableSize
         if let preferred = preferredSize,
            matches(width: width, height: height, candidate: preferred,
-                   tolerance: sizeTolerance) {
+                   tolerance: sizeTolerance),
+           undersizeDelta(width: width, height: height, candidate: preferred)
+            <= maxSnapUnder + snapEpsilon {
             size = preferred
+        } else if let standard = TableSize.inferred(width: width, height: height,
+                                                    tolerance: sizeTolerance),
+                  undersizeDelta(width: width, height: height, candidate: standard)
+                    <= maxSnapUnder + snapEpsilon {
+            size = standard
         } else {
-            size = TableSize.inferred(width: width, height: height,
-                                      tolerance: sizeTolerance)
-                ?? .custom(width: width, height: height)
+            size = .custom(width: width, height: height)
         }
 
         let x = edgeA.normalized
@@ -129,6 +159,49 @@ public struct TableCalibration: Sendable, Equatable, Codable {
         let centroid = (c0 + c1 + c2 + c3) * 0.25
         return TableCalibration(origin: centroid, xAxis: x, yAxis: y, size: size,
                                 measuredWidth: width, measuredHeight: height)
+    }
+
+    /// Re-derive a size that an OLDER, symmetric snap rule captured.
+    ///
+    /// Calibrations locked before the undersize bound existed persist with
+    /// a standard `size` and the raw `measured*` fields that contradict it
+    /// — an 8 ft label over a field measured 9 cm smaller. Those are the
+    /// ones drawing pockets outside the real ones, and they live in
+    /// UserDefaults and in saved venues, so a fix that only changed
+    /// `fromCorners` would need every user to re-tap their table. Applied
+    /// on load instead.
+    ///
+    /// Deliberately NOT applied to recorded session bundles: a bundle is
+    /// evidence of what the app did at the time, and rewriting its
+    /// calibration would silently change every replay golden.
+    public func correctingUndersizedSnap(maxSnapUnder: Double = 0.03) -> TableCalibration {
+        guard let measuredWidth, let measuredHeight else { return self }
+        if case .custom = size { return self }
+        guard Self.undersizeDelta(width: measuredWidth, height: measuredHeight,
+                                  candidate: size) > maxSnapUnder + Self.snapEpsilon
+        else { return self }
+        return TableCalibration(origin: origin, xAxis: xAxis, yAxis: yAxis,
+                                size: .custom(width: measuredWidth,
+                                              height: measuredHeight),
+                                measuredWidth: measuredWidth,
+                                measuredHeight: measuredHeight)
+    }
+
+    /// Makes `maxSnapUnder` an inclusive bound in binary floating point:
+    /// a field exactly 3 cm under computes as 0.030000000000000027.
+    static let snapEpsilon = 1e-9
+
+    /// How much SMALLER (metres, worst axis) a measured field is than a
+    /// candidate's playing field; zero when the measurement is at or over
+    /// it. Orientation-normalized the same way `TableSize.inferred` does
+    /// it: long side against long side.
+    static func undersizeDelta(width: Double, height: Double,
+                               candidate: TableSize) -> Double {
+        let field = candidate.playField
+        let w = Swift.max(width, height), h = Swift.min(width, height)
+        let fw = Swift.max(field.width, field.height)
+        let fh = Swift.min(field.width, field.height)
+        return Swift.max(Swift.max(fw - w, fh - h), 0)
     }
 
     /// Whether a measured field is within `tolerance` (fractional, worst
