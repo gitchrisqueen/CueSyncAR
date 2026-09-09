@@ -225,6 +225,185 @@ struct BallTrackerTests {
         }
         #expect(balls.isEmpty)
     }
+
+    // MARK: - Identity across a detection gap (Phase 3.1)
+
+    /// A ball that is simply not detected for longer than any grace — the
+    /// operator's aiming recording loses a given ball for tens of seconds
+    /// while he stands over the table — must come back as ITSELF. Its id is
+    /// what `CoachKit.ShotRanking`/`ShotSelection` key the player's chosen
+    /// target on, and what tap-to-designate marks the cue ball with.
+    @Test func aBallReacquiredWhereItWasLeftKeepsItsID() {
+        var tracker = BallTracker(config: config)
+        let resting = Vec2(0.42, -0.18)
+        let tick = 0.2
+        var now: TimeInterval = 0
+        var balls: [Ball] = []
+        for _ in 0..<6 {
+            now += tick
+            balls = tracker.update(
+                observations: [BallObservation(kind: .cue, position: resting, confidence: 0.9)],
+                timestamp: now, isVisible: { _ in true })
+        }
+        let original = try? #require(balls.first).id
+        #expect(original != nil)
+
+        // In view, undetected, for far longer than the grace: the track is
+        // genuinely retired — nothing is reported here any more.
+        for _ in 0..<40 {
+            now += tick
+            balls = tracker.update(observations: [], timestamp: now, isVisible: { _ in true })
+        }
+        #expect(balls.isEmpty, "the track must actually retire, or this tests nothing")
+
+        // Re-acquired at the same spot (with a millimetre of detector
+        // jitter): the SAME id comes back, and the kind with it.
+        let jittered = Vec2(resting.x + 0.004, resting.y - 0.003)
+        for _ in 0..<3 {
+            now += tick
+            balls = tracker.update(
+                observations: [BallObservation(kind: .cue, position: jittered, confidence: 0.9)],
+                timestamp: now, isVisible: { _ in true })
+        }
+        #expect(balls.count == 1)
+        #expect(balls.first?.id == original)
+        #expect(balls.first?.kind == .cue)
+    }
+
+    /// Re-identification must not hand one ball's identity to another. The
+    /// radius is below one ball diameter, so a ball resting where a
+    /// DIFFERENT ball was retired is a new ball and gets a new id.
+    @Test func aDifferentBallAtADifferentSpotDoesNotInheritAnIdentity() {
+        var tracker = BallTracker(config: config)
+        let tick = 0.2
+        var now: TimeInterval = 0
+        var balls: [Ball] = []
+        for _ in 0..<6 {
+            now += tick
+            balls = tracker.update(
+                observations: [BallObservation(kind: .eight, position: Vec2(0, 0),
+                                               confidence: 0.9)],
+                timestamp: now, isVisible: { _ in true })
+        }
+        let original = balls.first?.id
+        for _ in 0..<40 {
+            now += tick
+            balls = tracker.update(observations: [], timestamp: now, isVisible: { _ in true })
+        }
+        #expect(balls.isEmpty)
+
+        // One diameter away — the closest a DIFFERENT ball can physically
+        // be — is outside the re-identification radius.
+        let elsewhere = Vec2(Ball.standardRadius * 2, 0)
+        #expect(elsewhere.distance(to: Vec2(0, 0)) > config.reidentificationDistance)
+        for _ in 0..<3 {
+            now += tick
+            balls = tracker.update(
+                observations: [BallObservation(kind: .eight, position: elsewhere,
+                                               confidence: 0.9)],
+                timestamp: now, isVisible: { _ in true })
+        }
+        #expect(balls.count == 1)
+        #expect(balls.first?.id != original)
+    }
+
+    /// A retired identity is remembered for a bounded time, not forever: a
+    /// re-racked table starts fresh rather than resurrecting last frame's
+    /// layout.
+    @Test func aStaleIdentityExpiresAndIsNotResurrected() {
+        var tracker = BallTracker(config: TrackerConfig(reidentificationMemory: 5))
+        let resting = Vec2(0.1, 0.1)
+        let tick = 0.2
+        var now: TimeInterval = 0
+        var balls: [Ball] = []
+        for _ in 0..<6 {
+            now += tick
+            balls = tracker.update(
+                observations: [BallObservation(kind: .eight, position: resting, confidence: 0.9)],
+                timestamp: now, isVisible: { _ in true })
+        }
+        let original = balls.first?.id
+        // Out of view, so nothing decays but the clock still runs well past
+        // the memory window.
+        for _ in 0..<100 {
+            now += tick
+            _ = tracker.update(observations: [], timestamp: now, isVisible: { _ in false })
+        }
+        // Back in view, undetected: retire, then let the memory go stale.
+        for _ in 0..<40 {
+            now += tick
+            balls = tracker.update(observations: [], timestamp: now, isVisible: { _ in true })
+        }
+        #expect(balls.isEmpty)
+        for _ in 0..<3 {
+            now += tick
+            balls = tracker.update(
+                observations: [BallObservation(kind: .eight, position: resting, confidence: 0.9)],
+                timestamp: now, isVisible: { _ in true })
+        }
+        #expect(balls.count == 1)
+        #expect(balls.first?.id != original, "an expired identity must not come back")
+    }
+
+    /// An unconfirmed track's id was never reported to anyone, so a
+    /// one-frame phantom must not leave a name behind for the next phantom
+    /// at that spot to inherit.
+    @Test func aPhantomThatNeverConfirmedLeavesNoIdentityBehind() {
+        var tracker = BallTracker(config: config)
+        let spot = Vec2(-0.5, 0.3)
+        var now: TimeInterval = 0
+        // Two frames only — below appearanceFrames — then silence.
+        for _ in 0..<2 {
+            now += 0.2
+            _ = tracker.update(
+                observations: [BallObservation(kind: .unknown, position: spot, confidence: 0.4)],
+                timestamp: now, isVisible: { _ in true })
+        }
+        for _ in 0..<40 {
+            now += 0.2
+            _ = tracker.update(observations: [], timestamp: now, isVisible: { _ in true })
+        }
+        #expect(tracker.dormant.isEmpty, "an unconfirmed track was remembered")
+    }
+
+    /// The frozen-pair failure, at the unit level: two balls RESTING IN
+    /// CONTACT are 5.7 cm apart, inside the 8 cm association gate. When the
+    /// detector misses one of them, the other is matched and near — and
+    /// absorbing the missed one as a "duplicate" of its neighbour destroys
+    /// its identity outright, with no retirement and so no chance of
+    /// re-identification. Duplicates are judged by `duplicateDistance`
+    /// (below one ball diameter), never by the gate.
+    @Test func aFrozenNeighbourIsNotAbsorbedAsADuplicate() {
+        var tracker = BallTracker(config: config)
+        let a = Vec2(0.30, 0.10)
+        let b = Vec2(0.30 + Ball.standardRadius * 2, 0.10)
+        #expect(a.distance(to: b) < config.gatingDistance,
+                "the pair must be inside the gate, or this tests nothing")
+        var now: TimeInterval = 0
+        var balls: [Ball] = []
+        for _ in 0..<6 {
+            now += 0.2
+            balls = tracker.update(observations: [
+                BallObservation(kind: .unknown, position: a, confidence: 0.9),
+                BallObservation(kind: .unknown, position: b, confidence: 0.9)
+            ], timestamp: now, isVisible: { _ in true })
+        }
+        #expect(balls.count == 2)
+        let ids = balls.map(\.id)
+
+        // B is missed for a few frames while A keeps being detected. B is
+        // well inside the grace, so it must simply coast — not be eaten.
+        for _ in 0..<4 {
+            now += 0.2
+            balls = tracker.update(
+                observations: [BallObservation(kind: .unknown, position: a, confidence: 0.9)],
+                timestamp: now, isVisible: { _ in true })
+            #expect(balls.count == 2, "the frozen neighbour was absorbed")
+        }
+        #expect(balls.map(\.id) == ids)
+        // And both are still where they were, not collapsed onto one spot.
+        #expect(balls.contains { $0.position.distance(to: b) < 0.01 })
+    }
 }
 
 @Suite("Vision box mapping")

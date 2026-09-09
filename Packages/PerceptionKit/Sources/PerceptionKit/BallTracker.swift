@@ -81,6 +81,12 @@ struct BallTrack: Sendable, Equatable {
 
     var position: Vec2 { Vec2(x.estimate, y.estimate) }
 
+    /// Everything a retired track hands to its successor (`DormantIdentity`).
+    var identity: DormantIdentity {
+        DormantIdentity(id: id, position: position, radius: radius,
+                        kindVotes: kindVotes, retiredAt: 0)
+    }
+
     var votedKind: Ball.Kind {
         kindVotes.max { a, b in
             a.value != b.value ? a.value < b.value : describe(a.key) < describe(b.key)
@@ -88,6 +94,26 @@ struct BallTrack: Sendable, Equatable {
     }
 
     private func describe(_ kind: Ball.Kind) -> String { String(describing: kind) }
+}
+
+/// A retired track's identity, held so that the same ball — re-acquired at
+/// the same spot after a detection gap no grace could bridge — gets its
+/// OWN id back rather than a fresh one.
+///
+/// This exists because a grace period cannot solve identity on its own. On
+/// the operator's aiming recording the detector loses a given ball for tens
+/// of seconds at a time (it sees 2–4 of 7 balls per frame while he stands
+/// over the table), and no retirement budget large enough to bridge that is
+/// compatible with clearing a pocketed ball's ring in about a second. The
+/// budget decides how long a ring is allowed to be WRONG; re-identification
+/// decides what the ball is called when it comes back.
+struct DormantIdentity: Sendable, Equatable {
+    let id: BallID
+    let position: Vec2
+    var radius: Double
+    var kindVotes: [Ball.Kind: Int]
+    /// Frame-clock time of retirement; 0 when the caller passes no clock.
+    var retiredAt: TimeInterval
 }
 
 public struct TrackerConfig: Sendable, Equatable {
@@ -132,6 +158,23 @@ public struct TrackerConfig: Sendable, Equatable {
     /// the shot origin inside the ~1 s the operator asked for, while
     /// `visibleMissGrace` stays long enough to survive a bridge hand.
     public var strikeMissGrace: TimeInterval
+    /// Radius (m) within which a new observation reclaims a RETIRED track's
+    /// id instead of being issued a new one.
+    ///
+    /// Two different balls cannot have centres closer than one diameter
+    /// (5.7 cm), so a default of 1.6 radii (4.6 cm) cannot hand one ball's
+    /// identity to another: nothing else can physically be there. It is the
+    /// same bound `mergePhysicalOverlaps` uses for "one ball seen twice",
+    /// for the same reason. Set to 0 to disable re-identification.
+    public var reidentificationDistance: Double
+    /// Seconds a retired identity is remembered. Only ever consulted for an
+    /// observation that matched no live track, so a long memory costs
+    /// nothing while the ball is being tracked normally; it bounds how stale
+    /// a layout may be before a re-racked table starts fresh.
+    public var reidentificationMemory: TimeInterval
+    /// Cap on remembered identities; the oldest is evicted first. A rack is
+    /// 16 balls, so 32 holds a full table twice over.
+    public var maxRememberedIdentities: Int
     /// Kalman noise parameters (m²).
     public var processNoise: Double
     public var measurementNoise: Double
@@ -143,6 +186,9 @@ public struct TrackerConfig: Sendable, Equatable {
                 disappearanceFrames: Int = 30,
                 visibleMissGrace: TimeInterval = 2.5,
                 strikeMissGrace: TimeInterval = 0.75,
+                reidentificationDistance: Double = Ball.standardRadius * 1.6,
+                reidentificationMemory: TimeInterval = 120,
+                maxRememberedIdentities: Int = 32,
                 processNoise: Double = 4e-5,
                 measurementNoise: Double = 4e-4,
                 maxKindVotes: Int = 15) {
@@ -151,6 +197,9 @@ public struct TrackerConfig: Sendable, Equatable {
         self.disappearanceFrames = disappearanceFrames
         self.visibleMissGrace = visibleMissGrace
         self.strikeMissGrace = strikeMissGrace
+        self.reidentificationDistance = reidentificationDistance
+        self.reidentificationMemory = reidentificationMemory
+        self.maxRememberedIdentities = maxRememberedIdentities
         self.processNoise = processNoise
         self.measurementNoise = measurementNoise
         self.maxKindVotes = maxKindVotes
@@ -165,6 +214,22 @@ public struct BallTracker: Sendable {
     private var nextID = 0
     /// Timestamp of the previous `update`, for per-frame elapsed time.
     private var lastTimestamp: TimeInterval?
+    /// Identities of retired tracks, newest last. Only CONFIRMED tracks are
+    /// remembered: an unconfirmed track's id was never reported to anyone,
+    /// so bringing it back would only let a one-frame phantom keep a name.
+    var dormant: [DormantIdentity] = []
+    /// Frame clock, for dormant-identity expiry. Zero until a timestamped
+    /// frame arrives, so a caller that passes no clock never expires.
+    private var clock: TimeInterval = 0
+
+    /// Closer than this and two tracks are one ball seen twice.
+    ///
+    /// Two distinct ball centres cannot be nearer than one diameter (2 r,
+    /// 5.7 cm); 1.6 r (4.6 cm) sits below that, so nothing here can ever
+    /// conflate two real balls. This is the only distance allowed to decide
+    /// "same ball" — the association gate is larger on purpose (a ball
+    /// moves between frames) and must never be used for the question.
+    static let duplicateDistance = Ball.standardRadius * 1.6
 
     public init(config: TrackerConfig = .default) {
         self.config = config
@@ -190,6 +255,7 @@ public struct BallTracker: Sendable {
             elapsed = 0
         }
         lastTimestamp = timestamp ?? lastTimestamp
+        if let timestamp { clock = timestamp }
         // Greedy association: consider all (track, observation) pairs within
         // the gate, closest first; each side is used at most once. With
         // per-frame motion far below ball spacing this preserves identities
@@ -223,17 +289,28 @@ public struct BallTracker: Sendable {
         }
 
         // Unmatched tracks. A track that lost the competition for a ball to
-        // ANOTHER track inside the gate is a duplicate (spawned when a fast
-        // ball outran association) — absorb it into the winner immediately.
-        // Everything else misses a frame only where the camera can actually
-        // see (out-of-view static balls persist untouched).
+        // ANOTHER track CLOSE ENOUGH TO BE THE SAME BALL is a duplicate
+        // (spawned when a fast ball outran association) — absorb it into the
+        // winner immediately. Everything else misses a frame only where the
+        // camera can actually see (out-of-view static balls persist
+        // untouched).
+        //
+        // "Close enough to be the same ball" is `Self.duplicateDistance`,
+        // NOT the association gate. The gate is 8 cm because a ball moves
+        // between frames; two distinct ball CENTRES can be 5.7 cm apart
+        // (frozen, in contact), well inside it. Judging duplicates by the
+        // gate therefore destroyed a frozen ball's identity the first frame
+        // the detector missed it: its neighbour was matched and 5.7 cm away,
+        // so it was absorbed as a phantom of that neighbour — silently, and
+        // without even the retirement path's chance to be re-identified.
+        // `scripted-frozen-pair` is the regression fixture for exactly this.
         let somethingAppeared = observations.indices.contains { !usedObs.contains($0) }
         var absorbed: [Int] = []
         for index in tracks.indices where !usedTracks.contains(index) {
             if let winner = tracks.indices.first(where: { candidate in
                 candidate != index && usedTracks.contains(candidate)
                     && tracks[candidate].position.distance(to: tracks[index].position)
-                        < config.gatingDistance
+                        < Self.duplicateDistance
             }) {
                 for (kind, votes) in tracks[index].kindVotes {
                     let merged = (tracks[winner].kindVotes[kind] ?? 0) + votes
@@ -266,16 +343,33 @@ public struct BallTracker: Sendable {
         // Retire on whichever budget runs out first. Both are gated on
         // visibility, so an occluded or out-of-frame ball still persists
         // indefinitely — neither counter moves while nobody is looking.
+        // Retire, remembering every CONFIRMED identity so the same ball can
+        // reclaim it (see `DormantIdentity`). Retirement means "stop drawing
+        // a ring here", which is a question about this position; it is not a
+        // decision that the ball has ceased to exist.
+        var retired: [BallTrack] = []
         tracks.removeAll { track in
-            if track.consecutiveMisses >= config.disappearanceFrames { return true }
-            let grace = track.presumedMoved ? config.strikeMissGrace : config.visibleMissGrace
-            return grace > 0 && track.visibleMissSeconds >= grace
+            let expired: Bool
+            if track.consecutiveMisses >= config.disappearanceFrames {
+                expired = true
+            } else {
+                let grace = track.presumedMoved
+                    ? config.strikeMissGrace : config.visibleMissGrace
+                expired = grace > 0 && track.visibleMissSeconds >= grace
+            }
+            if expired, track.confirmed { retired.append(track) }
+            return expired
+        }
+        for track in retired {
+            remember(track)
         }
 
-        // Unmatched observations spawn tentative tracks.
+        // Unmatched observations spawn tentative tracks, reclaiming a
+        // retired identity when one was left at this spot.
         for (oi, obs) in observations.enumerated() where !usedObs.contains(oi) {
             tracks.append(makeTrack(for: obs))
         }
+        expireDormantIdentities()
 
         mergePhysicalOverlaps()
         return confirmedBalls()
@@ -287,7 +381,7 @@ public struct BallTracker: Sendable {
     /// matched so competition absorption never fires). The better-
     /// established track absorbs the other.
     private mutating func mergePhysicalOverlaps() {
-        let overlapDistance = Ball.standardRadius * 1.6
+        let overlapDistance = Self.duplicateDistance
         var index = 0
         while index < tracks.count {
             var other = index + 1
@@ -330,10 +424,71 @@ public struct BallTracker: Sendable {
         }
     }
 
+    /// File a retired track's identity for re-use at the same spot.
+    private mutating func remember(_ track: BallTrack) {
+        guard config.reidentificationDistance > 0, config.maxRememberedIdentities > 0 else {
+            return
+        }
+        var identity = track.identity
+        identity.retiredAt = clock
+        // One identity per spot: a track retiring onto a remembered position
+        // replaces it rather than stacking a second name on the same ball.
+        dormant.removeAll {
+            $0.position.distance(to: identity.position) <= config.reidentificationDistance
+        }
+        dormant.append(identity)
+        if dormant.count > config.maxRememberedIdentities {
+            dormant.removeFirst(dormant.count - config.maxRememberedIdentities)
+        }
+    }
+
+    private mutating func expireDormantIdentities() {
+        guard config.reidentificationMemory > 0, clock > 0 else { return }
+        dormant.removeAll { clock - $0.retiredAt > config.reidentificationMemory }
+    }
+
+    /// The identity an observation inherits: the nearest retired track left
+    /// within `reidentificationDistance`, if any. That radius is below one
+    /// ball diameter, so at most one real ball can be there and this cannot
+    /// take an identity from a different ball.
+    private mutating func reclaimIdentity(at position: Vec2) -> DormantIdentity? {
+        guard config.reidentificationDistance > 0 else { return nil }
+        // Total order on (distance, id): never rely on sort stability, the
+        // replay goldens require byte-identical tracks.
+        let best = dormant.indices
+            .filter {
+                dormant[$0].position.distance(to: position)
+                    <= config.reidentificationDistance
+            }
+            .min { a, b in
+                let da = dormant[a].position.distance(to: position)
+                let db = dormant[b].position.distance(to: position)
+                if da != db { return da < db }
+                return dormant[a].id.rawValue < dormant[b].id.rawValue
+            }
+        guard let best else { return nil }
+        return dormant.remove(at: best)
+    }
+
     private mutating func makeTrack(for obs: BallObservation) -> BallTrack {
-        defer { nextID += 1 }
+        // A ball re-acquired where a retired one was left is that ball: it
+        // keeps its id, its radius and the kind it had voted for, so the
+        // player's chosen target and cue-ball designation (both keyed on
+        // BallID downstream) survive a detection gap. It does NOT keep its
+        // confirmation — the appearance gate runs again from scratch, so a
+        // one-frame phantom over a remembered spot still earns nothing.
+        let inherited = reclaimIdentity(at: obs.position)
+        let id: BallID
+        if let inherited {
+            id = inherited.id
+        } else {
+            id = BallID(nextID)
+            nextID += 1
+        }
+        var votes = inherited?.kindVotes ?? [:]
+        votes[obs.kind] = min((votes[obs.kind] ?? 0) + 1, config.maxKindVotes)
         return BallTrack(
-            id: BallID(nextID),
+            id: id,
             x: ScalarKalman(initial: obs.position.x, initialVariance: config.measurementNoise,
                             processNoise: config.processNoise,
                             measurementNoise: config.measurementNoise),
@@ -341,7 +496,7 @@ public struct BallTracker: Sendable {
                             processNoise: config.processNoise,
                             measurementNoise: config.measurementNoise),
             radius: obs.radius,
-            kindVotes: [obs.kind: 1],
+            kindVotes: votes,
             lastConfidence: obs.confidence,
             hits: 1,
             consecutiveMisses: 0,

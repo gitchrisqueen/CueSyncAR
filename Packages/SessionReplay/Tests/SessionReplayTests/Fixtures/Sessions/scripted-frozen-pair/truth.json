@@ -1,0 +1,1 @@
+{"balls":[{"kind":"cue","x":-0.620000,"y":0.050000},{"kind":"unknown","x":0.300000,"y":0.100000},{"kind":"unknown","x":0.357150,"y":0.100000}],"matchRadius":0.030000,"method":"scripted: detections are exact forward projections of these positions plus ±1.5 px box-center noise (SplitMix64 seed 20260909)"}

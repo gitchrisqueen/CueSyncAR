@@ -1,5 +1,6 @@
 import CueSyncCore
 import Foundation
+import PerceptionKit
 import Testing
 @testable import SessionReplay
 
@@ -68,6 +69,24 @@ private let goldenBundles: [GoldenBundle] = [
     GoldenBundle(name: "scripted-5ball", warmupFrames: 3,
                  maxPositionRMS: 0.02, minRecall: 0.98, minPrecision: 0.98),
 
+    // Two stationary balls in CONTACT (centres one diameter apart, well
+    // inside the 8 cm association gate) plus a cue ball, with one of the
+    // pair dropped from detection for 3.1 s — longer than the 2.5 s grace,
+    // so its track is genuinely retired and has to reclaim its OWN id
+    // rather than its neighbour's. Three balls, three ids, no rebirths:
+    // the bars are exact because the scene is synthetic and static.
+    // `minRecall` is 0.96 rather than the 0.98 the other scripted bundle
+    // holds, and the 2 % is bought deliberately: ball B is removed from
+    // detection for 31 frames, which outlasts the 2.5 s grace on purpose, so
+    // its track really is retired for ~6 frames and then spends 3 more
+    // re-earning confirmation. Those 9 ball-frames are the scenario, not a
+    // regression — the point of the fixture is that the id on the far side
+    // of that gap is the SAME id, which `maxTrackChurn: 0` and
+    // `frozenPairKeepsBothIdentities` are what actually assert.
+    GoldenBundle(name: "scripted-frozen-pair", warmupFrames: 3,
+                 maxPositionRMS: 0.02, minRecall: 0.96, minPrecision: 0.98,
+                 stability: StabilityBars(maxTrackChurn: 0, maxCueIDChanges: 0)),
+
     // 300 frames of the operator AIMING a real cue, 2026-09-09. The clip
     // the stick gate has to accept.
     // `maxHeadingDeltaMax` was 3.0 and is now 7.0 — a bar deliberately
@@ -90,8 +109,20 @@ private let goldenBundles: [GoldenBundle] = [
                     maxSegmentCount: 4,
                     maxPredictionLengthP95: 2.0,
                     maxFarEndShiftP95: 1.3,
-                    maxTrackChurn: 16,
-                    maxCueIDChanges: 6)),
+                    // Track-identity churn (Phase 3.1): 11 -> 7 measured, on
+                    // re-identification of retired ids. Every other bar in
+                    // this block is unmoved, which is the point — the change
+                    // alters WHAT A BALL IS CALLED after a detection gap and
+                    // nothing else, so aim, plan and guide geometry replay
+                    // byte-for-byte as before apart from the ids.
+                    //
+                    // `maxCueIDChanges` ratchets 6 -> 4 at the measured
+                    // value, but read it honestly: all 4 are the operator
+                    // physically MOVING the cue ball between shots with the
+                    // detector losing it for seconds in between. Nothing
+                    // offline can tie those together, and nothing should.
+                    maxTrackChurn: 7,
+                    maxCueIDChanges: 4)),
 
     // 300 frames with the cue LYING ON THE CLOTH, same table, same evening.
     // The clip the stick gate has to REJECT: today it accepts a discarded
@@ -111,8 +142,26 @@ private let goldenBundles: [GoldenBundle] = [
                     maxSegmentCount: 3,
                     maxPredictionLengthP95: 0.8,
                     maxFarEndShiftP95: 0.2,
-                    maxTrackChurn: 6,
-                    maxCueIDChanges: 1))
+                    // 6 -> 0. This clip's whole churn was ONE flickering
+                    // rail detection at (-0.076, +0.511) being reborn seven
+                    // times; re-identification hands it back its own id, and
+                    // the eight real balls now hold eight ids for the full
+                    // 66 seconds. Zero is the right bar precisely because
+                    // the layout never changes.
+                    maxTrackChurn: 0,
+                    maxCueIDChanges: 0))
+]
+
+/// The bundles that come from a generator rather than from a device, so
+/// regeneration can rewrite their inputs as well as their outputs.
+private struct ScriptedGenerator {
+    let name: String
+    let make: @Sendable () -> SessionBundle
+}
+
+private let scriptedGenerators: [ScriptedGenerator] = [
+    ScriptedGenerator(name: ScriptedFiveBall.sessionID, make: ScriptedFiveBall.makeBundle),
+    ScriptedGenerator(name: ScriptedFrozenPair.sessionID, make: ScriptedFrozenPair.makeBundle)
 ]
 
 private let fixturesSubdirectory = "Fixtures/Sessions"
@@ -146,11 +195,13 @@ struct GoldenReplayTests {
                 "bundles on disk and the golden list diverged: \(onDisk.sorted())")
     }
 
-    /// scripted-5ball is generated code (ScriptedFiveBall) — the committed
-    /// input files must be exactly what the generator writes today.
-    @Test func committedInputsMatchTheGenerator() throws {
-        let directory = try fixtureDirectory(for: ScriptedFiveBall.sessionID)
-        let expected = SessionBundleWriter.inputTexts(for: ScriptedFiveBall.makeBundle())
+    /// The scripted bundles are generated code — their committed input
+    /// files must be exactly what the generators write today.
+    @Test(arguments: scriptedGenerators.map(\.name))
+    func committedInputsMatchTheGenerator(name: String) throws {
+        let generator = try #require(scriptedGenerators.first { $0.name == name })
+        let directory = try fixtureDirectory(for: name)
+        let expected = SessionBundleWriter.inputTexts(for: generator.make())
         for (file, text) in expected.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
             let committed = try Data(contentsOf: directory.appendingPathComponent(file.rawValue))
             #expect(committed == Data(text.utf8),
@@ -204,8 +255,8 @@ struct GoldenReplayTests {
     /// bundle's inputs are left alone. Always records an issue.
     private func regenerate(_ name: String) async throws {
         let target = sourceFixtureDirectory(for: name)
-        if name == ScriptedFiveBall.sessionID {
-            try SessionBundleWriter().write(ScriptedFiveBall.makeBundle(), to: target)
+        if let generator = scriptedGenerators.first(where: { $0.name == name }) {
+            try SessionBundleWriter().write(generator.make(), to: target)
         }
         let bundle = try SessionBundleReader().read(from: target)
         let result = try await ReplayRunner().run(bundle)
@@ -262,6 +313,76 @@ struct GoldenReplayTests {
         #expect(report.farEndShiftP95 <= bars.maxFarEndShiftP95, "\(report.summary)")
         #expect(report.trackChurn <= bars.maxTrackChurn, "\(report.summary)")
         #expect(report.cueIDChanges <= bars.maxCueIDChanges, "\(report.summary)")
+    }
+
+    /// Two balls resting in contact must never trade or lose identities —
+    /// neither to association (each sits inside the other's 8 cm gate every
+    /// frame) nor to re-identification (the one that is retired has to
+    /// reclaim its own id, not its neighbour's).
+    @Test func frozenPairKeepsBothIdentities() async throws {
+        let directory = try fixtureDirectory(for: ScriptedFrozenPair.sessionID)
+        let bundle = try SessionBundleReader().read(from: directory)
+        let outputs = try await ReplayRunner().run(bundle).outputs
+
+        // Exactly three ids for the whole clip: no ball is ever reborn.
+        let ids = Set(outputs.flatMap { $0.balls.map(\.id) })
+        #expect(ids.count == 3, "ids issued: \(ids.sorted())")
+
+        // The pair really is one diameter apart and really is inside the
+        // association gate — if either stops being true the test has
+        // stopped testing what it is named for.
+        let separation = ScriptedFrozenPair.frozenA.distance(to: ScriptedFrozenPair.frozenB)
+        #expect(abs(separation - Ball.standardRadius * 2) < 1e-12)
+        #expect(separation < TrackerConfig.default.gatingDistance)
+
+        // Identity by position: the id nearest each truth ball on the first
+        // fully-acquired frame is still the id nearest it on the last one.
+        func identity(at frame: Int, near target: Vec2) throws -> Int {
+            let record = try #require(outputs.first { $0.frame == frame })
+            let ball = try #require(record.balls.min {
+                Vec2($0.x, $0.y).distance(to: target) < Vec2($1.x, $1.y).distance(to: target)
+            }, "frame \(frame) reported no balls")
+            #expect(Vec2(ball.x, ball.y).distance(to: target) < 0.03,
+                    "frame \(frame): nearest ball is \(ball.x), \(ball.y), not near \(target)")
+            return ball.id
+        }
+        let last = ScriptedFrozenPair.frameCount - 1
+        let beforeDropout = ScriptedFrozenPair.dropoutFrames.lowerBound - 1
+        for target in [ScriptedFrozenPair.cuePosition,
+                       ScriptedFrozenPair.frozenA, ScriptedFrozenPair.frozenB] {
+            #expect(try identity(at: beforeDropout, near: target)
+                    == identity(at: last, near: target),
+                    "identity at \(target) changed across the dropout")
+        }
+
+        // Ball A is never dropped, so it is present on every reported frame
+        // and its id never changes — the neighbour's retirement must not
+        // disturb it.
+        let aIDs = Set(outputs.compactMap { record in
+            record.balls.min {
+                Vec2($0.x, $0.y).distance(to: ScriptedFrozenPair.frozenA)
+                    < Vec2($1.x, $1.y).distance(to: ScriptedFrozenPair.frozenA)
+            }.flatMap {
+                Vec2($0.x, $0.y).distance(to: ScriptedFrozenPair.frozenA) < 0.03 ? $0.id : nil
+            }
+        })
+        #expect(aIDs.count == 1, "ball A changed id: \(aIDs.sorted())")
+
+        // The dropout genuinely outlasts the grace, so this exercises
+        // re-identification and not merely the miss budget.
+        let dropoutSeconds = Double(ScriptedFrozenPair.dropoutFrames.count)
+            / ScriptedFrozenPair.frameRate
+        #expect(dropoutSeconds > TrackerConfig.default.visibleMissGrace)
+        // ... and ball B really is absent from the reported state for part
+        // of it, i.e. the track was retired rather than coasting.
+        let bMissing = outputs.contains { record in
+            record.frame > ScriptedFrozenPair.dropoutFrames.lowerBound
+                && record.frame <= ScriptedFrozenPair.dropoutFrames.upperBound
+                && !record.balls.contains {
+                    Vec2($0.x, $0.y).distance(to: ScriptedFrozenPair.frozenB) < 0.03
+                }
+        }
+        #expect(bMissing, "ball B never left the reported state — the dropout is too short")
     }
 
     /// The script's scenario actually happens in the replay: designation
