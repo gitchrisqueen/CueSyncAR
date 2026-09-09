@@ -16,14 +16,33 @@ import TableSpace
 public struct OverlayLayout: Sendable, Equatable {
     public struct Strip: Sendable, Equatable {
         public var ballID: BallID
+        /// Segment ends in WORLD space, lying on the cloth.
+        ///
+        /// Endpoints, not a heading. This used to carry `angle`, a
+        /// TABLE-space heading (`atan2` over table x/y) that the renderer
+        /// then applied as a rotation about the anchor's local Y — and the
+        /// table anchor is created with identity rotation, so nothing ever
+        /// mapped table axes onto world axes. Every strip's midpoint was
+        /// right and its direction was wrong by the table's yaw: on a
+        /// calibration whose long axis ran along world +z, that is a right
+        /// angle. It rendered correctly only when the table happened to be
+        /// aligned with the session's world axes, which is exactly the
+        /// fixture the unit tests used.
+        ///
+        /// World endpoints cannot express a heading in the wrong frame.
+        public var start: Vec3
+        public var end: Vec3
         /// Strip center in world space, lying on the cloth.
         public var midpoint: Vec3
         public var length: Double
-        /// Rotation about the plane normal, radians, measured from the
-        /// table-space +x axis to the strip direction.
-        public var angle: Double
         public var dashed: Bool
         public var color: UInt32 // 0xRRGGBB token value
+
+        /// Unit direction in world space, or nil for a degenerate strip.
+        public var direction: Vec3? {
+            let v = end - start
+            return v.length > 1e-12 ? v.normalized : nil
+        }
     }
 
     public struct Marker: Sendable, Equatable {
@@ -52,6 +71,9 @@ public struct OverlayLayout: Sendable, Equatable {
     /// True when the current prediction sends an OBJECT ball (not the cue
     /// ball) into the called pocket — the "on line" state.
     public var calledPocketSatisfied: Bool = false
+    /// The cloth's up-normal in world space, so the renderer can rotate a
+    /// strip about the right axis rather than assuming world up.
+    public var planeNormal: Vec3 = Vec3(0, 1, 0)
 
     /// Colors mirror TableScene's path styling rules (05-UX-DESIGN).
     public static func compose(state: TableState,
@@ -101,10 +123,13 @@ public struct OverlayLayout: Sendable, Equatable {
             }
 
             let mid = (segment.start + segment.end) * 0.5
+            let worldStart = calibration.tableToWorld(segment.start)
+            let worldEnd = calibration.tableToWorld(segment.end)
             return Strip(ballID: segment.ballID,
+                         start: worldStart,
+                         end: worldEnd,
                          midpoint: calibration.tableToWorld(mid),
                          length: vector.length,
-                         angle: atan2(vector.y, vector.x),
                          dashed: dashed,
                          color: color)
         }
@@ -145,7 +170,8 @@ public struct OverlayLayout: Sendable, Equatable {
                              highlightedPockets: highlights,
                              balls: ballMarkers(state: state, calibration: calibration),
                              calledPocket: calledMarker,
-                             calledPocketSatisfied: satisfied)
+                             calledPocketSatisfied: satisfied,
+                             planeNormal: calibration.normal)
     }
 
     /// Ball rings without a prediction — rendered whenever live tracking
@@ -155,7 +181,8 @@ public struct OverlayLayout: Sendable, Equatable {
                                  calibration: TableCalibration) -> OverlayLayout {
         OverlayLayout(strips: [], ghostBall: nil, highlightedPockets: [],
                       balls: ballMarkers(state: state, calibration: calibration),
-                      calledPocket: nil, calledPocketSatisfied: false)
+                      calledPocket: nil, calledPocketSatisfied: false,
+                      planeNormal: calibration.normal)
     }
 
     static func ballMarkers(state: TableState,

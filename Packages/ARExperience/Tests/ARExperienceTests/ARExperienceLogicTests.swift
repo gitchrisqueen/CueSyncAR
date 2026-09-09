@@ -187,6 +187,48 @@ struct OverlayLayoutTests {
         ])
     }
 
+    /// The regression that made every guide line render at the wrong
+    /// heading on a real table. Strips must carry WORLD endpoints, so a
+    /// table whose axes are not the world's axes still draws along the
+    /// cloth. The suite's own fixture has table +x == world +x, which is
+    /// precisely the one basis where the old table-space heading happened
+    /// to be correct — hence a rotated basis here.
+    @Test func stripDirectionsAreWorldSpaceForAnyTableYaw() {
+        // Christopher's table as measured 2026-09-08: the long axis runs
+        // along world +z, i.e. a quarter turn from the fixture above.
+        let rotated = TableCalibration(origin: Vec3(0.039628, -0.693362, -1.934445),
+                                       xAxis: Vec3(-0.025636, 0, 0.999671),
+                                       yAxis: Vec3(0.999671, 0, 0.025636),
+                                       size: .eightFoot)
+        let contact = Vec2(-2 * Ball.standardRadius, 0)
+        let prediction = ShotPrediction(
+            segments: [
+                TrajectorySegment(ballID: cueID, start: Vec2(-0.5, 0), end: contact),
+                TrajectorySegment(ballID: objectID, start: .zero, end: Vec2(0.6, 0))
+            ],
+            events: [.ballBall(moving: cueID, struck: objectID, contact: contact)],
+            pocketedBalls: [])
+        let layout = OverlayLayout.compose(state: state, prediction: prediction,
+                                           calibration: rotated)
+
+        for (strip, segment) in zip(layout.strips, prediction.segments) {
+            // Endpoints ARE the transformed segment ends — no heading in
+            // between to be expressed in the wrong frame.
+            let wantStart = rotated.tableToWorld(segment.start)
+            let wantEnd = rotated.tableToWorld(segment.end)
+            #expect(strip.start.distance(to: wantStart) < 1e-12)
+            #expect(strip.end.distance(to: wantEnd) < 1e-12)
+            #expect(strip.midpoint.distance(to: (wantStart + wantEnd) * 0.5) < 1e-12)
+            #expect(abs(strip.length - (segment.end - segment.start).length) < 1e-12)
+        }
+        // A table-space +x segment on this basis points along world +z.
+        let aim = try? #require(layout.strips.first?.direction)
+        #expect(abs((aim?.z ?? 0) - 0.999671) < 1e-6)
+        #expect(abs(aim?.x ?? 1) < 0.03)
+        // And the layout carries the cloth normal the renderer rotates about.
+        #expect(layout.planeNormal.distance(to: rotated.normal) < 1e-12)
+    }
+
     @Test func stripsCarryStylingAndWorldPlacement() {
         let contact = Vec2(-2 * Ball.standardRadius, 0)
         let prediction = ShotPrediction(
@@ -205,7 +247,7 @@ struct OverlayLayoutTests {
         let aim = layout.strips[0]
         #expect(aim.color == 0xF5A623)
         #expect(!aim.dashed)
-        #expect(abs(aim.angle) < 1e-9)
+        #expect(aim.direction.map { abs($0.x - 1) < 1e-9 } == true)
         // Post-contact cue strip: chalk blue, dashed.
         let tangent = layout.strips[1]
         #expect(tangent.color == 0x4A90D9)

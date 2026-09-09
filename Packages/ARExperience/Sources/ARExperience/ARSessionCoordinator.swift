@@ -684,15 +684,36 @@ public final class OverlayRenderer {
                 : .transparent(opacity: .init(floatLiteral: strip.dashed ? 0.7 : 0.95))
             let entity = ModelEntity(mesh: mesh, materials: [material])
             place(entity, at: worldPoint(strip.midpoint, lift: Self.stripLift))
-            // Orientation stays LOCAL to the anchor (not relativeTo: nil):
-            // strip.angle is a TABLE-space heading, and the table anchor
-            // rotates with the table, so the anchor's yaw carries the strip
-            // to the correct world heading after relocalization. Setting a
-            // world-space yaw here would drop that yaw and under-rotate
-            // strips post-reloc. (Local == world at fresh lock, where this
-            // already rendered correctly.)
-            entity.orientation = simd_quatf(angle: Float(strip.angle),
-                                            axis: SIMD3<Float>(0, planeNormalUp ? 1 : -1, 0))
+            // Orientation in WORLD space, the same frame as the position
+            // set by `place` above.
+            //
+            // This previously took a TABLE-space heading and applied it
+            // about the anchor's local Y, on the belief that the table
+            // anchor "rotates with the table". It does not: placeTableAnchor
+            // builds it from matrix_identity_float4x4 plus a translation,
+            // so its rotation is identity and nothing mapped table axes to
+            // world axes. Every strip therefore pointed the wrong way by
+            // the table's yaw — a right angle on a table whose long axis
+            // ran along world +z — while its midpoint stayed correct. It is
+            // also what made mid-session anchor rotation spin the strips
+            // about their own midpoints: position was world, orientation
+            // was local. Both are world now.
+            //
+            // Yaw about the cloth normal rather than simd_quatf(from:to:),
+            // which is ambiguous for an exactly-reversed direction.
+            if let direction = strip.direction {
+                let d = SIMD3<Float>(Float(direction.x), Float(direction.y),
+                                     Float(direction.z))
+                let n = SIMD3<Float>(Float(layout.planeNormal.x),
+                                     Float(layout.planeNormal.y),
+                                     Float(layout.planeNormal.z))
+                let axis = planeNormalUp ? n : -n
+                let reference = SIMD3<Float>(1, 0, 0)
+                let yaw = atan2(simd_dot(simd_cross(reference, d), axis),
+                                simd_dot(reference, d))
+                entity.setOrientation(simd_quatf(angle: yaw, axis: axis),
+                                      relativeTo: nil)
+            }
         }
 
         if let ghost = layout.ghostBall {
