@@ -66,6 +66,8 @@ extension SessionModel {
         case .needsCalibration: .needsCalibration
         case .awaitingCueBall: .awaitingCueBall
         case .tracking, .onLine: .tracking
+        case .losingBalls(let seen, let peak, let dark):
+            .losingBalls(seen: seen, peak: peak, dark: dark)
         case .degraded(.fastMotion): .degraded(.fastMotion)
         case .degraded(.lowLight): .degraded(.lowLight)
         case .degraded(.trackingLost): .degraded(.trackingLost)

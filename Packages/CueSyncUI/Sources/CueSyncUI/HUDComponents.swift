@@ -38,6 +38,11 @@ public enum HUDStatus: Sendable, Equatable {
     /// was told the app was tracking twenty balls while it tracked none.
     /// `seeing` is deliberately called objects, not balls.
     case needsCalibration(seeing: Int)
+    /// Tracking is running, but the app is seeing a fraction of the balls
+    /// it recently could. Distinct from `.degraded` because ARKit is
+    /// fine — it is the ball detector that has gone quiet, and the two
+    /// have different causes and different advice. See DetectionHealth.
+    case losingBalls(seen: Int, peak: Int, dark: Bool)
     case degraded(reason: DegradedReason)
 
     public enum DegradedReason: String, Sendable {
@@ -59,6 +64,14 @@ public enum HUDStatus: Sendable, Equatable {
             seeing > 0
                 ? "Tap anywhere to calibrate — seeing \(seeing) objects, tracking none"
                 : "Tap anywhere to calibrate the table"
+        case .losingBalls(let seen, let peak, let dark):
+            // Name the number rather than the fault: "seeing 2 of 6"
+            // is checkable by looking at the table, and a player who
+            // has genuinely pocketed four balls will know to ignore it.
+            // The cause is only offered when the frames really are dim.
+            dark
+                ? "Only seeing \(seen) of \(peak) balls — more light would help"
+                : "Only seeing \(seen) of \(peak) balls"
         case .degraded(.fastMotion): "Hold steady…"
         case .degraded(.lowLight): "Need more light"
         case .degraded(.trackingLost): "Re-finding the table…"
@@ -77,6 +90,10 @@ public enum HUDStatus: Sendable, Equatable {
         // Not a checkmark: nothing is working yet, and the icon should not
         // say otherwise before the words are read.
         case .needsCalibration: "rectangle.dashed"
+        // Not the warning triangle: nothing is broken and nothing was
+        // lost. The app is seeing less than it was, which is what a
+        // half-filled icon says.
+        case .losingBalls: "circle.lefthalf.filled"
         case .degraded: "exclamationmark.triangle"
         }
     }
@@ -84,6 +101,10 @@ public enum HUDStatus: Sendable, Equatable {
     /// Overlays fade when confidence is low (05-UX-DESIGN "confidence honesty").
     public var overlayOpacity: Double {
         if case .degraded = self { return 0.4 }
+        // Overlays drawn from a third of the balls deserve the same
+        // fading as overlays drawn on lost tracking: the guide may be
+        // routed around a ball the app cannot currently see.
+        if case .losingBalls = self { return 0.4 }
         return 1.0
     }
 }

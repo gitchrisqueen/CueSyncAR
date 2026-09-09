@@ -205,6 +205,16 @@ final class SessionModel {
     /// The track currently treated as the cue ball, for the mirror.
     var designatedCueBallID: BallID? { cueIdentity.currentID }
 
+    /// Whether the app is still seeing most of what it could.
+    ///
+    /// Fed from the live pipeline; read by the HUD. Not the same question
+    /// as ARKit's tracking state — at dusk on the owner's table ARKit was
+    /// perfectly happy while ball detection fell to a third.
+    private(set) var detectionHealth = DetectionHealth()
+    /// The current verdict, recomputed only when it changes so the HUD
+    /// does not re-render every frame.
+    private(set) var detectionVerdict: DetectionHealth.Verdict = .healthy
+
     /// What each tracked ball is, accumulated over many looks at it.
     ///
     /// Fed from `PerceptionOutput.appearances`; read back by the ranking,
@@ -213,6 +223,19 @@ final class SessionModel {
     /// admits unnamed balls into both halves, so an unsure classifier
     /// costs the player nothing but a less specific label.
     private(set) var ballIdentity = BallIdentity()
+
+    /// Fold one frame into the detection-health model.
+    ///
+    /// Counts the same balls the surface gate admitted, not raw boxes:
+    /// off-table detections on foliage and floor tiles would otherwise
+    /// hide exactly the collapse this is watching for.
+    func noteDetectionHealth(_ output: PerceptionOutput) {
+        detectionHealth.observe(detected: output.state.balls.count,
+                                luminance: output.luminance,
+                                at: output.state.timestamp)
+        let verdict = detectionHealth.verdict(at: output.state.timestamp)
+        if verdict != detectionVerdict { detectionVerdict = verdict }
+    }
 
     /// Record the last pocket-calibration fit. Lives here because
     /// `lastPocketFit` is `private(set)`, which in Swift means private to
@@ -457,6 +480,13 @@ final class SessionModel {
                     // outrank a colour vote.
                     self.ballIdentity.observe(output.appearances)
                     self.ballIdentity.retain(Set(output.state.balls.map(\.id)))
+                    // The cloth estimate used to be fed ONLY by the
+                    // pre-tracking preview, so it froze the instant
+                    // tracking began and a bad one could never recover.
+                    if let pose = output.pose {
+                        self.recordClothPlaneSample(detections: output.detections, frame: pose)
+                    }
+                    self.noteDetectionHealth(output)
                     self.tableState = self.cueIdentity.apply(
                         to: self.ballIdentity.apply(to: output.state))
                     self.recomputeRanking()
@@ -507,6 +537,9 @@ final class SessionModel {
         // and nothing else. A restarted tracker reuses ids, so keeping
         // them would paint the last session's balls onto this one's.
         ballIdentity.clear()
+        // A new table is not evidence about the old one.
+        detectionHealth.reset()
+        detectionVerdict = .healthy
         usingOnDeviceDetection = false
         shotPlanner.reset()
         trackingIngestThrottle.reset()

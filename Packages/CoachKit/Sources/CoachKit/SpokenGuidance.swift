@@ -95,6 +95,10 @@ public enum GuidanceStage: Sendable, Equatable {
     /// Tracking runs but there is no cue ball, so nothing can be aimed.
     case awaitingCueBall
     case tracking
+    /// Tracking runs, but the app is seeing a fraction of the balls it
+    /// recently could. Separate from `.degraded` for the same reason the
+    /// HUD keeps them apart: ARKit is fine, and the advice is different.
+    case losingBalls(seen: Int, peak: Int, dark: Bool)
     case degraded(GuidanceTrouble)
 }
 
@@ -384,6 +388,8 @@ public struct SpokenGuidance: Sendable, Equatable {
             return cornersLine(placed: placed)
         case .degraded(let trouble):
             return troubleLine(trouble)
+        case .losingBalls(let seen, let peak, let dark):
+            return losingBallsLine(seen: seen, peak: peak, dark: dark)
         }
     }
 
@@ -396,6 +402,16 @@ public struct SpokenGuidance: Sendable, Equatable {
         default: "\(remaining == 3 ? "Three" : "Two") more corners."
         }
         return moment("stage.corners.\(placed)", text)
+    }
+
+    /// Said once, and not repeated while it stays true: the id carries no
+    /// count, so the same complaint about the same collapse is one
+    /// utterance however long it lasts.
+    private static func losingBallsLine(seen: Int, peak: Int, dark: Bool) -> Utterance {
+        let text = dark
+            ? "I am only seeing \(seen) of \(peak) balls. More light would help."
+            : "I am only seeing \(seen) of \(peak) balls."
+        return moment("stage.losingBalls", text)
     }
 
     private static func troubleLine(_ trouble: GuidanceTrouble) -> Utterance {

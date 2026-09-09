@@ -230,3 +230,55 @@ struct PerceptionPipelineTests {
         #expect(received == 6)
     }
 }
+
+@Suite("Perception output carries what the cloth estimator needs")
+struct PerceptionOutputClothSampleTests {
+
+    /// The defect this pins: `recordClothPlaneSample` had exactly one
+    /// call site, in the pre-tracking preview path, so the cloth estimate
+    /// froze the moment tracking started. Measured on device — the app
+    /// sat on -0.307 m for a whole session while the same maths over that
+    /// session's own recording said -0.488. The fix is that every frame
+    /// of live output carries the detections and the pose they were taken
+    /// against, so the estimate keeps improving while the player plays.
+    @Test func outputCarriesDetectionsAndPose() async throws {
+        let calibration = TableCalibration(origin: .zero,
+                                           xAxis: Vec3(1, 0, 0),
+                                           yAxis: Vec3(0, 0, -1),
+                                           size: .nineFoot)
+        let boxes = [
+            Detection2D(classLabel: "white-ball",
+                        boundingBox: NormalizedRect(x: 0.20, y: 0.45, width: 0.05, height: 0.05),
+                        confidence: 0.95),
+            Detection2D(classLabel: "3",
+                        boundingBox: NormalizedRect(x: 0.75, y: 0.225, width: 0.05, height: 0.05),
+                        confidence: 0.80)
+        ]
+        let pipeline = PerceptionPipeline(
+            detector: FixtureDetectionProvider(constant: boxes),
+            calibration: calibration,
+            raycaster: LinearFixtureRaycaster(calibration: calibration))
+        let transform = Transform3D(columns: [
+            SIMD4(1, 0, 0, 0), SIMD4(0, 1, 0, 0),
+            SIMD4(0, 0, 1, 0), SIMD4(0, 1.2, 2, 1)
+        ])
+        let intrinsics = CameraIntrinsics(focalX: 1300, focalY: 1300,
+                                          principalX: 720, principalY: 540,
+                                          imageWidth: 1440, imageHeight: 1080)
+        let frame = CapturedFrame(timestamp: 42,
+                                  cameraTransform: transform,
+                                  image: FixtureImageBuffer(),
+                                  intrinsics: intrinsics)
+        let output = try #require(await pipeline.processFrame(frame))
+        #expect(output.detections.count == boxes.count,
+                "the estimator cannot run on detections it never receives")
+        let pose = try #require(output.pose,
+                                "no pose means no range, means no cloth height")
+        #expect(pose.cameraTransform == transform)
+        #expect(pose.intrinsics != nil)
+        #expect(pose.timestamp == 42)
+        // And it must not smuggle a pixel buffer past the frame's life:
+        // ARKit's capture pool is tiny and holding one freezes the camera.
+        #expect(pose.image == nil)
+    }
+}
