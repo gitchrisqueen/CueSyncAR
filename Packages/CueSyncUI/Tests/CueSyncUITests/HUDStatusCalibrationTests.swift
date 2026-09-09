@@ -46,3 +46,57 @@ extension HUDStatus.DegradedReason {
         [.fastMotion, .lowLight, .trackingLost]
     }
 }
+
+@Suite("HUDStatus before calibration")
+struct HUDStatusNeedsCalibrationTests {
+    /// The capsule used to report the raw detector's box count as
+    /// "Tracking N balls" whenever a model was loaded, calibrated table or
+    /// not. Off a table there is nothing to gate those boxes against, so
+    /// they land on floor tiles and window frames — and the player was
+    /// told the app was tracking twenty balls while it tracked none.
+    @Test("Before calibration the capsule never claims to be tracking")
+    func doesNotClaimTracking() {
+        for seeing in [0, 1, 8, 21] {
+            let label = HUDStatus.needsCalibration(seeing: seeing).label
+            #expect(!label.hasPrefix("Tracking"))
+            #expect(label.lowercased().contains("calibrate"))
+        }
+    }
+
+    @Test("What it can see is called objects, not balls")
+    func countsObjectsNotBalls() {
+        let label = HUDStatus.needsCalibration(seeing: 21).label
+        #expect(label.contains("21 objects"))
+        #expect(label.contains("tracking none"))
+        #expect(!label.contains("balls"))
+    }
+
+    @Test("With nothing detected it just asks for calibration")
+    func silentWhenNothingIsSeen() {
+        let label = HUDStatus.needsCalibration(seeing: 0).label
+        #expect(label == "Tap anywhere to calibrate the table")
+        #expect(!label.contains("0"))
+    }
+
+    /// The capsule promises the screen is tappable, and
+    /// CalibrationInviteCatcher is what makes that true. If the copy ever
+    /// stops saying so, the affordance has probably gone with it.
+    @Test("The copy tells the player the whole screen is the target")
+    func copyMatchesTheAffordance() {
+        for seeing in [0, 12] {
+            #expect(HUDStatus.needsCalibration(seeing: seeing).label
+                .lowercased().contains("tap anywhere"))
+        }
+    }
+
+    @Test("The icon does not show a checkmark before anything works")
+    func iconDoesNotClaimSuccess() {
+        #expect(HUDStatus.needsCalibration(seeing: 5).systemImage != "checkmark.circle")
+        #expect(HUDStatus.tracking(ballCount: 5).systemImage == "checkmark.circle")
+    }
+
+    @Test("It is a normal-confidence state, not a degraded one")
+    func notDegraded() {
+        #expect(HUDStatus.needsCalibration(seeing: 3).overlayOpacity == 1.0)
+    }
+}
