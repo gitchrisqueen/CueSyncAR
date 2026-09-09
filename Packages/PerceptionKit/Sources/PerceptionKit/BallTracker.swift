@@ -5,7 +5,17 @@
 //  Multi-frame ball tracking in table space (task M2-03). Pure value type:
 //  greedy nearest-neighbor association with a gating distance, per-axis
 //  constant-position Kalman smoothing, appearance/disappearance stability
-//  gating (no flicker), and majority-vote kind classification.
+//  gating (no flicker), majority-vote kind classification, and
+//  re-identification of a retired id by the ball that reclaims its spot.
+//
+//  Two distances, and they are not interchangeable. `gatingDistance` (8 cm)
+//  asks "could this observation be this track's ball, having moved?" and is
+//  deliberately wider than a ball. `duplicateDistance` (1.6 r, 4.6 cm) asks
+//  "are these two tracks the same ball seen twice?" and is deliberately
+//  narrower than a ball diameter, so no arrangement of real balls can
+//  satisfy it. Every "same ball?" decision — duplicate absorption, physical
+//  overlap merging, re-identification — uses the second. Using the first
+//  for that question is what silently destroyed a frozen ball's identity.
 //
 //  Model choice: balls are stationary while the player aims — a constant-
 //  position Kalman with modest process noise smooths detector jitter well
@@ -343,10 +353,11 @@ public struct BallTracker: Sendable {
         // Retire on whichever budget runs out first. Both are gated on
         // visibility, so an occluded or out-of-frame ball still persists
         // indefinitely — neither counter moves while nobody is looking.
-        // Retire, remembering every CONFIRMED identity so the same ball can
-        // reclaim it (see `DormantIdentity`). Retirement means "stop drawing
-        // a ring here", which is a question about this position; it is not a
-        // decision that the ball has ceased to exist.
+        //
+        // Every CONFIRMED identity is remembered on the way out (see
+        // `DormantIdentity`), because retiring a track answers "should a
+        // ring still be drawn here?" and NOT "has this ball ceased to
+        // exist?". The same ball re-acquired at this spot reclaims its id.
         var retired: [BallTrack] = []
         tracks.removeAll { track in
             let expired: Bool
