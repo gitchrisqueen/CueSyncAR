@@ -1,15 +1,6 @@
 # pages.yml / CueSync AR
 #
-# >>> THIS FILE IS NOT ACTIVE WHERE IT SITS. <<<
-# GitHub Actions only reads workflows from .github/workflows/. This copy lives
-# in docs/design/ because .github/** is an owner-merged surface in this
-# repository (CLAUDE.md: agents never author .github/**), so the agent that
-# drafted the site could not place it there. To turn it on, the owner runs:
-#
-#     git mv docs/design/pages.yml .github/workflows/pages.yml
-#
-# and then sets Settings -> Pages -> Build and deployment -> Source
-# = "GitHub Actions". Until BOTH of those happen, nothing is published.
+# Publishes the one-page public site in docs/site/ to GitHub Pages.
 #
 # Publishes the one-page public site in docs/site/ to GitHub Pages.
 #
