@@ -128,7 +128,7 @@ public struct SettingsModel: Sendable, Equatable {
     /// Seconds a visible-but-undetected track survives before retirement.
     public static let visibleMissGraceRange: ClosedRange<Double> = 0.1...5.0
     public static let defaultGuideSpeed = 3.5
-    public static let defaultVisibleMissGrace = 0.75
+    public static let defaultVisibleMissGrace = 2.5
 
     /// Table size override; `.useMeasured` by default.
     public var tableSize: TableSizeSetting = .useMeasured

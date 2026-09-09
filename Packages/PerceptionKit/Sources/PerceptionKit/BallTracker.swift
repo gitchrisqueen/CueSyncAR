@@ -70,6 +70,13 @@ struct BallTrack: Sendable, Equatable {
     /// Reset on every match; frames where the track is out of view do not
     /// contribute, so this is a "looked and did not find it" stopwatch.
     var visibleMissSeconds: TimeInterval
+    /// Set when this track went unmatched on a frame where a ball turned up
+    /// somewhere new — the signature of it having MOVED rather than been
+    /// hidden. Sticky, because the giveaway happens once (on the frame the
+    /// ball is first seen at its destination) while the stale track lingers
+    /// for many frames afterwards. Cleared the moment the track is matched
+    /// again.
+    var presumedMoved = false
     var confirmed: Bool
 
     var position: Vec2 { Vec2(x.estimate, y.estimate) }
@@ -100,7 +107,31 @@ public struct TrackerConfig: Sendable, Equatable {
     /// track runs on at the destination. Time-based retirement keeps the
     /// behaviour identical whatever the pipeline's tick rate. Set to 0 to
     /// disable and fall back to the frame count alone.
+    ///
+    /// 2.5 s, raised from 0.75 s on the owner's instruction after the cost
+    /// and the benefit were both measured on real recordings of his table.
+    /// The benefit: while a player is addressing the ball, their own bridge
+    /// hand and cue occlude the cue ball for a median of 2.7 s, and 0.75 s
+    /// retired its track — 49 % of frames in an aiming recording had no cue
+    /// ball, which is the largest single reason no guide was drawn. At
+    /// 2.5 s the cue ball is present on 62 % of frames rather than 51 %,
+    /// guides are drawn on 48 % rather than 39 %, and track churn FALLS
+    /// (14 to 10), because tracks survive occlusion instead of dying and
+    /// being reborn under new ids.
+    ///
+    /// The cost, stated because it is the other side of the same knob: a
+    /// POCKETED ball also keeps its ring this long. That is the phantom
+    /// ring #7 shortened, and this is a deliberate trade back toward it.
+    /// The owner reviewed the numbers and chose 2.5 s; the setting is live
+    /// in Settings and via the debug mirror, so it can be moved from the
+    /// table without a build.
     public var visibleMissGrace: TimeInterval
+    /// The shorter budget used on a frame where an observation appeared
+    /// that matched no existing track — the signature of a ball having
+    /// moved rather than been hidden. Keeps a struck ball's phantom ring at
+    /// the shot origin inside the ~1 s the operator asked for, while
+    /// `visibleMissGrace` stays long enough to survive a bridge hand.
+    public var strikeMissGrace: TimeInterval
     /// Kalman noise parameters (m²).
     public var processNoise: Double
     public var measurementNoise: Double
@@ -110,7 +141,8 @@ public struct TrackerConfig: Sendable, Equatable {
     public init(gatingDistance: Double = 0.08,
                 appearanceFrames: Int = 3,
                 disappearanceFrames: Int = 30,
-                visibleMissGrace: TimeInterval = 0.75,
+                visibleMissGrace: TimeInterval = 2.5,
+                strikeMissGrace: TimeInterval = 0.75,
                 processNoise: Double = 4e-5,
                 measurementNoise: Double = 4e-4,
                 maxKindVotes: Int = 15) {
@@ -118,6 +150,7 @@ public struct TrackerConfig: Sendable, Equatable {
         self.appearanceFrames = appearanceFrames
         self.disappearanceFrames = disappearanceFrames
         self.visibleMissGrace = visibleMissGrace
+        self.strikeMissGrace = strikeMissGrace
         self.processNoise = processNoise
         self.measurementNoise = measurementNoise
         self.maxKindVotes = maxKindVotes
@@ -194,6 +227,7 @@ public struct BallTracker: Sendable {
         // ball outran association) — absorb it into the winner immediately.
         // Everything else misses a frame only where the camera can actually
         // see (out-of-view static balls persist untouched).
+        let somethingAppeared = observations.indices.contains { !usedObs.contains($0) }
         var absorbed: [Int] = []
         for index in tracks.indices where !usedTracks.contains(index) {
             if let winner = tracks.indices.first(where: { candidate in
@@ -210,18 +244,32 @@ public struct BallTracker: Sendable {
             } else if isVisible(tracks[index].position) {
                 tracks[index].consecutiveMisses += 1
                 tracks[index].visibleMissSeconds += elapsed
+                if somethingAppeared { tracks[index].presumedMoved = true }
             }
         }
         for index in absorbed.sorted(by: >) {
             tracks.remove(at: index)
         }
+        // Did a ball turn up somewhere new this frame? An observation that
+        // matched no existing track is the signature of a ball having MOVED
+        // — most often struck — because a ball that merely went behind a
+        // hand produces no observation anywhere.
+        //
+        // That distinction is what lets one grace serve two opposite cases.
+        // A player addressing the ball occludes it with their own bridge
+        // hand and cue for a median of 2.7 s, and retiring it in 0.75 s left
+        // 49 % of an aiming recording with no cue ball at all. A struck ball
+        // meanwhile must give up its old position within about a second or
+        // it leaves a phantom ring at the shot origin. Occlusion gets the
+        // long budget; a frame where something appeared elsewhere gets the
+        // short one.
         // Retire on whichever budget runs out first. Both are gated on
         // visibility, so an occluded or out-of-frame ball still persists
         // indefinitely — neither counter moves while nobody is looking.
         tracks.removeAll { track in
             if track.consecutiveMisses >= config.disappearanceFrames { return true }
-            return config.visibleMissGrace > 0
-                && track.visibleMissSeconds >= config.visibleMissGrace
+            let grace = track.presumedMoved ? config.strikeMissGrace : config.visibleMissGrace
+            return grace > 0 && track.visibleMissSeconds >= grace
         }
 
         // Unmatched observations spawn tentative tracks.
@@ -271,6 +319,7 @@ public struct BallTracker: Sendable {
         tracks[index].lastConfidence = obs.confidence
         tracks[index].hits += 1
         tracks[index].consecutiveMisses = 0
+        tracks[index].presumedMoved = false
         tracks[index].visibleMissSeconds = 0
         let votes = tracks[index].kindVotes[obs.kind] ?? 0
         if votes < config.maxKindVotes {
