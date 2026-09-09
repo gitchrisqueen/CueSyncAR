@@ -20,6 +20,7 @@ import ARExperience
 import BilliardsPhysics
 import CoachKit
 import CueSyncCore
+import CueSyncUI
 import DetectionRoboflow
 import Foundation
 import Observation
@@ -486,6 +487,9 @@ final class SessionModel {
         // has to outlive the restart or every recalibration and every
         // reset costs the user another tap.
         cueIdentity.trackingReset(at: clock())
+        // The conversation ends with the session: nothing said about the
+        // last rack should suppress the same line about the next one.
+        narrator.reset()
         // Colours, unlike the cue-ball position, are keyed to track ids
         // and nothing else. A restarted tracker reuses ids, so keeping
         // them would paint the last session's balls onto this one's.
@@ -569,6 +573,9 @@ final class SessionModel {
         shotPrediction = plan.prediction
         shotGuide = ShotGuide.recommend(state: state, prediction: plan.prediction)
         recomputeCalledShotOnLine()
+        // The aim moved, so the correction may have. Everything about
+        // whether that is worth saying out loud is decided downstream.
+        narrateIfNeeded()
     }
 
     /// Why no guides render — the #1 question when the screen shows
@@ -583,6 +590,18 @@ final class SessionModel {
     /// ARView snapshot and contains no SwiftUI, so without this there is no
     /// way to check the HUD from a browser.
     var hudStatusLabel = ""
+    /// The status the label came from, pushed in alongside it by
+    /// `noteHUDStatus` (SessionModel+Speech). Spoken guidance reads the
+    /// state rather than parsing the words back out of the label, and gets
+    /// the screen's own answer to "what is expected next" for free.
+    var hudStatus: HUDStatus?
+
+    // MARK: Spoken guidance (SessionModel+Speech.swift)
+
+    /// Says the guidance out loud. Silent until the player turns it on in
+    /// Settings; `SpokenGuidance` inside it owns every rule about what is
+    /// worth saying and how often.
+    @ObservationIgnored let narrator = SpeechNarrator()
 
     /// When `aimSource` last changed, for the mirror's `aimSourceRunSeconds`
     /// — a source that flips every second is the "weird formations" symptom
@@ -787,8 +806,13 @@ extension SessionModel {
     /// SwiftLint's complexity limit, and they are separate concerns
     /// anyway. Each returns whether it consumed the action.
     func handleMirrorCommand(_ params: [String: String]) {
-        if handleCalibrationMirrorCommand(params) { return }
-        if handleShotSelectionMirrorCommand(params) { return }
+        // A list rather than a chain of `if`s: this function already sits
+        // at SwiftLint's cyclomatic ceiling, and every new command set
+        // added as another branch pushes it further past.
+        let handlers = [handleCalibrationMirrorCommand,
+                        handleShotSelectionMirrorCommand,
+                        handleSpeechMirrorCommand]
+        for handler in handlers where handler(params) { return }
         switch params["action"] {
         case "resetTracking":
             resetBallTracking()

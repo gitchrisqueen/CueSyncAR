@@ -46,6 +46,7 @@ extension SessionModel {
     ///   nil to apply without restarting anything.
     func applySettings(previous: SettingsModel? = nil) {
         applyDebugMirrorSetting()
+        applySpeechSetting()
         // Guide speed feeds the solver: force a re-solve so a new speed
         // shows up even when the aim itself sits inside the deadband.
         shotPlanner.guideSpeed = settings.guideSpeed

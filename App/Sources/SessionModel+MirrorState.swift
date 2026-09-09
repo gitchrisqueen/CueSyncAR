@@ -92,6 +92,10 @@ extension SessionModel {
             state["pockets"] = pockets.map { String(describing: $0.id) }
         }
         state["guideSpeed"] = guideSpeed
+        // Spoken guidance: the level, whether it is talking right now, and
+        // the last line said. Without the last line there is no way to tell
+        // "the voice is off" from "the voice is on and had nothing to say".
+        state["speech"] = speechMirrorState()
         // B3 anchor following: the A/B switch and how far the table anchor
         // has moved since lock — the measurement the next table run reads.
         state["followsTableAnchor"] = followsTableAnchor
