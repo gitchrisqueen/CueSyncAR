@@ -100,6 +100,24 @@ extension SessionModel {
         // B3 anchor following: the A/B switch and how far the table anchor
         // has moved since lock — the measurement the next table run reads.
         state["followsTableAnchor"] = followsTableAnchor
+        state["calibrationState"] = String(describing: calibration.state).prefix(40).description
+        state["pendingCorners"] = pendingCorners.count
+        if let cal = tableCalibration {
+            let field = cal.size.playField
+            let comparison = cal.standardSizeComparison
+            state["calibration"] = [
+                "widthM": (field.width * 1000).rounded() / 1000,
+                "heightM": (field.height * 1000).rounded() / 1000,
+                "sizeName": String(describing: cal.size),
+                "vsStandard": comparison.summary,
+                "maxDeltaMm": Int((comparison.maxDelta * 1000).rounded()),
+                "corners": cal.worldCorners.map {
+                    [($0.x * 1000).rounded() / 1000,
+                     ($0.y * 1000).rounded() / 1000,
+                     ($0.z * 1000).rounded() / 1000]
+                }
+            ]
+        }
         if let anchorDriftMillimeters {
             state["anchorDriftMm"] = (anchorDriftMillimeters * 10).rounded() / 10
         }

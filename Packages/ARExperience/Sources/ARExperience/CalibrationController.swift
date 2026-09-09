@@ -37,6 +37,14 @@ public struct CalibrationController: Sendable, Equatable {
         /// relocalization — jump straight to locked (05-UX-DESIGN: a
         /// returning user at a saved venue skips to Ready).
         case restored(TableCalibration)
+        /// Re-measure the locked table as a different size, keeping its
+        /// origin and axes. Corrects a field that locked short or long
+        /// without making the player re-tap four corners.
+        case resized(TableSize)
+        /// Take a locked calibration back apart into its four corners so
+        /// they can be adjusted, then locked again. Unlike `resetRequested`
+        /// this keeps the rectangle instead of starting from nothing.
+        case reopened
     }
 
     public private(set) var state: State = .searchingPlane
@@ -91,6 +99,12 @@ public struct CalibrationController: Sendable, Equatable {
 
         case (_, .resetRequested):
             state = .searchingPlane
+
+        case (.locked(let calibration), .resized(let size)):
+            state = .locked(calibration.resized(to: size))
+
+        case (.locked(let calibration), .reopened):
+            state = .adjusting(corners: calibration.worldCorners)
 
         case (_, .restored(let calibration)) where !isLocked:
             // Relocalization wins over any in-progress manual flow, but

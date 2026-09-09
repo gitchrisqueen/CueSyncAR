@@ -526,6 +526,9 @@ struct ARCameraView: View {
         .onAppear {
             if coordinator == nil {
                 coordinator = ARSessionCoordinator()
+                // So mirror commands can raycast a screen point the way a
+                // finger does (SessionModel+Calibration).
+                model.arCoordinator = coordinator
             }
         }
         .onChange(of: model.usingFrontCamera) { _, isFront in

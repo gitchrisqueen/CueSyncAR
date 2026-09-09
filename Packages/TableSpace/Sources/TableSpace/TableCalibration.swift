@@ -76,6 +76,64 @@ public struct TableCalibration: Sendable, Equatable, Codable {
         return worldToTable(rayOrigin + rayDirection * t)
     }
 
+    /// The four playing-field corners in world space, in the order
+    /// `fromCorners` expects — so a locked calibration can be taken apart,
+    /// adjusted, and rebuilt without remembering how it was made.
+    public var worldCorners: [Vec3] {
+        let (w, h) = size.playField
+        let hx = w / 2, hy = h / 2
+        return [Vec2(-hx, hy), Vec2(hx, hy), Vec2(hx, -hy), Vec2(-hx, -hy)]
+            .map(tableToWorld)
+    }
+
+    /// The same table, measured as `size`, keeping the origin and axes.
+    ///
+    /// For correcting a field that locked short or long — corners tapped
+    /// inside the cushion noses, say — without re-running the flow. Only
+    /// the extent changes, so the centre and the heading are preserved and
+    /// no ball moves in table space; the pockets and the playing-surface
+    /// envelope move to where the size says they are.
+    public func resized(to size: TableSize) -> TableCalibration {
+        TableCalibration(origin: origin, xAxis: xAxis, yAxis: yAxis, size: size)
+    }
+
+    /// Build a calibration from ONE end rail plus a known table size.
+    ///
+    /// `a` and `b` are the two corners of a short rail, in world space, in
+    /// either order; `towards` is any point on the cloth, used only to
+    /// decide which side of that rail the table lies on. The far end is
+    /// constructed from the size rather than observed.
+    ///
+    /// This exists because a device parked at the side of a table often
+    /// cannot see the whole thing: on the owner's iPad the right end sits
+    /// outside the frame entirely, so two of the four corners cannot be
+    /// tapped at all and every calibration from that position comes out
+    /// short — measured at 2.175 m against 2.34. One end rail and the
+    /// table's size determine the rectangle completely, so the corners
+    /// that cannot be seen do not need to be.
+    ///
+    /// The rail is used for the SHORT axis and its measured length is
+    /// discarded in favour of `size`, so a few centimetres of tap error
+    /// changes the origin slightly and the extent not at all.
+    public static func fromEndRail(_ a: Vec3, _ b: Vec3, towards: Vec3,
+                                   size: TableSize) throws -> TableCalibration {
+        let rail = b - a
+        guard rail.length > 1e-3 else { throw CalibrationError.degenerateCorners }
+        let (width, height) = size.playField
+        let shortAxis = rail.normalized
+        // Up out of the cloth: the rail and the inward direction both lie
+        // in the plane, so their normal is the plane's.
+        let toward = towards - a
+        let inPlane = toward - shortAxis * toward.dot(shortAxis)
+        guard inPlane.length > 1e-3 else { throw CalibrationError.degenerateCorners }
+        let longAxis = inPlane.normalized
+        let railMidpoint = a + rail * 0.5
+        let origin = railMidpoint + longAxis * (width / 2)
+        _ = height
+        return TableCalibration(origin: origin, xAxis: longAxis,
+                                yAxis: shortAxis, size: size)
+    }
+
     // MARK: - Construction from corners
 
     /// Build a calibration from the four playing-field corners in world

@@ -284,6 +284,10 @@ final class SessionModel {
     /// Started/stopped only by SessionModel+DebugMirror; the recorder and
     /// the mirror publisher just read it.
     @ObservationIgnored var debugMirror: DebugMirrorServer?
+
+    /// The live AR session, so mirror commands can raycast a screen point
+    /// the way a finger does. Weak: RootView owns it.
+    @ObservationIgnored weak var arCoordinator: ARSessionCoordinator?
     /// Written only alongside `debugMirror` (SessionModel+DebugMirror).
     var debugMirrorURL: String?
     /// Raw detector labels from the latest pipeline frame (debug mirror).
@@ -786,6 +790,57 @@ extension SessionModel {
         case "clearTarget":
             clearTarget()
             showTapFeedback("Back to the suggested shot (remote)")
+        case "beginCalibration":
+            beginCalibration()
+            showTapFeedback("Calibration started — place four corners (remote)")
+        case "placeCorner":
+            guard let x = params["x"].flatMap(Double.init),
+                  let y = params["y"].flatMap(Double.init) else { return }
+            placeCornerRemotely(at: CGPoint(x: x, y: y),
+                                planeHeight: params["h"].flatMap(Double.init))
+        case "lockCalibration":
+            if !requestCalibrationLock() {
+                let reason = calibration.lastError.map(String.init(describing:)) ?? "not ready"
+                showTapFeedback("Lock refused: \(reason) (remote)")
+            }
+        case "cancelCalibration":
+            cancelCalibration()
+            showTapFeedback("Calibration cancelled (remote)")
+        case "calibrateEndRail":
+            // ax,ay bx,by = the visible short rail; tx,ty = any point on
+            // the cloth further down the table; v = table size.
+            let n = ["ax", "ay", "bx", "by", "tx", "ty"].compactMap { params[$0].flatMap(Double.init) }
+            guard n.count == 6 else { return }
+            let size: TableSize
+            switch params["v"] ?? "eightFoot" {
+            case "sevenFoot": size = .sevenFoot
+            case "nineFoot": size = .nineFoot
+            default: size = .eightFoot
+            }
+            calibrateFromEndRail(a: CGPoint(x: n[0], y: n[1]),
+                                 b: CGPoint(x: n[2], y: n[3]),
+                                 towards: CGPoint(x: n[4], y: n[5]),
+                                 size: size)
+        case "tableSize":
+            // measured | sevenFoot | eightFoot | nineFoot | w,h in metres
+            guard let raw = params["v"] else { return }
+            let size: TableSize?
+            switch raw {
+            case "sevenFoot": size = .sevenFoot
+            case "eightFoot": size = .eightFoot
+            case "nineFoot": size = .nineFoot
+            default:
+                let parts = raw.split(separator: ",").compactMap { Double($0) }
+                size = parts.count == 2 ? .custom(width: parts[0], height: parts[1]) : nil
+            }
+            guard let size else { return }
+            updateSettings { $0.tableSize = .standard(size) }
+            resizeCalibration(to: size)
+        case "nudgeCorner":
+            guard let index = params["i"].flatMap(Int.init) else { return }
+            let dx = params["dx"].flatMap(Double.init) ?? 0
+            let dy = params["dy"].flatMap(Double.init) ?? 0
+            nudgeLockedCorner(index: index, by: Vec2(dx, dy))
         case "followAnchor":
             guard let v = params["v"].flatMap(Int.init) else { return }
             setFollowsTableAnchor(v != 0)
