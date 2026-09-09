@@ -62,10 +62,15 @@ public struct ShotCard: View {
     public let blockedReason: String?
     /// Which balls are in play ("Solids"), or nil to leave it off.
     public let group: String?
+    /// Which way to move to get on this shot ("Aim a little left"), when
+    /// the player is aiming at all. The actionable line, so it carries the
+    /// tint rather than the grey.
+    public let aimAdvice: String?
 
     public init(percentage: Int?, pocket: String?, confidence: ShotConfidence,
                 chosenByPlayer: Bool, blockedReason: String? = nil,
-                group: String? = nil) {
+                group: String? = nil, aimAdvice: String? = nil) {
+        self.aimAdvice = aimAdvice
         self.percentage = percentage
         self.pocket = pocket
         self.confidence = confidence
@@ -113,6 +118,12 @@ public struct ShotCard: View {
                     .foregroundStyle(.primary)
             }
 
+            if let aimAdvice, blockedReason == nil {
+                Text(aimAdvice)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(tint)
+            }
+
             // Never let a suggestion look like the player's own decision.
             Text(chosenByPlayer ? "Your pick — tap again to release"
                                 : "Best shot — tap any ball to override")
@@ -136,7 +147,9 @@ public struct ShotCard: View {
         if let blockedReason { return blockedReason }
         let who = chosenByPlayer ? "Your pick" : "Suggested shot"
         guard let percentage, let pocket else { return who }
-        return "\(who): \(percentage) per cent into the \(pocket), \(confidence.word)"
+        let shot = "\(who): \(percentage) per cent into the \(pocket), \(confidence.word)"
+        guard let aimAdvice else { return shot }
+        return shot + ". " + aimAdvice
     }
 }
 

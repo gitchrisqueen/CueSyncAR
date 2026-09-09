@@ -189,6 +189,16 @@ final class SessionModel {
     /// accessors in SessionModel+Ranking.
     var shotSelection = ShotSelection()
 
+    /// The recommended shot, solved and ready for the overlay: how to make
+    /// the ball the player picked. Nil when there is nothing to show.
+    var targetOverlay: OverlayLayout.Target?
+
+    /// Solver for the recommended shot. Separate from the one inside
+    /// `shotPlanner` because the two answer different questions from the
+    /// same physics — where the aim goes, and where it should go — and
+    /// neither should invalidate the other's cache.
+    @ObservationIgnored let targetSolver = AnalyticSolver()
+
     private(set) var cueIdentity = CueBallIdentity()
     /// The track currently treated as the cue ball, for the mirror.
     var designatedCueBallID: BallID? { cueIdentity.currentID }

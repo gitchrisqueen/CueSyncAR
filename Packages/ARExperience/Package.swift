@@ -10,11 +10,15 @@ let package = Package(
     dependencies: [
         .package(path: "../CueSyncCore"),
         .package(path: "../TableSpace"),
-        .package(path: "../PerceptionKit")
+        .package(path: "../PerceptionKit"),
+        // Test-only: the target-guide tests assert that the recommended
+        // aim actually pots the ball, which only the real solver can say.
+        .package(path: "../BilliardsPhysics")
     ],
     targets: [
         .target(name: "ARExperience",
                 dependencies: ["CueSyncCore", "TableSpace", "PerceptionKit"]),
-        .testTarget(name: "ARExperienceTests", dependencies: ["ARExperience"])
+        .testTarget(name: "ARExperienceTests",
+                    dependencies: ["ARExperience", "BilliardsPhysics"])
     ]
 )

@@ -692,12 +692,15 @@ struct ARCameraView: View {
         if let prediction = model.shotPrediction {
             layout = OverlayLayout.compose(state: state, prediction: prediction,
                                            calibration: calibration,
-                                           calledPocket: model.calledPocket)
+                                           calledPocket: model.calledPocket,
+                                           target: model.targetOverlay)
         } else {
-            // No shot line yet (usually: no cue ball) — still render the
-            // tracked-ball rings so the user sees what the app sees and
-            // where to tap to designate the cue ball.
-            layout = OverlayLayout.ballsOnly(state: state, calibration: calibration)
+            // No shot line yet (usually: no cue ball, or the cue is not
+            // being aimed) — still render the tracked-ball rings so the
+            // user sees what the app sees, AND the recommended shot, which
+            // is most useful precisely when they are not yet down on it.
+            layout = OverlayLayout.ballsOnly(state: state, calibration: calibration,
+                                             target: model.targetOverlay)
         }
         if layout != lastRendered {
             lastRendered = layout

@@ -37,6 +37,21 @@ public struct OverlayLayout: Sendable, Equatable {
         public var length: Double
         public var dashed: Bool
         public var color: UInt32 // 0xRRGGBB token value
+        /// Whether this strip is the live aim or the recommended shot.
+        ///
+        /// Kept out of `color` on purpose: both lines use the same
+        /// semantic colours (amber for the cue's approach, green for the
+        /// object ball's path), so a player learns one colour language.
+        /// What separates them is weight — the plan is drawn thinner and
+        /// more transparent, the way a guide line differs from a result.
+        public var role: Role = .live
+
+        public enum Role: String, Sendable, Equatable {
+            /// Where the player's current aim actually goes.
+            case live
+            /// Where the cue ball would go to make the chosen shot.
+            case plan
+        }
 
         /// Unit direction in world space, or nil for a degenerate strip.
         public var direction: Vec3? {
@@ -71,25 +86,55 @@ public struct OverlayLayout: Sendable, Equatable {
     /// True when the current prediction sends an OBJECT ball (not the cue
     /// ball) into the called pocket — the "on line" state.
     public var calledPocketSatisfied: Bool = false
+    /// The recommended shot: how to make the ball the player picked (or
+    /// the one the app suggests). Empty when there is no target.
+    public var targetStrips: [Strip] = []
+    /// Where the cue ball's centre has to arrive to make that shot.
+    public var targetGhostBall: Marker?
+    /// A ring on the ball being shot at, so the player can see which one
+    /// the percentage refers to without reading the card.
+    public var targetBall: Marker?
+    /// The pocket the recommended shot is going into.
+    public var targetPocket: Marker?
     /// The cloth's up-normal in world space, so the renderer can rotate a
     /// strip about the right axis rather than assuming world up.
     public var planeNormal: Vec3 = Vec3(0, 1, 0)
+
+    /// The shot the app is recommending, ready to lay out: the solved
+    /// ideal shot plus which ball and pocket it is for.
+    public struct Target: Sendable, Equatable {
+        public var prediction: ShotPrediction
+        public var ball: BallID
+        public var pocket: PocketID
+        /// Where the cue ball's centre must arrive, in table space.
+        public var ghostBall: Vec2
+
+        public init(prediction: ShotPrediction, ball: BallID,
+                    pocket: PocketID, ghostBall: Vec2) {
+            self.prediction = prediction
+            self.ball = ball
+            self.pocket = pocket
+            self.ghostBall = ghostBall
+        }
+    }
 
     /// Colors mirror TableScene's path styling rules (05-UX-DESIGN).
     public static func compose(state: TableState,
                                prediction: ShotPrediction,
                                calibration: TableCalibration,
                                calledPocket calledPocketID: PocketID? = nil,
+                               target: Target? = nil,
                                aimColor: UInt32 = 0xF5A623,
                                objectColor: UInt32 = 0x2FA36B,
                                cueAfterColor: UInt32 = 0x4A90D9,
                                scratchColor: UInt32 = 0xE8604C) -> OverlayLayout {
         let cueID = state.cueBall?.id
+
+        func buildStrips(_ prediction: ShotPrediction, role: Strip.Role) -> [Strip] {
+        var seenContact = false
         let contact = prediction.firstContact?.contact
         let cueScratched = cueID.map { prediction.pocketedBalls.contains($0) } ?? false
-
-        var seenContact = false
-        let strips = prediction.segments.compactMap { segment -> Strip? in
+        return prediction.segments.compactMap { segment -> Strip? in
             let vector = segment.end - segment.start
             guard vector.length > 1e-6 else { return nil }
             let isCue = segment.ballID == cueID
@@ -131,8 +176,12 @@ public struct OverlayLayout: Sendable, Equatable {
                          midpoint: calibration.tableToWorld(mid),
                          length: vector.length,
                          dashed: dashed,
-                         color: color)
+                         color: color,
+                         role: role)
         }
+        }
+
+        let strips = buildStrips(prediction, role: .live)
 
         var ghost: Marker?
         if let contact = prediction.firstContact?.contact {
@@ -166,23 +215,51 @@ public struct OverlayLayout: Sendable, Equatable {
             }
         }
 
+        var targetStrips: [Strip] = []
+        var targetGhost: Marker?
+        var targetBallMarker: Marker?
+        var targetPocketMarker: Marker?
+        if let target {
+            let radius = state.cueBall?.radius ?? Ball.standardRadius
+            targetStrips = buildStrips(target.prediction, role: .plan)
+            targetGhost = Marker(position: calibration.tableToWorld(target.ghostBall),
+                                 radius: radius)
+            if let ball = state.ball(target.ball) {
+                targetBallMarker = Marker(position: calibration.tableToWorld(ball.position),
+                                          radius: ball.radius * 1.45)
+            }
+            if let pocket = state.table.pockets.first(where: { $0.id == target.pocket }) {
+                targetPocketMarker = Marker(position: calibration.tableToWorld(pocket.position),
+                                            radius: pocket.captureRadius)
+            }
+        }
+
         return OverlayLayout(strips: strips, ghostBall: ghost,
                              highlightedPockets: highlights,
                              balls: ballMarkers(state: state, calibration: calibration),
                              calledPocket: calledMarker,
                              calledPocketSatisfied: satisfied,
+                             targetStrips: targetStrips,
+                             targetGhostBall: targetGhost,
+                             targetBall: targetBallMarker,
+                             targetPocket: targetPocketMarker,
                              planeNormal: calibration.normal)
     }
 
     /// Ball rings without a prediction — rendered whenever live tracking
     /// has a state, so the overlay never goes fully dark just because no
     /// shot line exists yet (e.g. no cue ball designated).
+    /// Rings only — plus the recommended shot, if there is one.
+    ///
+    /// The target layer belongs here and not only in `compose` because the
+    /// case that matters most is exactly this one: the player has picked a
+    /// ball but is not yet down on the shot, so there is no live aim to
+    /// draw. Showing them how to make it is the whole point.
     public static func ballsOnly(state: TableState,
-                                 calibration: TableCalibration) -> OverlayLayout {
-        OverlayLayout(strips: [], ghostBall: nil, highlightedPockets: [],
-                      balls: ballMarkers(state: state, calibration: calibration),
-                      calledPocket: nil, calledPocketSatisfied: false,
-                      planeNormal: calibration.normal)
+                                 calibration: TableCalibration,
+                                 target: Target? = nil) -> OverlayLayout {
+        compose(state: state, prediction: ShotPrediction(),
+                calibration: calibration, target: target)
     }
 
     static func ballMarkers(state: TableState,

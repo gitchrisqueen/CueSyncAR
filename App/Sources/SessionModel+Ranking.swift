@@ -14,6 +14,8 @@
 //  the words.
 //
 
+import ARExperience
+import BilliardsPhysics
 import CoachKit
 import CueSyncCore
 import CueSyncUI
@@ -46,10 +48,55 @@ extension SessionModel {
         shotSelection.update(state: state,
                              group: settings.ballGroup,
                              config: settings.skillLevel.rankingConfig)
+        refreshTargetOverlay()
     }
 
     func clearRanking() {
         shotSelection.clear()
+        targetOverlay = nil
+    }
+
+    /// Solve the shot the app is offering, so the overlay can draw how to
+    /// make it — not just say how likely it is.
+    ///
+    /// This is the prescription to the live guide's description. Both use
+    /// the same solver, the same speed and the same trim policy, so the
+    /// two lines are directly comparable: the gap between them is exactly
+    /// the correction the player has to make.
+    func refreshTargetOverlay() {
+        guard let state = tableState, let shot = activeShot, shot.blocker == nil,
+              let prediction = TargetGuide.plan(state: state,
+                                                ghostBall: shot.ghostBall,
+                                                solver: targetSolver,
+                                                speed: guideSpeed,
+                                                maxEvents: shotPlanner.config.maxEvents,
+                                                policy: shotPlanner.config.guide) else {
+            targetOverlay = nil
+            return
+        }
+        targetOverlay = OverlayLayout.Target(prediction: prediction,
+                                             ball: shot.ball,
+                                             pocket: shot.pocket,
+                                             ghostBall: shot.ghostBall)
+    }
+
+    /// The aim that makes the offered shot, or nil when there is none.
+    private var idealAim: AimRay? {
+        guard let state = tableState, let cue = state.cueBall, let shot = activeShot,
+              shot.blocker == nil else { return nil }
+        return TargetGuide.aim(cueBall: cue, ghostBall: shot.ghostBall)
+    }
+
+    /// Which way to move to get on the offered shot. Nil when the player
+    /// is not aiming, or there is nothing to aim at.
+    var targetCorrection: TargetGuide.Correction? {
+        TargetGuide.correction(current: shotPlanner.plan?.aim, ideal: idealAim)
+    }
+
+    /// How far off that aim is, in degrees — the number the feature exists
+    /// to shrink, and the one the mirror reports.
+    var targetAimErrorDegrees: Double? {
+        TargetGuide.aimError(current: shotPlanner.plan?.aim, ideal: idealAim)
     }
 
     /// Hand the choice back to the app without needing to know which ball
@@ -76,10 +123,12 @@ extension SessionModel {
         case .missed:
             return false
         case .released:
+            refreshTargetOverlay()
             Self.log.info("target released")
             showTapFeedback("Back to the suggested shot")
             return true
         case .selected(let rating):
+            refreshTargetOverlay()
             let summary = "target=\(rating.ball.rawValue) p=\(rating.percentage)%"
                 + " pocket=\(rating.pocket.rawValue)"
             Self.log.info("target selected: \(summary, privacy: .public)")
