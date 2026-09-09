@@ -293,6 +293,21 @@ final class SessionModel {
     /// Raw detector labels from the latest pipeline frame (debug mirror).
     @ObservationIgnored private(set) var latestDetectionLabels: [String] = []
 
+    /// Recent detections with the pose that produced them, for estimating
+    /// the cloth height from the balls (SessionModel+Calibration). Bounded
+    /// because it is a debugging/calibration aid, not a history.
+    @ObservationIgnored var clothPlaneSamples: [(detections: [Detection2D], frame: CapturedFrame)] = []
+    /// How many frames of balls the cloth estimate may draw on.
+    static let clothPlaneSampleLimit = 12
+
+    func recordClothPlaneSample(detections: [Detection2D], frame: CapturedFrame) {
+        guard frame.intrinsics != nil, frame.cameraTransform != .identity else { return }
+        clothPlaneSamples.append((detections, frame))
+        if clothPlaneSamples.count > Self.clothPlaneSampleLimit {
+            clothPlaneSamples.removeFirst(clothPlaneSamples.count - Self.clothPlaneSampleLimit)
+        }
+    }
+
     // MARK: Session recording (docs/recording-a-session.md)
 
     /// The detector-seam switch every live pipeline is built through: a
@@ -666,6 +681,12 @@ final class SessionModel {
                                                 timestamp: frame.timestamp) else { return }
         }
         lastDetectionAt = Date()
+        // Pose and intrinsics only — a value type. The rule above forbids
+        // capturing `frame` itself past this point because it wraps one of
+        // ARKit's few pixel buffers; this copy holds no buffer.
+        let poseOnly = CapturedFrame(timestamp: frame.timestamp,
+                                     cameraTransform: frame.cameraTransform,
+                                     intrinsics: frame.intrinsics)
         let jpeg: Data
         do {
             jpeg = try frameEncoder.encodeJPEG(from: frame).data
@@ -680,6 +701,7 @@ final class SessionModel {
                 await MainActor.run {
                     guard let self else { return }
                     self.latestDetections = detections
+                    self.recordClothPlaneSample(detections: detections, frame: poseOnly)
                     // The HUD count is BALLS, not raw boxes: cue-stick
                     // detections and low-confidence noise (server floor is
                     // 0.2 for evaluation) don't belong in "Tracking N".
