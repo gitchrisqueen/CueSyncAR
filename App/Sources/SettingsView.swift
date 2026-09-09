@@ -14,6 +14,7 @@
 
 import CoachKit
 import CueSyncCore
+import CueSyncUI
 import Foundation
 import SwiftUI
 
@@ -27,6 +28,12 @@ struct SettingsView: View {
     /// Snapshotted like `computeSummary` for the same reason: the probe is
     /// a static behind a Mutex, invisible to Observation.
     @State private var computePinnedToCPU = DetectorCompute.current?.record.pinnedToCPU == true
+    /// Manual trim ON TOP of the orientation-derived rotation of the 2D
+    /// detection-preview boxes. Same key RootView reads, so the nudge means
+    /// the same thing wherever it is pressed.
+    @AppStorage("previewBoxRotationTrim") private var rotationTrimRaw = NormalizedRotation.none.rawValue
+    /// Whether the record button is pinned in the HUD (see HUDPins).
+    @AppStorage(HUDPins.recordButtonKey) private var showRecordButton = HUDPins.recordButtonDefault
 
     var body: some View {
         NavigationStack {
@@ -38,7 +45,7 @@ struct SettingsView: View {
                 trackingSection
                 practiceSection
                 voiceSection
-                debugSection
+                developerSection
             }
             .task { refreshComputeSnapshot() }
             .navigationTitle("Settings")
@@ -88,7 +95,7 @@ struct SettingsView: View {
             Text("Detection")
         } footer: {
             Text(model.canUseHostedDetection
-                 ? "The hosted detector also needs a model picked in the HUD; without one the bundled model keeps running."
+                 ? "The hosted detector also needs a model picked under Developer; without one the bundled model keeps running."
                  : "The hosted detector needs a Roboflow API key in Secrets.xcconfig. Without one the bundled model is used.")
         }
     }
@@ -189,6 +196,16 @@ struct SettingsView: View {
                 }
             }
             .accessibilityIdentifier("settings-practice-mode")
+            // The HUD chip only appears while a rack is being tracked, so
+            // this is the group's permanent home — and it makes true what
+            // `cycleBallGroup`'s comment has always claimed, that the eight
+            // is reachable "from Settings" and never by a stray tap.
+            Picker("Ball group", selection: binding(\.ballGroup)) {
+                ForEach(BallGroup.allCases, id: \.self) { group in
+                    Text(group.label).tag(group)
+                }
+            }
+            .accessibilityIdentifier("settings-ball-group")
             if let hint = model.practiceMode.pendingHint(
                 hasCalledPocket: model.calledPocket != nil) {
                 Text(hint)
@@ -236,7 +253,15 @@ struct SettingsView: View {
         }
     }
 
-    private var debugSection: some View {
+    /// Everything that serves development rather than play, in one place
+    /// that admits what it is.
+    ///
+    /// Nothing here is new and nothing was deleted: these are the controls
+    /// that used to sit in the HUD bar as unlabelled icons — the antenna,
+    /// the camera flip, the model picker, the millisecond readout and the
+    /// rotate button — next to the mirror switch that was already here.
+    /// Every one of them still has its `/cmd` route on the debug mirror.
+    private var developerSection: some View {
         Section {
             Toggle("Debug mirror", isOn: binding(\.debugMirrorEnabled))
                 .accessibilityIdentifier("settings-debug-mirror")
@@ -245,14 +270,66 @@ struct SettingsView: View {
                     .font(.footnote.monospaced())
                     .textSelection(.enabled)
             }
+            Toggle("Show record button in HUD", isOn: $showRecordButton)
+                .accessibilityIdentifier("settings-pin-record-button")
+            Toggle("Front camera preview", isOn: Binding(
+                get: { model.usingFrontCamera },
+                set: { model.setUsingFrontCamera($0) }))
+                .accessibilityIdentifier("settings-front-camera")
+            modelPicker
+            if model.selectedModel != nil {
+                LabeledContent("Detector latency",
+                               value: "\(model.previewStats.latencyMilliseconds) ms")
+                    .font(.footnote.monospacedDigit())
+                Button("Nudge detection box rotation") {
+                    rotationTrimRaw = (NormalizedRotation(rawValue: rotationTrimRaw) ?? .none)
+                        .next.rawValue
+                }
+                .accessibilityIdentifier("settings-box-rotation")
+            }
+            if let error = model.previewStats.lastError {
+                LabeledContent("Last detector error", value: error)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .accessibilityIdentifier("settings-detector-error")
+            }
+            ForEach(AppBuild.identity.fields) { field in
+                LabeledContent(field.label, value: field.value)
+                    .font(.footnote.monospaced())
+                    .textSelection(.enabled)
+            }
         } header: {
-            Text("Debug")
+            Text("Developer")
         } footer: {
             Text("""
-                Serves the live screen and tracking state to any browser on \
-                this Wi-Fi — the same switch as the HUD antenna button.
+                The mirror serves the live screen and tracking state to any \
+                browser on this Wi-Fi; it is also on the More sheet, one tap \
+                from the HUD, because it is how a parked iPad is watched.
+
+                The front camera is a detection preview only — it suspends \
+                the AR session, so calibration and tracking stop while it is \
+                on. The hosted model picker is A/B evaluation tooling and \
+                needs a Roboflow key; the latency, box-rotation trim and \
+                detector error all belong to that preview path.
                 """)
         }
+    }
+
+    /// Hosted-model A/B picker (M2-01 evaluation tooling). Moved here from
+    /// the HUD, where it sat beside controls a player needs.
+    private var modelPicker: some View {
+        Picker("Detection model", selection: Binding(
+            get: { model.selectedModel?.id },
+            set: { id in
+                model.selectModel(DetectionModelCatalog.candidates.first { $0.id == id })
+            })) {
+            Text("Preview off").tag(String?.none)
+            ForEach(DetectionModelCatalog.candidates) { candidate in
+                Text(candidate.label).tag(String?.some(candidate.id))
+            }
+        }
+        .accessibilityIdentifier("model-picker")
+        .disabled(!model.hasRoboflowKey && model.selectedModel == nil)
     }
 
     // MARK: Building blocks

@@ -10,6 +10,10 @@ let package = Package(
     dependencies: [
         .package(path: "../CueSyncCore"),
         .package(path: "../TableSpace"),
+        // For TrackingCondition: the ARKit-free vocabulary the HUD reads
+        // tracking health in. The coordinator publishes one of those cases
+        // instead of an enum name it stringified itself.
+        .package(path: "../CueSyncUI"),
         .package(path: "../PerceptionKit"),
         // Test-only: the target-guide tests assert that the recommended
         // aim actually pots the ball, which only the real solver can say.
@@ -17,7 +21,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "ARExperience",
-                dependencies: ["CueSyncCore", "TableSpace", "PerceptionKit"]),
+                dependencies: ["CueSyncCore", "TableSpace", "PerceptionKit", "CueSyncUI"]),
         .testTarget(name: "ARExperienceTests",
                     dependencies: ["ARExperience", "BilliardsPhysics"])
     ]

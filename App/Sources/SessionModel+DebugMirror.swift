@@ -38,12 +38,16 @@ extension SessionModel {
     /// Bring the mirror up if the preference allows (default ON): the
     /// device usually sits at the table out of reach, so the mirror must
     /// survive app relaunches without a hand touching the screen.
-    func startDebugMirrorIfEnabled() {
+    /// - Parameter announcing: whether to say the address on the HUD once
+    ///   it is up. True for a switch someone just flipped; false at launch,
+    ///   where the mirror comes up on its own and a player would be shown a
+    ///   developer's IP address for no reason they asked for.
+    func startDebugMirrorIfEnabled(announcing: Bool = true) {
         guard debugMirror == nil, settings.debugMirrorEnabled else { return }
-        startDebugMirror()
+        startDebugMirror(announcing: announcing)
     }
 
-    private func startDebugMirror() {
+    private func startDebugMirror(announcing: Bool) {
         do {
             let server = try DebugMirrorServer()
             server.setCommandHandler { [weak self] params in
@@ -70,6 +74,14 @@ extension SessionModel {
             let host = DebugMirrorServer.deviceIPAddress() ?? "<device-ip>"
             debugMirrorURL = "http://\(host):\(DebugMirrorServer.port)"
             Self.log.info("debug mirror at \(self.debugMirrorURL ?? "?", privacy: .public)")
+            // The address used to sit in a permanent green capsule at the
+            // top of the player's screen. It now lives in the More sheet
+            // and in Settings -> Developer (both selectable) — but it is
+            // still said out loud once, here, so turning the mirror on at
+            // the table tells you what to type without opening a sheet.
+            if announcing {
+                showTapFeedback("Debug mirror on — \(debugMirrorURL ?? "")")
+            }
         } catch {
             Self.log.error("debug mirror failed: \(String(describing: error), privacy: .public)")
             showTapFeedback("Mirror failed to start (port in use?)")

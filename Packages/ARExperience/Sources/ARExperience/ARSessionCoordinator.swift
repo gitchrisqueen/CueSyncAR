@@ -24,6 +24,7 @@
 //
 
 import CueSyncCore
+import CueSyncUI
 import Foundation
 import PerceptionKit
 import TableSpace
@@ -469,48 +470,50 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
         report(nil)
     }
 
-    /// Why tracking is degraded, in a form the HUD can act on.
+    /// What ARKit says tracking is doing right now (CueSyncUI's ARKit-free
+    /// vocabulary), so the HUD can act on the CAUSE rather than parse a
+    /// sentence.
     ///
-    /// Published alongside the human-readable `sessionEvent` because the
-    /// two have different jobs: the string is for a log or a developer, the
-    /// case is for the status capsule. Before this, the capsule had
-    /// `.degraded(.lowLight)` and friends defined and unreachable, so a
-    /// player in a dim room was shown the raw enum dump "Tracking limited:
-    /// insufficientFeatures" instead of "Need more light".
-    public enum TrackingTrouble: Sendable, Equatable {
-        case fastMotion
-        case lowLight
-        case relocalizing
-        case unavailable
-    }
+    /// This used to be published only as `sessionEvent`, built with
+    /// `String(describing: reason)` — which is how a player in a dim room
+    /// came to read "Tracking limited: insufficientFeatures" while
+    /// `HUDStatus.degraded(.lowLight)` ("Need more light") sat in the
+    /// design system with nothing able to produce it.
+    public private(set) var trackingCondition: TrackingCondition = .normal
 
-    /// Non-nil while ARKit reports degraded tracking.
-    public private(set) var trackingTrouble: TrackingTrouble?
-
+    /// The one place ARKit's own enum is read. Everything downstream — the
+    /// capsule, the calibration tap advice, the log line, the mirror —
+    /// works from `TrackingCondition`, which is pure and tested on Linux.
     public nonisolated func session(_ session: ARSession,
                                     cameraDidChangeTrackingState camera: ARCamera) {
-        switch camera.trackingState {
-        case .normal:
-            report(nil, trouble: nil)
-        case .notAvailable:
-            report("Tracking unavailable", trouble: .unavailable)
-        case .limited(let reason):
-            let trouble: TrackingTrouble? = switch reason {
-            case .excessiveMotion: .fastMotion
-            case .insufficientFeatures: .lowLight
-            case .relocalizing: .relocalizing
-            case .initializing: nil
-            @unknown default: nil
-            }
-            report("Tracking limited: \(String(describing: reason))", trouble: trouble)
+        let condition: TrackingCondition = switch camera.trackingState {
+        case .normal: .normal
+        case .notAvailable: .unavailable
+        case .limited(.excessiveMotion): .excessiveMotion
+        case .limited(.insufficientFeatures): .insufficientFeatures
+        case .limited(.relocalizing): .relocalizing
+        case .limited(.initializing): .initializing
+        // A reason this ARKit knows and this build does not: treat it as
+        // initializing (quiet, self-resolving) rather than inventing a
+        // diagnosis for it.
+        case .limited: .initializing
+        }
+        noteTracking(condition)
+    }
+
+    private nonisolated func noteTracking(_ condition: TrackingCondition) {
+        Task { @MainActor in
+            self.sessionEvent = condition.diagnostic
+            self.trackingCondition = condition
         }
     }
 
-    private nonisolated func report(_ message: String?,
-                                    trouble: TrackingTrouble? = nil) {
+    /// Session health that is not about tracking quality (failures,
+    /// interruptions). Developer-facing: it reaches the log and the debug
+    /// mirror, never the status capsule.
+    private nonisolated func report(_ message: String?) {
         Task { @MainActor in
             self.sessionEvent = message
-            self.trackingTrouble = trouble
         }
     }
 }

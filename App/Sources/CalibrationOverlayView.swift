@@ -99,7 +99,7 @@ struct CalibrationOverlayView: View {
                 guard let world = coordinator.raycastHorizontalPlane(
                     screenPoint: location,
                     fallbackPlaneHeight: cornerPlaneHeight) else {
-                    model.showTapFeedback(Self.missedTapAdvice(model.trackingTrouble))
+                    model.showTapFeedback(model.trackingCondition.missedTapAdvice)
                     return
                 }
                 // First corner drops the shared cluster anchor: all corners
@@ -210,13 +210,12 @@ struct CalibrationOverlayView: View {
     @ViewBuilder
     private var controls: some View {
         VStack(spacing: 10) {
+            // Same toast the top of the HUD uses, in the calibration
+            // error's own priority tone — but shown HERE, beside the Lock
+            // button that produced it, which is where the user is looking.
             if let error = model.calibration.lastError {
-                Text(Self.message(for: error))
-                    .font(.caption)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .foregroundStyle(.red)
+                HUDToast(message: HUDMessage(kind: .calibrationError,
+                                             text: Self.message(for: error)))
             }
             // Live measured size while adjusting — the user sees what lock
             // WILL record before committing (T1.2 measurement truth).
@@ -282,21 +281,6 @@ struct CalibrationOverlayView: View {
             // session (observed as a frozen camera on device).
             try? await Task.sleep(for: .seconds(3))
             try? await coordinator.saveWorldMap(to: CalibrationStore.worldMapURL)
-        }
-    }
-
-    /// Why a corner tap found nothing, in terms of what to do about it.
-    /// Split out and static so it is testable without an ARSession.
-    static func missedTapAdvice(_ trouble: ARSessionCoordinator.TrackingTrouble?) -> String {
-        switch trouble {
-        case .fastMotion:
-            "Hold the device still, then tap the corner again"
-        case .lowLight:
-            "Too dark to place a corner — more light on the table"
-        case .relocalizing, .unavailable:
-            "Finding the table again — tap the corner in a moment"
-        case nil:
-            "Aim at the cloth inside the cushions, then tap the corner"
         }
     }
 

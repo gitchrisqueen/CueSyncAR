@@ -92,7 +92,8 @@ durable lessons that must not be re-learned:
   `com.cuesync.ar` (categories `session`, `pipeline`, `mirror`) — filter the
   Xcode console on "cuesync". Never add a silent failure path: guards that
   swallow user actions (taps) must log AND surface HUD feedback.
-- **Debug mirror:** antenna button in the HUD serves the rendered screen +
+- **Debug mirror:** the ⋯ (More) sheet's Debug mirror switch — also in
+  Settings → Developer — serves the rendered screen +
   tracking JSON at `http://<device-ip>:8787` for any browser on the LAN
   (`App/Sources/DebugMirrorServer.swift`). This is the standard way to see
   the device when it's at the table away from the Mac.
@@ -108,7 +109,8 @@ durable lessons that must not be re-learned:
   app target sets `ENABLE_USER_SCRIPT_SANDBOXING: NO` because the sandbox
   denies both the git read and the plist write. Display formatting lives in
   the pure, tested `CueSyncUI.BuildIdentity`.
-- **Session recorder:** the ● button (or mirror `/cmd?action=startRecording`)
+- **Session recorder:** the ● button (pinned in the HUD in DEBUG builds,
+  otherwise ⋯ → Record session; or mirror `/cmd?action=startRecording`)
   writes a `SessionReplay` bundle to `Documents/Sessions/<id>/` — frames,
   detections, events, ~1 Hz projection snapshots, H.264 video — 1:1 with
   the frames the live pipeline processed (recorded at the detector seam,

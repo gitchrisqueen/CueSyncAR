@@ -55,13 +55,14 @@ final class SessionModel {
     /// Set when the user has denied camera access (drives an explicit
     /// error state instead of a silent black screen).
     var cameraDenied = false
-    /// Why tracking is degraded, if it is — the structured half of
-    /// `sessionEvent`, so the status capsule can say "Need more light"
-    /// instead of showing a raw ARKit enum name.
-    var trackingTrouble: ARSessionCoordinator.TrackingTrouble?
+    /// What ARKit says tracking is doing, mirrored from the coordinator.
+    /// The status capsule reads its cause from here, so it can say "Need
+    /// more light" instead of showing a raw ARKit enum name.
+    var trackingCondition: TrackingCondition = .normal
 
-    /// Latest AR session health message (errors/interruptions/tracking
-    /// limits), mirrored from the coordinator for the HUD.
+    /// Latest AR session health message (errors, interruptions, tracking
+    /// limits). Developer-facing: it goes to the log and the debug
+    /// mirror's /state.json, never to the player's HUD.
     var sessionEvent: String?
 
     // MARK: Calibration (M3-02) — flow in SessionModel+Calibration.swift
@@ -637,6 +638,19 @@ final class SessionModel {
     /// world tracking cannot run on the front camera.
     var usingFrontCamera = false
 
+    /// Hand the camera to (or take it back from) the front detection
+    /// preview. One entry point, because a running recording has to be
+    /// closed properly first: the AR loop goes away with the back camera,
+    /// and a bundle left half-written is a bundle that replays wrong.
+    func setUsingFrontCamera(_ front: Bool) {
+        guard usingFrontCamera != front else { return }
+        if isRecording {
+            Task { await stopRecording(reason: .user) }
+        }
+        usingFrontCamera = front
+        Self.log.info("camera: \(front ? "front preview" : "back (AR)", privacy: .public)")
+    }
+
     // MARK: Detection preview state
 
     /// Currently selected hosted model; nil = preview off.
@@ -667,7 +681,7 @@ final class SessionModel {
         // Settings first: the mirror's start-on-launch preference, the
         // practice mode and the guide speed all come out of this load.
         settings = SettingsModel(loading: appSettingsStore)
-        startDebugMirrorIfEnabled()
+        startDebugMirrorIfEnabled(announcing: false)
         // M2-01 winner, bundled: YOLOv11n on the pool-ball-agzev fork,
         // mAP50 0.896 / mAP50-95 0.765 (Linux fine-tune, epoch 19).
         // The MVP works offline on this model; the hosted picker remains
