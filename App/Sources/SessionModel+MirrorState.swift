@@ -41,6 +41,9 @@ extension SessionModel {
             // HUD from a browser.
             "hudStatus": hudStatusLabel
         ]
+        // Whether the cue the detector can see has been sitting still long
+        // enough to be furniture rather than an aim.
+        state["stickResting"] = shotPlanner.stickIsResting
         // Why nothing is drawn, when nothing is drawn.
         if let noGuideReason { state["noGuideReason"] = noGuideReason }
         // How long the aim source has held. A source that flips every

@@ -134,6 +134,11 @@ public struct ShotPlanner: Sendable {
         return (newPlan, true)
     }
 
+    /// Whether the cue the detector can see has been sitting still long
+    /// enough to count as furniture rather than an aim — surfaced so the
+    /// HUD and the mirror can say WHY there is no guide.
+    public var stickIsResting: Bool { resolver.stickIsResting }
+
     /// Force the next update to re-solve (e.g. the guide speed changed).
     public mutating func invalidate() {
         lastPredictedState = nil

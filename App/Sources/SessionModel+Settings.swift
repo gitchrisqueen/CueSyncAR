@@ -9,6 +9,8 @@
 //  debug mirror.
 //
 
+import ARExperience
+import BilliardsPhysics
 import CoachKit
 import Foundation
 import PerceptionKit
@@ -48,10 +50,27 @@ extension SessionModel {
         // shows up even when the aim itself sits inside the deadband.
         shotPlanner.guideSpeed = settings.guideSpeed
         shotPlanner.invalidate()
+        // `ShotPlanner.config` is immutable, so a parked-mode change means a
+        // fresh planner. Only on an actual change: rebuilding drops the
+        // current plan and the stick hold with it.
+        if previous == nil || previous?.deviceParked != settings.deviceParked {
+            rebuildShotPlanner()
+        }
         if let previous, isLiveTracking,
            settings.requiresPipelineRestart(comparedTo: previous) {
             resetBallTracking()
         }
+    }
+
+    /// Rebuild the planner around the current settings, preserving the
+    /// guide speed. Parked mode lives in `AimResolver.Config`, which the
+    /// planner holds as a `let`.
+    func rebuildShotPlanner() {
+        let resolver = AimResolver.Config(allowDevicePose: !settings.deviceParked)
+        shotPlanner = ShotPlanner(
+            solver: AnalyticSolver(),
+            guideSpeed: settings.guideSpeed,
+            config: ShotPlanner.Config(resolver: resolver))
     }
 
     /// Tracker tuning derived from settings.

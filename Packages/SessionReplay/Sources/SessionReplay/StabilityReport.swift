@@ -32,6 +32,11 @@ public struct StabilityReport: Sendable, Equatable {
     public var stickPresentRate: Double
     /// Frames with an aim, and how that aim was sourced.
     public var aimedFrames: Int
+    /// Share of frames that produced an aim at all. Guarded because every
+    /// other metric here improves when nothing is drawn: a change that
+    /// suppressed the guide entirely would pass a suite of stability bars
+    /// with flying colours.
+    public var aimedFrameRate: Double
     public var stickAimRate: Double
     /// Aim-source changes between consecutive aimed frames.
     public var sourceTransitions: Int
@@ -71,12 +76,12 @@ public struct StabilityReport: Sendable, Equatable {
 
     public var summary: String {
         String(format: """
-            stick present %.1f%% | stick aim %.1f%% | source flips %d (%.1f/min) \
+            aimed %.1f%% | stick present %.1f%% | stick aim %.1f%% | flips %d (%.1f/min) \
             | heading d p95 %.2f max %.1f | planChanged %.1f%% | \
             segs p95 %d max %d | length p95 %.2f m | farEnd p95 %.2f m | \
             churn %d (%d ids, %d short) | cue id changes %d
             """,
-            stickPresentRate * 100, stickAimRate * 100,
+            aimedFrameRate * 100, stickPresentRate * 100, stickAimRate * 100,
             sourceTransitions, sourceTransitionsPerMinute,
             headingDeltaP95, headingDeltaMax, planChangedRate * 100,
             segmentCountP95, segmentCountMax, predictionLengthP95,
@@ -163,6 +168,7 @@ public struct StabilityReport: Sendable, Equatable {
             seconds: seconds,
             stickPresentRate: ratio(stickPresent, outputs.count),
             aimedFrames: aimed.count,
+            aimedFrameRate: ratio(aimed.count, outputs.count),
             stickAimRate: ratio(stickAim, aimed.count),
             sourceTransitions: transitions,
             sourceTransitionsPerMinute: seconds > 0 ? Double(transitions) * 60 / seconds : 0,
@@ -187,7 +193,8 @@ public struct StabilityReport: Sendable, Equatable {
     }
 
     static let empty = StabilityReport(
-        frames: 0, seconds: 0, stickPresentRate: 0, aimedFrames: 0, stickAimRate: 0,
+        frames: 0, seconds: 0, stickPresentRate: 0, aimedFrames: 0, aimedFrameRate: 0,
+        stickAimRate: 0,
         sourceTransitions: 0, sourceTransitionsPerMinute: 0,
         headingDeltaP50: 0, headingDeltaP95: 0, headingDeltaMax: 0, headingSamples: 0,
         planChangedRate: 0, planClearedRate: 0,

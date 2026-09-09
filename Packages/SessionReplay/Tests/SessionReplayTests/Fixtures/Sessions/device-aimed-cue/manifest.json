@@ -16,6 +16,7 @@
     "appVersion": "1.0 (1)",
     "capSeconds": 300,
     "detector": "on-device",
+    "deviceParked": true,
     "displayScale": 2.0,
     "durationSeconds": 125.62825,
     "followsTableAnchor": true,

@@ -87,6 +87,13 @@ public struct ReplayRunner: Sendable {
         if let recorded = bundle.manifest.recording?.followsTableAnchor {
             replayConfig.perception.followsTableAnchor = recorded
         }
+        // Parked recordings must replay parked: with the device on a tripod
+        // the device-pose sighting model is a fixed line to whatever the
+        // mount faces, and allowing it turns every stick dropout into a
+        // source flip. Absent (older bundles) means hand-held.
+        if let parked = bundle.manifest.recording?.deviceParked {
+            replayConfig.planner.resolver.allowDevicePose = !parked
+        }
         var session = ReplaySession(config: replayConfig, calibration: calibration,
                                     detector: detector,
                                     lockAnchorTransform: try bundle.calibration.anchorTransform3D())
