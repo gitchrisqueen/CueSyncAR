@@ -80,3 +80,47 @@ struct EndRailCalibrationTests {
         }
     }
 }
+
+@Suite("Sliding a locked table")
+struct TranslatedCalibrationTests {
+    private let cal = TableCalibration(origin: Vec3(0.2, -0.55, -2.4),
+                                       xAxis: Vec3(0.883370, 0, 0.468676),
+                                       yAxis: Vec3(-0.468676, 0, 0.883370),
+                                       size: .eightFoot)
+
+    @Test("Translating moves the table without resizing or re-aiming it")
+    func keepsSizeAndAxes() {
+        let moved = cal.translated(by: Vec2(-0.08, -0.15))
+        #expect(moved.size == cal.size)
+        #expect(moved.xAxis == cal.xAxis)
+        #expect(moved.yAxis == cal.yAxis)
+        #expect(moved.origin != cal.origin)
+        #expect(abs(moved.origin.y - cal.origin.y) < 1e-9, "stays on the cloth")
+    }
+
+    @Test("A ball keeps its world position and gains the opposite table offset")
+    func ballsShiftTheOtherWay() {
+        let world = cal.tableToWorld(Vec2(0.5, 0.2))
+        let moved = cal.translated(by: Vec2(-0.08, -0.15))
+        let after = moved.worldToTable(world)
+        #expect(abs(after.x - (0.5 + 0.08)) < 1e-9)
+        #expect(abs(after.y - (0.2 + 0.15)) < 1e-9)
+    }
+
+    @Test("The move is exactly the distance asked for, along the table's own axes")
+    func distanceIsExact() {
+        let delta = Vec2(-0.08, -0.15)
+        let moved = cal.translated(by: delta)
+        #expect(abs(moved.origin.distance(to: cal.origin) - delta.length) < 1e-9)
+        let along = moved.origin - cal.origin
+        #expect(abs(along.dot(cal.xAxis) - delta.x) < 1e-9)
+        #expect(abs(along.dot(cal.yAxis) - delta.y) < 1e-9)
+    }
+
+    @Test("Zero is a no-op and translations compose")
+    func composesAndIdentity() {
+        #expect(cal.translated(by: .zero).origin == cal.origin)
+        let twice = cal.translated(by: Vec2(0.1, 0.2)).translated(by: Vec2(-0.1, -0.2))
+        #expect(twice.origin.distance(to: cal.origin) < 1e-9)
+    }
+}

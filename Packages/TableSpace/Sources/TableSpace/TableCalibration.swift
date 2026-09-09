@@ -86,6 +86,20 @@ public struct TableCalibration: Sendable, Equatable, Codable {
             .map(tableToWorld)
     }
 
+    /// The same table, shifted by `delta` in TABLE space (metres along
+    /// xAxis and yAxis).
+    ///
+    /// Corrects a calibration whose size and heading are right but whose
+    /// centre is not — the failure mode of building a rectangle from one
+    /// end rail, where an asymmetric tap on the rail slides the whole
+    /// table along it. Measured on the owner's table at 19 cm across,
+    /// which put a third of the balls outside the playing-surface envelope
+    /// and stopped them being tracked at all.
+    public func translated(by delta: Vec2) -> TableCalibration {
+        TableCalibration(origin: origin + xAxis * delta.x + yAxis * delta.y,
+                         xAxis: xAxis, yAxis: yAxis, size: size)
+    }
+
     /// The same table, measured as `size`, keeping the origin and axes.
     ///
     /// For correcting a field that locked short or long — corners tapped
