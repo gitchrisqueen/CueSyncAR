@@ -2,8 +2,6 @@
 #
 # Publishes the one-page public site in docs/site/ to GitHub Pages.
 #
-# Publishes the one-page public site in docs/site/ to GitHub Pages.
-#
 # Deliberately NOT triggered by pull_request: a pull request from a fork must
 # never be able to publish to the live site. Push to main, and manual
 # dispatch, only.
