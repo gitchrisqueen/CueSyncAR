@@ -23,6 +23,10 @@ struct SettingsView: View {
     /// Snapshot of the probe line; refreshed when the sheet opens and
     /// after a reset (the probe is not an observable model).
     @State private var computeSummary = DetectorCompute.current?.summary ?? "Detector: not loaded"
+    /// Whether the probe currently pins the CPU — gates the retry button.
+    /// Snapshotted like `computeSummary` for the same reason: the probe is
+    /// a static behind a Mutex, invisible to Observation.
+    @State private var computePinnedToCPU = DetectorCompute.current?.record.pinnedToCPU == true
 
     var body: some View {
         NavigationStack {
@@ -35,6 +39,7 @@ struct SettingsView: View {
                 practiceSection
                 debugSection
             }
+            .task { refreshComputeSnapshot() }
             .navigationTitle("Settings")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -87,6 +92,14 @@ struct SettingsView: View {
         }
     }
 
+    /// Re-read the probe into view state. The probe lives behind a static
+    /// Mutex (SessionModel+Providers), so nothing invalidates a body when
+    /// it changes — the sheet pulls it on open and after a reset.
+    private func refreshComputeSnapshot() {
+        computeSummary = DetectorCompute.current?.summary ?? "Detector: not loaded"
+        computePinnedToCPU = DetectorCompute.current?.record.pinnedToCPU == true
+    }
+
     /// T1.3: the Neural Engine probe, readable and resettable at the table.
     private var computeSection: some View {
         Section {
@@ -97,9 +110,14 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings-detector-pin-cpu")
             Button("Retry Neural Engine on next launch") {
                 model.resetDetectorComputeProbe()
-                computeSummary = DetectorCompute.current?.summary ?? "Detector: not loaded"
+                refreshComputeSnapshot()
             }
-            .disabled(DetectorCompute.current?.record.pinnedToCPU != true)
+            // `computeSummary` is @State, refreshed by this sheet's own
+            // task; `DetectorCompute.current` is a static outside
+            // Observation, so reading it in a body meant this button's
+            // enabled state froze at whatever it was when the sheet last
+            // rendered for another reason.
+            .disabled(!computePinnedToCPU)
             .accessibilityIdentifier("settings-detector-compute-reset")
         } header: {
             Text("Detector compute")

@@ -38,6 +38,21 @@ public struct AnchoredCalibration: Sendable, Equatable, Codable {
         measuredHeight = calibration.measuredHeight
     }
 
+    /// Apply `TableCalibration.correctingUndersizedSnap` to a persisted
+    /// record, so a venue saved under the old symmetric snap rule comes
+    /// back with the size its own measurement supports.
+    public func correctingUndersizedSnap(maxSnapUnder: Double = 0.03) -> AnchoredCalibration {
+        guard let measuredWidth, let measuredHeight else { return self }
+        if case .custom = size { return self }
+        guard TableCalibration.undersizeDelta(width: measuredWidth,
+                                              height: measuredHeight,
+                                              candidate: size)
+                > maxSnapUnder + TableCalibration.snapEpsilon else { return self }
+        var corrected = self
+        corrected.size = .custom(width: measuredWidth, height: measuredHeight)
+        return corrected
+    }
+
     /// Rebuild the world-space calibration from the anchor's transform in
     /// the *current* session (post-relocalization).
     public func worldCalibration(anchorTransform: Transform3D) -> TableCalibration {

@@ -37,7 +37,11 @@ extension SessionModel {
     /// manifest so a replay knows the pull cadence.
     static let loopTickMilliseconds = 150
 
-    var isRecording: Bool { recorder != nil }
+    /// Reads the observed shadow, not `recorder != nil`: `recorder` is
+    /// `@ObservationIgnored`, so a computed property over it is invisible
+    /// to Observation and no view gated on it ever re-renders. The shadow
+    /// is maintained by `recorder`'s `didSet`, so it cannot drift.
+    var isRecording: Bool { isRecordingFlag }
     var recordingCapMinutes: Int { SessionRecorder.capSeconds / 60 }
 
     /// The size cost, stated before the user commits — with the free
