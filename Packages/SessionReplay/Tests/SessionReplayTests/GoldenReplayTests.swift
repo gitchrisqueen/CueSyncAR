@@ -20,19 +20,77 @@ import Testing
 // macOS, so a green run there is the cross-platform, cross-process
 // byte-equality proof.
 
-/// Every committed golden bundle and its accuracy bars.
+/// Steadiness bars — how much the guide is allowed to move on its own.
+///
+/// Separate from accuracy because they need no ground truth, which is what
+/// lets a real recording be a gate at all: nobody has tape-measured the
+/// balls in these, but "the aim source may not flip more than N times a
+/// minute" is checkable on any bundle.
+///
+/// Every bar is set at the CURRENT measured value (rounded outward), so
+/// this file is a ratchet: it cannot silently get worse, and each Phase-2
+/// PR tightens the numbers it improves.
+private struct StabilityBars {
+    var maxStickPresentRate: Double = 1
+    var minStickAimRate: Double = 0
+    var maxSourceTransitionsPerMinute: Double = .infinity
+    var maxHeadingDeltaMax: Double = .infinity
+    var maxPlanChangedRate: Double = 1
+    var maxSegmentCount: Int = .max
+    var maxPredictionLengthP95: Double = .infinity
+    var maxFarEndShiftP95: Double = .infinity
+    var maxTrackChurn: Int = .max
+    var maxCueIDChanges: Int = .max
+}
+
+/// Every committed golden bundle, its accuracy bars (when it has truth),
+/// and its stability bars.
 private struct GoldenBundle {
     let name: String
-    let warmupFrames: Int
-    let maxPositionRMS: Double
-    let minRecall: Double
-    let minPrecision: Double
+    var warmupFrames: Int = 0
+    /// Accuracy needs ground truth; a recorded bundle has none until
+    /// someone measures the balls, so these are optional.
+    var maxPositionRMS: Double?
+    var minRecall: Double?
+    var minPrecision: Double?
+    var stability = StabilityBars()
 }
 
 private let goldenBundles: [GoldenBundle] = [
     // Appearance gate is 3 frames, so frames 0–2 legitimately report nothing.
     GoldenBundle(name: "scripted-5ball", warmupFrames: 3,
-                 maxPositionRMS: 0.02, minRecall: 0.98, minPrecision: 0.98)
+                 maxPositionRMS: 0.02, minRecall: 0.98, minPrecision: 0.98),
+
+    // 300 frames of the operator AIMING a real cue, 2026-09-09. The clip
+    // the stick gate has to accept.
+    GoldenBundle(name: "device-aimed-cue",
+                 stability: StabilityBars(
+                    minStickAimRate: 0.75,
+                    maxSourceTransitionsPerMinute: 5.0,
+                    maxHeadingDeltaMax: 3.0,
+                    maxPlanChangedRate: 0.26,
+                    maxSegmentCount: 11,
+                    maxPredictionLengthP95: 4.0,
+                    maxFarEndShiftP95: 2.2,
+                    maxTrackChurn: 16,
+                    maxCueIDChanges: 6)),
+
+    // 300 frames with the cue LYING ON THE CLOTH, same table, same evening.
+    // The clip the stick gate has to REJECT: today it accepts a discarded
+    // cue on 99.7 % of frames and lets it own the aim outright, which is
+    // more reliably than it accepts a cue being aimed with (74 %). That
+    // inversion is the bug; `maxStickPresentRate` is the ratchet on it.
+    GoldenBundle(name: "device-lying-cue",
+                 stability: StabilityBars(
+                    maxStickPresentRate: 1.0,
+                    maxSourceTransitionsPerMinute: 1.0,
+                    maxHeadingDeltaMax: 5.0,
+                    maxPlanChangedRate: 0.44,
+                    maxSegmentCount: 11,
+                    maxPredictionLengthP95: 5.6,
+                    maxFarEndShiftP95: 2.2,
+                    maxTrackChurn: 6,
+                    maxCueIDChanges: 1))
 ]
 
 private let fixturesSubdirectory = "Fixtures/Sessions"
@@ -136,17 +194,50 @@ struct GoldenReplayTests {
     @Test(arguments: goldenBundles.map(\.name))
     func accuracyClearsTheBars(name: String) async throws {
         let golden = try #require(goldenBundles.first { $0.name == name })
+        guard let maxPositionRMS = golden.maxPositionRMS,
+              let minRecall = golden.minRecall,
+              let minPrecision = golden.minPrecision else {
+            // A recorded bundle with no tape-measured truth. Its stability
+            // bars still gate it; accuracy waits for someone to measure the
+            // balls (plan v5 Phase 5.1).
+            return
+        }
         let directory = try fixtureDirectory(for: name)
         let bundle = try SessionBundleReader().read(from: directory)
         let truth = try #require(bundle.truth, "\(name) has no truth.json")
         let result = try await ReplayRunner().run(bundle)
         let report = AccuracyReport.compute(outputs: result.outputs, truth: truth,
                                             warmupFrames: golden.warmupFrames)
-        #expect(report.positionRMS <= golden.maxPositionRMS, "\(report.summary)")
-        #expect(report.recall >= golden.minRecall, "\(report.summary)")
-        #expect(report.precision >= golden.minPrecision, "\(report.summary)")
+        #expect(report.positionRMS <= maxPositionRMS, "\(report.summary)")
+        #expect(report.recall >= minRecall, "\(report.summary)")
+        #expect(report.precision >= minPrecision, "\(report.summary)")
         #expect(report.identitySwitches == 0, "\(report.summary)")
         #expect(report.trackChurn == 0, "\(report.summary)")
+    }
+
+    /// The steadiness ratchet. Prints the full report on every run so a PR
+    /// can quote before/after numbers without extra tooling.
+    @Test(arguments: goldenBundles.map(\.name))
+    func stabilityClearsTheBars(name: String) async throws {
+        let golden = try #require(goldenBundles.first { $0.name == name })
+        let bars = golden.stability
+        let directory = try fixtureDirectory(for: name)
+        let bundle = try SessionBundleReader().read(from: directory)
+        let result = try await ReplayRunner().run(bundle)
+        let report = StabilityReport.compute(outputs: result.outputs)
+        print("StabilityReport [\(name)] \(report.summary)")
+
+        #expect(report.stickPresentRate <= bars.maxStickPresentRate, "\(report.summary)")
+        #expect(report.stickAimRate >= bars.minStickAimRate, "\(report.summary)")
+        #expect(report.sourceTransitionsPerMinute <= bars.maxSourceTransitionsPerMinute,
+                "\(report.summary)")
+        #expect(report.headingDeltaMax <= bars.maxHeadingDeltaMax, "\(report.summary)")
+        #expect(report.planChangedRate <= bars.maxPlanChangedRate, "\(report.summary)")
+        #expect(report.segmentCountMax <= bars.maxSegmentCount, "\(report.summary)")
+        #expect(report.predictionLengthP95 <= bars.maxPredictionLengthP95, "\(report.summary)")
+        #expect(report.farEndShiftP95 <= bars.maxFarEndShiftP95, "\(report.summary)")
+        #expect(report.trackChurn <= bars.maxTrackChurn, "\(report.summary)")
+        #expect(report.cueIDChanges <= bars.maxCueIDChanges, "\(report.summary)")
     }
 
     /// The script's scenario actually happens in the replay: designation

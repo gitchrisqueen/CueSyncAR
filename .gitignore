@@ -31,7 +31,11 @@ App/Config/Secrets.xcconfig
 # Session bundles pulled from the device (Scripts/pull-session.sh) — up to
 # ~225 MB of video each. Fixtures are copied under Packages/SessionReplay/
 # Tests/.../Fixtures deliberately, without the video.
-Sessions/
+#
+# Anchored with a leading slash: unanchored, this pattern matches a
+# directory named Sessions at ANY depth, so it also swallowed those
+# fixtures and they silently failed to stage.
+/Sessions/
 
 # Agent runner hand-off files inside a worktree (never committed; see docs/agent-runner.md)
 .agent-outbox/
