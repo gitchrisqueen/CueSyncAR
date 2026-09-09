@@ -49,6 +49,9 @@ extension SessionModel {
                              group: settings.ballGroup,
                              config: settings.skillLevel.rankingConfig)
         refreshTargetOverlay()
+        // The offered shot may have changed, which is the one thing the
+        // voice most wants to announce (SessionModel+Speech).
+        narrateIfNeeded()
     }
 
     func clearRanking() {

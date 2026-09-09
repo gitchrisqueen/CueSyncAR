@@ -37,6 +37,7 @@ struct SettingsView: View {
                 guidesSection
                 trackingSection
                 practiceSection
+                voiceSection
                 debugSection
             }
             .task { refreshComputeSnapshot() }
@@ -194,6 +195,44 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    /// Spoken guidance (SessionModel+Speech / CoachKit.SpokenGuidance).
+    ///
+    /// Bound through `setSpeechVerbosity` rather than the generic
+    /// `binding(_:)` so that switching it on says so out loud: turning a
+    /// voice on and hearing nothing until the next shot is
+    /// indistinguishable from a broken build.
+    private var voiceSection: some View {
+        Section {
+            Picker("Spoken guidance", selection: Binding(
+                get: { model.settings.speechVerbosity },
+                set: { model.setSpeechVerbosity($0) })) {
+                    ForEach(SpeechVerbosity.allCases, id: \.self) { level in
+                        Text(level.title).tag(level)
+                    }
+                }
+                .accessibilityIdentifier("settings-speech-verbosity")
+            if model.settings.speechVerbosity.isOn {
+                Button("Say something now") {
+                    model.narrator.say(
+                        "Voice check. Best shot, 62 percent into the top-left corner.")
+                }
+                .accessibilityIdentifier("settings-speech-test")
+            }
+        } header: {
+            Text("Voice")
+        } footer: {
+            Text("""
+                \(model.settings.speechVerbosity.detail)
+
+                Off unless you turn it on. The voice is the one already on \
+                this device — nothing is sent anywhere and it works with no \
+                signal. Music in the room dips for a prompt rather than \
+                stopping; like a navigation app, it speaks even when the \
+                ring switch is set to silent.
+                """)
         }
     }
 
