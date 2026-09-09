@@ -70,60 +70,20 @@ struct RootView: View {
             }
 
             VStack {
+                // Exactly three slots, in this order, forever: the status
+                // capsule never moves, an active recording is always
+                // unmistakable, and everything else competes for ONE toast
+                // (HUDMessage decides which). What used to stack here and
+                // where it went: `sessionEvent` -> HUDStatus.degraded and
+                // the mirror's /state.json; `previewStats.lastError` and
+                // the mirror URL -> the More sheet's developer section
+                // (the URL is also selectable in Settings -> Developer).
                 StatusCapsule(status: hudStatus)
                 if let recording = model.recordingStatus {
                     RecordingBadge(status: recording)
                 }
-                if model.cameraDenied {
-                    Text("Camera access denied — enable it in Settings → CueSync AR")
-                        .font(.caption)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .foregroundStyle(.red)
-                }
-                if let event = model.sessionEvent {
-                    Text(event)
-                        .font(.caption)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .foregroundStyle(.orange)
-                }
-                if let error = model.previewStats.lastError {
-                    Text(error)
-                        .font(.caption2)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .foregroundStyle(.red)
-                }
-                if let feedback = model.tapFeedback {
-                    Text(feedback)
-                        .font(.caption)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .foregroundStyle(.primary)
-                        .transition(.opacity)
-                }
-                if let mirrorURL = model.debugMirrorURL {
-                    Text("Mirror: \(mirrorURL)")
-                        .font(.caption.monospaced())
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .foregroundStyle(.green)
-                }
-                if model.isLiveTracking,
-                   let hint = model.practiceMode.pendingHint(
-                    hasCalledPocket: model.calledPocket != nil) {
-                    Text(hint)
-                        .font(.caption)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .foregroundStyle(.yellow)
+                if let message = hudMessage {
+                    HUDToast(message: message)
                 }
                 Spacer()
                 ShotAdviceCluster()
@@ -169,6 +129,20 @@ struct RootView: View {
                 autoRotation = rotation
             }
         }
+    }
+
+    /// The one transient line under the capsule. RootView contributes the
+    /// fields; `HUDMessage` (pure, tested on Linux) decides which of them
+    /// gets the slot. The calibration error is deliberately NOT fed from
+    /// here: the calibration overlay shows it beside the Lock button that
+    /// produced it, which is where the user is already looking.
+    private var hudMessage: HUDMessage? {
+        HUDMessage.resolve(
+            cameraDenied: model.cameraDenied,
+            tapFeedback: model.tapFeedback,
+            modeHint: model.isLiveTracking
+                ? model.practiceMode.pendingHint(hasCalledPocket: model.calledPocket != nil)
+                : nil)
     }
 
     private var hudStatus: HUDStatus {

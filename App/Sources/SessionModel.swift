@@ -614,7 +614,7 @@ final class SessionModel {
         // Settings first: the mirror's start-on-launch preference, the
         // practice mode and the guide speed all come out of this load.
         settings = SettingsModel(loading: appSettingsStore)
-        startDebugMirrorIfEnabled()
+        startDebugMirrorIfEnabled(announcing: false)
         // M2-01 winner, bundled: YOLOv11n on the pool-ball-agzev fork,
         // mAP50 0.896 / mAP50-95 0.765 (Linux fine-tune, epoch 19).
         // The MVP works offline on this model; the hosted picker remains

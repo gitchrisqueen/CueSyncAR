@@ -210,13 +210,12 @@ struct CalibrationOverlayView: View {
     @ViewBuilder
     private var controls: some View {
         VStack(spacing: 10) {
+            // Same toast the top of the HUD uses, in the calibration
+            // error's own priority tone — but shown HERE, beside the Lock
+            // button that produced it, which is where the user is looking.
             if let error = model.calibration.lastError {
-                Text(Self.message(for: error))
-                    .font(.caption)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .foregroundStyle(.red)
+                HUDToast(message: HUDMessage(kind: .calibrationError,
+                                             text: Self.message(for: error)))
             }
             // Live measured size while adjusting — the user sees what lock
             // WILL record before committing (T1.2 measurement truth).
