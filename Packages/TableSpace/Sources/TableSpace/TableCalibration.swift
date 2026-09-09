@@ -111,6 +111,77 @@ public struct TableCalibration: Sendable, Equatable, Codable {
         TableCalibration(origin: origin, xAxis: xAxis, yAxis: yAxis, size: size)
     }
 
+    /// How far apart two parallel rail lines are, measured across the
+    /// cloth. Compare against `size.playField.height` to judge a fit.
+    public static func railSeparation(_ first: (Vec3, Vec3), _ second: (Vec3, Vec3)) -> Double? {
+        let direction = (first.1 - first.0)
+        guard direction.length > 1e-3 else { return nil }
+        let along = direction.normalized
+        let offset = second.0 - first.0
+        let across = offset - along * offset.dot(along)
+        return across.length
+    }
+
+    /// Build a calibration from the two LONG rails plus one point on an
+    /// end rail.
+    ///
+    /// Lines beat corners. A corner is one pixel that has to be picked
+    /// exactly, and a few pixels of error there slid this table 19 cm
+    /// along its own rail and left a third of the balls outside the
+    /// playing-surface envelope. A rail is a long straight edge: any two
+    /// points anywhere along it give the same line, so the heading and the
+    /// centre line come out of geometry that is easy to hit.
+    ///
+    /// It also suits a camera that cannot see the whole table. The far END
+    /// of the owner's table is outside the frame, but both long rails run
+    /// right across it, so the constraint that matters most — where the
+    /// centre line is — is the one most reliably available.
+    ///
+    /// `nearRail` and `farRail` are any two points on each long cushion;
+    /// `endRail` is one point on the end cushion the camera can see. All
+    /// in world space, on the cloth. The rails' measured separation is not
+    /// used for the size — `size` is — so it stays available as a check.
+    public static func fromLongRails(nearRail: (Vec3, Vec3),
+                                     farRail: (Vec3, Vec3),
+                                     endRail: Vec3,
+                                     size: TableSize) throws -> TableCalibration {
+        let nearDirection = nearRail.1 - nearRail.0
+        let farDirection = farRail.1 - farRail.0
+        guard nearDirection.length > 1e-3, farDirection.length > 1e-3 else {
+            throw CalibrationError.degenerateCorners
+        }
+        // Average the two rail directions, flipping the far one when the
+        // points were given in the opposite order.
+        let nearUnit = nearDirection.normalized
+        let farUnit = farDirection.normalized
+        let aligned = farUnit.dot(nearUnit) < 0 ? farUnit * -1 : farUnit
+        let longAxis = (nearUnit + aligned).normalized
+        guard longAxis.length > 1e-6 else { throw CalibrationError.degenerateCorners }
+
+        // Across the cloth, in the plane the two rails span.
+        let planeNormal = longAxis.cross(farRail.0 - nearRail.0)
+        guard planeNormal.length > 1e-6 else { throw CalibrationError.degenerateCorners }
+        var shortAxis = planeNormal.normalized.cross(longAxis).normalized
+        // Point it from the near rail toward the far one.
+        if shortAxis.dot(farRail.0 - nearRail.0) < 0 { shortAxis *= -1 }
+
+        let reference = nearRail.0
+        func across(_ p: Vec3) -> Double { (p - reference).dot(shortAxis) }
+        func along(_ p: Vec3) -> Double { (p - reference).dot(longAxis) }
+        let centreAcross = (across(nearRail.0) + across(farRail.0)) / 2
+
+        // The table runs away from the end rail, toward the rest of what
+        // the camera can see.
+        let visibleMiddle = along(nearRail.0) + along(nearRail.1)
+            + along(farRail.0) + along(farRail.1)
+        let direction: Double = (visibleMiddle / 4) >= along(endRail) ? 1 : -1
+        let centreAlong = along(endRail) + direction * size.playField.width / 2
+
+        let origin = reference + longAxis * centreAlong + shortAxis * centreAcross
+        return TableCalibration(origin: origin, xAxis: longAxis,
+                                yAxis: shortAxis, size: size)
+    }
+
     /// Build a calibration from ONE end rail plus a known table size.
     ///
     /// `a` and `b` are the two corners of a short rail, in world space, in

@@ -440,6 +440,7 @@ extension SessionModel {
     /// Calibration commands from the mirror. Returns false for anything it
     /// does not recognise, so `handleMirrorCommand` can carry on.
     func handleCalibrationMirrorCommand(_ params: [String: String]) -> Bool {
+        if handleCalibrationBuildCommand(params) { return true }
         switch params["action"] {
         case "beginCalibration":
             beginCalibration()
@@ -473,19 +474,6 @@ extension SessionModel {
                                  towards: CGPoint(x: n[4], y: n[5]),
                                  size: size,
                                  planeHeight: params["h"].flatMap(Double.init))
-        case "calibrateFromBalls":
-            let n = ["ax", "ay", "bx", "by", "tx", "ty"].compactMap { params[$0].flatMap(Double.init) }
-            guard n.count == 6 else { return false }
-            let ballSize: TableSize
-            switch params["v"] ?? "eightFoot" {
-            case "sevenFoot": ballSize = .sevenFoot
-            case "nineFoot": ballSize = .nineFoot
-            default: ballSize = .eightFoot
-            }
-            calibrateFromBalls(a: CGPoint(x: n[0], y: n[1]),
-                               b: CGPoint(x: n[2], y: n[3]),
-                               towards: CGPoint(x: n[4], y: n[5]),
-                               size: ballSize)
         case "tableSize":
             // measured | sevenFoot | eightFoot | nineFoot | w,h in metres
             guard let raw = params["v"] else { return false }
@@ -548,5 +536,112 @@ extension SessionModel {
                                       size: size, planeHeight: plane.height)
         if ok { showTapFeedback(summary + " (remote)") }
         return ok
+    }
+}
+
+extension SessionModel {
+    /// Calibrate from the two long rails, with the cloth height measured
+    /// from the balls.
+    ///
+    /// The best of both: nothing here depends on hitting a corner. The
+    /// height comes from the balls (no taps at all), and the position and
+    /// heading come from two long lines, where an error along a rail costs
+    /// nothing and an error across one is halved by averaging the pair.
+    /// Corner taps slid this table 19 cm along its own rail and left a
+    /// third of the balls outside the playing-surface envelope.
+    ///
+    /// All five points are in view points. `near`/`far` are any two points
+    /// on each long cushion; `end` is one point on the end cushion the
+    /// camera can see.
+    @discardableResult
+    func calibrateFromRails(near: (CGPoint, CGPoint), far: (CGPoint, CGPoint),
+                            end: CGPoint, size: TableSize,
+                            planeHeight: Double? = nil) -> Bool {
+        guard let coordinator = arCoordinator else {
+            showTapFeedback("No AR session to calibrate in")
+            return false
+        }
+        guard let height = planeHeight ?? estimateClothPlane()?.height else {
+            showTapFeedback("No cloth height: put a few balls on the table, or pass h (remote)")
+            return false
+        }
+        func unproject(_ p: CGPoint) -> Vec3? {
+            coordinator.raycastHorizontalPlane(screenPoint: p, fallbackPlaneHeight: height)
+        }
+        guard let n0 = unproject(near.0), let n1 = unproject(near.1),
+              let f0 = unproject(far.0), let f1 = unproject(far.1),
+              let e = unproject(end) else {
+            showTapFeedback("A rail point missed the cloth plane (remote)")
+            return false
+        }
+        // The rails' own separation is not used to build the table, so it
+        // stays an independent check: a point on the wooden rail instead
+        // of the cushion nose shows up here as a table that is too wide.
+        let separation = TableCalibration.railSeparation((n0, n1), (f0, f1)) ?? 0
+        let expected = size.playField.height
+        do {
+            let built = try TableCalibration.fromLongRails(nearRail: (n0, n1), farRail: (f0, f1),
+                                                           endRail: e, size: size)
+            calibration.handle(.resetRequested)
+            calibration.handle(.restored(built))
+            CalibrationStore.saveTableSpec(size)
+            if let anchorTransform = lockAnchorTransform {
+                persistCalibration(built, anchorTransform: anchorTransform)
+            }
+            restartPipelineForCalibrationChange()
+            startLiveTrackingIfReady()
+            let line = String(format: "Rails: cloth y=%.3f, measured %.3f m apart vs %.3f expected (%+.0f mm)",
+                              height, separation, expected, (separation - expected) * 1000)
+            showTapFeedback(line + " (remote)")
+            Self.log.notice("\(line, privacy: .public)")
+            return true
+        } catch {
+            showTapFeedback("Rail calibration refused: \(error) (remote)")
+            return false
+        }
+    }
+}
+
+extension SessionModel {
+    /// The commands that BUILD a calibration, split from the ones that
+    /// adjust an existing one so neither switch outgrows SwiftLint's
+    /// complexity limit. Returns false for anything it does not recognise.
+    func handleCalibrationBuildCommand(_ params: [String: String]) -> Bool {
+        switch params["action"] {
+        case "calibrateRails":
+            // n0x,n0y n1x,n1y = near cushion; f0..f1 = far cushion;
+            // ex,ey = the end cushion the camera can see; v = table size;
+            // h optional, else the cloth comes from the balls.
+            let keys = ["n0x", "n0y", "n1x", "n1y", "f0x", "f0y", "f1x", "f1y", "ex", "ey"]
+            let r = keys.compactMap { params[$0].flatMap(Double.init) }
+            guard r.count == 10 else { return false }
+            let railSize: TableSize
+            switch params["v"] ?? "eightFoot" {
+            case "sevenFoot": railSize = .sevenFoot
+            case "nineFoot": railSize = .nineFoot
+            default: railSize = .eightFoot
+            }
+            calibrateFromRails(near: (CGPoint(x: r[0], y: r[1]), CGPoint(x: r[2], y: r[3])),
+                               far: (CGPoint(x: r[4], y: r[5]), CGPoint(x: r[6], y: r[7])),
+                               end: CGPoint(x: r[8], y: r[9]),
+                               size: railSize,
+                               planeHeight: params["h"].flatMap(Double.init))
+        case "calibrateFromBalls":
+            let n = ["ax", "ay", "bx", "by", "tx", "ty"].compactMap { params[$0].flatMap(Double.init) }
+            guard n.count == 6 else { return false }
+            let ballSize: TableSize
+            switch params["v"] ?? "eightFoot" {
+            case "sevenFoot": ballSize = .sevenFoot
+            case "nineFoot": ballSize = .nineFoot
+            default: ballSize = .eightFoot
+            }
+            calibrateFromBalls(a: CGPoint(x: n[0], y: n[1]),
+                               b: CGPoint(x: n[2], y: n[3]),
+                               towards: CGPoint(x: n[4], y: n[5]),
+                               size: ballSize)
+        default:
+            return false
+        }
+        return true
     }
 }
