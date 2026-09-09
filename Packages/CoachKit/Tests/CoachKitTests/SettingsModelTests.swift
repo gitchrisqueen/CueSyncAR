@@ -37,6 +37,8 @@ struct SettingsModelTests {
         written.practiceMode = .calledShots
         written.visibleMissGrace = 1.5
         written.detectorPinnedToCPU = true
+        written.ballGroup = .solids
+        written.skillLevel = .beginner
         written.persist(to: store)
 
         let reloaded = SettingsModel(loading: store)
@@ -64,6 +66,8 @@ struct SettingsModelTests {
         written.practiceMode = .guidedDrill
         written.visibleMissGrace = 0.4
         written.detectorPinnedToCPU = true
+        written.ballGroup = .solids
+        written.skillLevel = .beginner
         written.persist(to: store)
 
         // A brand-new store instance over the same defaults — the app's
@@ -220,6 +224,8 @@ struct SettingsModelTests {
         settings.debugMirrorEnabled = false
         settings.detectorPinnedToCPU = true
         settings.deviceParked = true
+        settings.ballGroup = .stripes
+        settings.skillLevel = .advanced
 
         let snapshot = settings.snapshot
         #expect(snapshot[SettingsKey.detectorPinnedToCPU] == .bool(true))
@@ -230,9 +236,11 @@ struct SettingsModelTests {
         #expect(snapshot[SettingsKey.practiceMode] == .string("calledShots"))
         #expect(snapshot[SettingsKey.debugMirrorEnabled] == .bool(false))
         #expect(snapshot[SettingsKey.deviceParked] == .bool(true))
+        #expect(snapshot[SettingsKey.ballGroup] == .string("stripes"))
+        #expect(snapshot[SettingsKey.skillLevel] == .string("advanced"))
         // Every setting is in the snapshot: the mirror is how the owner
         // confirms a change took effect without touching the device.
-        #expect(snapshot.count == 8)
+        #expect(snapshot.count == 10)
     }
 
     // MARK: Pipeline restart hints

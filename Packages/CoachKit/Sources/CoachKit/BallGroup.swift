@@ -76,3 +76,30 @@ public enum BallGroup: String, Sendable, Codable, CaseIterable, Equatable {
         }
     }
 }
+
+/// Maps the frozen `CueSyncCore.SkillLevel` onto the ranking's one free
+/// parameter.
+///
+/// A shot percentage is only meaningful relative to who is shooting: the
+/// same thin cut is a coin flip for one player and routine for another,
+/// and a ranking tuned for the wrong player recommends the wrong ball.
+/// The level is declared in Core because the coaching provider protocol
+/// already takes one — this is the pricing of it, which belongs here.
+extension SkillLevel {
+    public var rankingConfig: ShotRanking.Config {
+        switch self {
+        case .beginner: .beginner
+        case .intermediate: .intermediate
+        case .advanced: .advanced
+        }
+    }
+
+    /// Picker label.
+    public var title: String {
+        switch self {
+        case .beginner: "Beginner"
+        case .intermediate: "Intermediate"
+        case .advanced: "Advanced"
+        }
+    }
+}

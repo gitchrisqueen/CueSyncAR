@@ -345,3 +345,27 @@ public enum ShotRanking {
         return tightest
     }
 }
+
+extension ShotRanking {
+    /// The shot to suggest, holding the previous suggestion unless a
+    /// materially better one appears.
+    ///
+    /// Tracked ball positions jitter by a few millimetres a frame, so two
+    /// shots within a point or two of each other trade places constantly.
+    /// Recomputing the suggestion from scratch every frame would swap the
+    /// highlighted ball back and forth while the player is down on the
+    /// shot — the ranking would be correct and unusable at the same time.
+    ///
+    /// So the incumbent keeps the suggestion until something beats it by
+    /// `margin`. Switching costs the player's attention; a percentage
+    /// point does not buy that.
+    public static func stableRecommendation(previous: BallID?,
+                                            candidates: [ShotRating],
+                                            margin: Double = 0.05) -> ShotRating? {
+        let live = candidates.filter { $0.blocker == nil }
+        guard let leader = live.max(by: { $0.probability < $1.probability }) else { return nil }
+        guard let previous,
+              let incumbent = live.first(where: { $0.ball == previous }) else { return leader }
+        return leader.probability > incumbent.probability + margin ? leader : incumbent
+    }
+}

@@ -126,17 +126,7 @@ struct RootView: View {
                         .foregroundStyle(.yellow)
                 }
                 Spacer()
-                if model.isLiveTracking, let guide = model.shotGuide {
-                    HStack {
-                        CueBallGuideView(tipOffset: guide.tipOffset,
-                                         headline: guide.headline,
-                                         cutAngleDegrees: guide.cutAngleDegrees)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 4)
-                    .transition(.opacity)
-                }
+                ShotAdviceCluster()
                 VStack {
                     bottomBar
                     // Bottom-most, under the control bar: always answers
@@ -233,6 +223,7 @@ struct RootView: View {
                 RecordButton()
             }
             modeMenu
+            BallGroupButton()
             modelPicker
             settingsButton
             if model.selectedModel != nil {
@@ -795,13 +786,26 @@ private struct PocketCallCatcher: View {
                                           : "Pocket called — sink a ball there")
                     return
                 }
-                // Not a pocket tap: try cue-ball designation — covers cue
-                // balls the detector can't recognize (measle/practice
-                // balls with red dots classify as color-ball).
+                // Not a pocket tap. A tap on the cloth means one of two
+                // things, and which one is decided by what is already
+                // known rather than by a mode the player has to remember:
+                //
+                //   no cue ball yet          -> the tap designates it,
+                //                               because targeting is
+                //                               meaningless without one
+                //   tapped the cue ball      -> toggle its designation
+                //                               (the measle-ball escape
+                //                               hatch, unchanged)
+                //   tapped any other ball    -> shoot at that one
                 if let world = coordinator.raycastHorizontalPlane(
                     screenPoint: location,
                     fallbackPlaneHeight: calibration.origin.y) {
-                    model.designateCueBall(near: calibration.worldToTable(world))
+                    let tablePoint = calibration.worldToTable(world)
+                    if model.tableState?.cueBall == nil
+                        || model.tapIsOnTheCueBall(near: tablePoint)
+                        || !model.selectTarget(near: tablePoint) {
+                        model.designateCueBall(near: tablePoint)
+                    }
                 } else {
                     SessionModel.log.info("tap: raycast missed the table plane at (\(location.x), \(location.y))")
                     model.showTapFeedback("Couldn't find the table under that tap")
@@ -812,8 +816,9 @@ private struct PocketCallCatcher: View {
                 model.resetBallTracking()
             }
             .accessibilityLabel("""
-                Tap a pocket to call it, or a ball to mark it as the cue \
-                ball; long-press to reset ball tracking
+                Tap a pocket to call it, or a ball to shoot at it; tap the \
+                cue ball to mark or unmark it; long-press to reset ball \
+                tracking
                 """)
             // Proves the catcher is genuinely in the view tree, not merely
             // that the condition which should mount it is true.

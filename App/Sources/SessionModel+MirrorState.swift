@@ -7,6 +7,7 @@
 //  joined it. Read-only over the model; nothing here mutates state.
 //
 
+import CoachKit
 import CueSyncCore
 import Foundation
 
@@ -117,6 +118,7 @@ extension SessionModel {
             state["predictionEvents"] = prediction.events.count
             state["predictionSegments"] = prediction.segments.count
         }
+        state["ranking"] = rankingMirrorState()
         state["recording"] = recordingMirrorState()
         if let calledPocket { state["calledPocket"] = String(describing: calledPocket) }
         if let sessionEvent { state["sessionEvent"] = sessionEvent }
@@ -124,6 +126,41 @@ extension SessionModel {
         if let tapFeedback { state["tapFeedback"] = tapFeedback }
         return try? JSONSerialization.data(withJSONObject: state,
                                            options: [.sortedKeys])
+    }
+
+    /// The ranked shots, the app's suggestion and the player's override.
+    /// Positions are included so a browser at the table can click a ball
+    /// straight into `/cmd?action=target`, without guessing screen points.
+    private func rankingMirrorState() -> [String: Any] {
+        func cm(_ v: Double) -> Double { (v * 100).rounded() / 100 }
+        var out: [String: Any] = [
+            "group": ballGroup.rawValue,
+            "skill": settings.skillLevel.rawValue,
+            "playerChose": targetIsPlayerChosen
+        ]
+        let positions = Dictionary(uniqueKeysWithValues:
+            (tableState?.balls ?? []).map { ($0.id, $0.position) })
+        out["shots"] = shotRanking.prefix(8).map { rating -> [String: Any] in
+            var row: [String: Any] = [
+                "ball": rating.ball.rawValue,
+                "pocket": rating.pocket.rawValue,
+                "percent": rating.percentage,
+                "cutDeg": (rating.cutAngleDegrees * 10).rounded() / 10,
+                "cueTravelM": cm(rating.cueTravel),
+                "objectTravelM": cm(rating.objectTravel),
+                "difficulty": rating.difficulty.rawValue
+            ]
+            if let p = positions[rating.ball] { row["at"] = [cm(p.x), cm(p.y)] }
+            if let blocker = rating.blocker { row["blocked"] = String(describing: blocker) }
+            return row
+        }
+        if let active = activeShot {
+            out["active"] = ["ball": active.ball.rawValue,
+                             "pocket": active.pocket.rawValue,
+                             "percent": active.percentage,
+                             "headline": active.headline]
+        }
+        return out
     }
 
     /// Predicted path + events in table space — makes bank-line ground

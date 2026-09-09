@@ -180,6 +180,15 @@ final class SessionModel {
     /// plus adoption of whatever the detector last called a cue ball, held
     /// across the label flickering. Same value type the replay harness
     /// runs, so what is judged offline is what ships.
+    // MARK: Shot ranking (logic in SessionModel+Ranking.swift)
+
+    /// The ranked shots, the app's suggestion and the player's override,
+    /// as one value. Not `private(set)`: the rules that bind these
+    /// together live inside `CoachKit.ShotSelection`, where they are pure
+    /// and tested, and this property only holds it. Read it through the
+    /// accessors in SessionModel+Ranking.
+    var shotSelection = ShotSelection()
+
     private(set) var cueIdentity = CueBallIdentity()
     /// The track currently treated as the cue ball, for the mirror.
     var designatedCueBallID: BallID? { cueIdentity.currentID }
@@ -377,6 +386,7 @@ final class SessionModel {
                 await MainActor.run {
                     guard let self else { return }
                     self.tableState = self.cueIdentity.apply(to: output.state)
+                    self.recomputeRanking()
                     self.stickQuad = output.stickQuad
                     self.latestDetectionLabels = output.detectionLabels
                     if count == 1 || count % 40 == 0 {
@@ -406,6 +416,12 @@ final class SessionModel {
         aimSource = .devicePose
         calledPocket = nil
         calledShotOnLine = false
+        // The ranking is keyed on track ids, which die with the pipeline.
+        // Unlike the cue-ball designation this is not worth preserving
+        // across a restart: a target changes every shot, so re-tapping
+        // costs the player nothing, while re-attaching a stale target to
+        // the wrong ball would cost them a shot.
+        clearRanking()
         // trackingReset, NOT reset: the ids die with the pipeline but the
         // balls are still on the felt, so the last known cue-ball position
         // has to outlive the restart or every recalibration and every
@@ -742,6 +758,24 @@ extension SessionModel {
             showTapFeedback(settings.deviceParked
                             ? "Parked: aiming from the cue only (remote)"
                             : "Hand-held: device-pose aiming on (remote)")
+        case "setGroup":
+            guard let raw = params["group"], let group = BallGroup(rawValue: raw) else { return }
+            setBallGroup(group)
+        case "setSkill":
+            guard let raw = params["skill"], let level = SkillLevel(rawValue: raw) else { return }
+            setSkillLevel(level)
+            showTapFeedback("Skill: \(level.title) (remote)")
+        case "target":
+            // Same generous radius as `designate`: the caller clicked a
+            // listed ball's own coordinates, not a screen guess.
+            guard let x = params["x"].flatMap(Double.init),
+                  let y = params["y"].flatMap(Double.init) else { return }
+            if !selectTarget(near: Vec2(x, y), maxDistance: 0.4) {
+                showTapFeedback("No rankable ball near that point (remote)")
+            }
+        case "clearTarget":
+            clearTarget()
+            showTapFeedback("Back to the suggested shot (remote)")
         case "followAnchor":
             guard let v = params["v"].flatMap(Int.init) else { return }
             setFollowsTableAnchor(v != 0)
