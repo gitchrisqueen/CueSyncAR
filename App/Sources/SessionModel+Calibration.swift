@@ -188,3 +188,282 @@ extension SessionModel {
         Self.log.notice("relocalization deadline (15 s) passed after \(Int(Date().timeIntervalSince(started))) s — plane detection reenabled, stopwatch still running")
     }
 }
+
+// MARK: - Remote calibration correction (mirror)
+
+extension SessionModel {
+    /// Re-measure the locked table as `size`, keeping its origin and axes.
+    ///
+    /// Corners tapped inside the cushion noses lock a field that is short,
+    /// which moves every pocket inboard and shrinks the playing-surface
+    /// envelope the tracker gates against — measured on the owner's table
+    /// at 2.175 × 1.090 m against an 8-ft field of 2.34 × 1.17, so 8 cm of
+    /// pocket error at each end. This corrects that without asking anyone
+    /// to re-tap anything.
+    ///
+    /// The pipeline is restarted because the envelope is baked into its
+    /// `PlayingSurfaceGate` at construction.
+    @discardableResult
+    func resizeCalibration(to size: TableSize) -> Bool {
+        guard calibration.isLocked else {
+            showTapFeedback("Nothing to resize — the table isn't calibrated")
+            return false
+        }
+        calibration.handle(.resized(size))
+        guard let updated = tableCalibration else { return false }
+        let field = updated.size.playField
+        if let anchorTransform = lockAnchorTransform {
+            persistCalibration(updated, anchorTransform: anchorTransform)
+        }
+        CalibrationStore.saveTableSpec(updated.size)
+        restartPipelineForCalibrationChange()
+        let line = String(format: "Table re-measured %.3f × %.3f m", field.width, field.height)
+        showTapFeedback(line + " (remote)")
+        Self.log.notice("calibration resized: \(line, privacy: .public)")
+        return true
+    }
+
+    /// Move one locked corner by `delta` metres in TABLE space, then lock
+    /// again — the remote equivalent of dragging a corner handle.
+    ///
+    /// Corner order matches `TableCalibration.fromCorners`: 0 top-left,
+    /// 1 top-right, 2 bottom-right, 3 bottom-left, in table axes.
+    @discardableResult
+    func nudgeLockedCorner(index: Int, by delta: Vec2) -> Bool {
+        guard let current = tableCalibration, calibration.isLocked else {
+            showTapFeedback("Nothing to nudge — the table isn't calibrated")
+            return false
+        }
+        var corners = current.worldCorners
+        guard corners.indices.contains(index) else { return false }
+        corners[index] = corners[index]
+            + current.xAxis * delta.x + current.yAxis * delta.y
+        calibration.handle(.reopened)
+        calibration.handle(.cornerMoved(index: index, to: corners[index]))
+        guard requestCalibrationLock(), let updated = tableCalibration else {
+            // Put the old rectangle back rather than leaving the app
+            // half-calibrated with the overlay open.
+            calibration.handle(.resetRequested)
+            calibration.handle(.restored(current))
+            showTapFeedback("Corner nudge refused: \(calibration.lastError.map(String.init(describing:)) ?? "lock failed")")
+            return false
+        }
+        if let anchorTransform = lockAnchorTransform {
+            persistCalibration(updated, anchorTransform: anchorTransform)
+        }
+        restartPipelineForCalibrationChange()
+        let field = updated.size.playField
+        showTapFeedback(String(format: "Corner %d nudged — field %.3f × %.3f m (remote)",
+                               index, field.width, field.height))
+        return true
+    }
+
+    /// The playing-surface envelope is fixed when the pipeline is built, so
+    /// a calibration change only takes effect after a restart.
+    private func restartPipelineForCalibrationChange() {
+        guard isLiveTracking else { return }
+        stopLiveTracking()
+        startLiveTrackingIfReady()
+    }
+}
+
+// MARK: - Remote calibration from the mirror
+
+extension SessionModel {
+    /// Run the calibration flow from a browser: place the four corners by
+    /// screen point, exactly where a finger would put them.
+    ///
+    /// This exists because a relaunch does not always relocalize the saved
+    /// table, and the only alternative was to ask the owner to walk over
+    /// and tap four corners every time — for work that is otherwise driven
+    /// entirely from the mirror. The points are read off `/frame.jpg`,
+    /// which is the same camera image the raycast resolves against, so a
+    /// corner can be placed on a cushion nose more precisely than by hand.
+    ///
+    /// `point` is in VIEW points, the same space `/frame.jpg` covers at
+    /// `displayScale` pixels per point.
+    /// `planeHeight` is a world Y for the cloth, used when ARKit has no
+    /// plane of its own to raycast against.
+    ///
+    /// A device on a tripod gives ARKit no parallax, so it can sit with the
+    /// table filling the frame and never detect a plane — the exact setup
+    /// this remote path exists for. Supplying the height turns the raycast
+    /// into pure geometry against a known plane, which is all the corner
+    /// placement needs. The caller does not have to know the right height
+    /// in advance: the field size that comes back scales linearly with the
+    /// camera's distance to the plane, so two placements at different
+    /// heights determine it exactly.
+    @discardableResult
+    func placeCornerRemotely(at point: CGPoint, planeHeight: Double? = nil) -> Bool {
+        guard let coordinator = arCoordinator else {
+            showTapFeedback("No AR session to place a corner in")
+            return false
+        }
+        guard !calibration.isLocked else {
+            showTapFeedback("Already calibrated — cancel first (remote)")
+            return false
+        }
+        // A successful raycast IS a found plane.
+        //
+        // ARKit's plane DETECTION needs parallax, and a device on a tripod
+        // never provides any — so `searchingPlane` can persist forever with
+        // the table filling the frame, which is exactly the setup this
+        // remote path exists for. The estimated-plane raycast works in that
+        // state, so the raycast is tried first and the state machine is
+        // told what the geometry already proved. The hand flow keeps its
+        // stricter gate: a person holding the device can simply move it,
+        // and the "hold still" advice is right for them.
+        guard let world = coordinator.raycastHorizontalPlane(
+            screenPoint: point, fallbackPlaneHeight: planeHeight) else {
+            showTapFeedback("Corner missed the table plane at \(Int(point.x)), \(Int(point.y)) (remote)")
+            return false
+        }
+        if case .searchingPlane = calibration.state { calibrationPlaneDetected() }
+        guard case .planeFound = calibration.state else {
+            showTapFeedback("Not ready for corners — start calibration first (remote)")
+            return false
+        }
+        if pendingCorners.isEmpty {
+            coordinator.placeCalibrationAnchor(at: world)
+            setCornerAnchorBase(world)
+        }
+        placeCorner(world, planeNormal: coordinator.horizontalPlaneNormal())
+        Self.log.info("remote corner \(self.pendingCorners.count) at (\(Int(point.x)), \(Int(point.y)))")
+        return true
+    }
+}
+
+extension SessionModel {
+    /// Calibrate from the ONE end rail the camera can actually see.
+    ///
+    /// `a` and `b` are the two corners of a short rail in view points and
+    /// `towards` is any point on the cloth further down the table. The
+    /// plane height is solved rather than supplied: unprojecting the rail
+    /// at two trial heights gives a line (everything scales linearly with
+    /// the camera's distance to the plane), and the height at which the
+    /// rail measures the table's own short dimension is the right one.
+    ///
+    /// Needed because a device parked beside a table frequently cannot see
+    /// the whole thing — on the owner's iPad the right end is outside the
+    /// frame, so two corners cannot be tapped at any height and every
+    /// calibration from there came out short.
+    @discardableResult
+    func calibrateFromEndRail(a: CGPoint, b: CGPoint, towards: CGPoint,
+                              size: TableSize) -> Bool {
+        guard let coordinator = arCoordinator else {
+            showTapFeedback("No AR session to calibrate in")
+            return false
+        }
+        func unproject(_ p: CGPoint, _ height: Double) -> Vec3? {
+            coordinator.raycastHorizontalPlane(screenPoint: p, fallbackPlaneHeight: height)
+        }
+        // Two probe heights, one metre apart: rail length is linear in the
+        // camera's distance to the plane, so two points fix the line.
+        let (h0, h1) = (-1.0, -2.0)
+        guard let a0 = unproject(a, h0), let b0 = unproject(b, h0),
+              let a1 = unproject(a, h1), let b1 = unproject(b, h1) else {
+            showTapFeedback("Could not see the table plane from those points (remote)")
+            return false
+        }
+        let (l0, l1) = (a0.distance(to: b0), a1.distance(to: b1))
+        let target = size.playField.height
+        guard abs(l1 - l0) > 1e-6 else {
+            showTapFeedback("Rail length did not respond to height — degenerate view (remote)")
+            return false
+        }
+        // length(h) = l0 + (l1 - l0) * (h - h0)/(h1 - h0); solve for target.
+        let height = h0 + (target - l0) * (h1 - h0) / (l1 - l0)
+        guard height.isFinite, height < 0 else {
+            showTapFeedback(String(format: "Solved an impossible cloth height (%.2f m) — check the rail points", height))
+            return false
+        }
+        guard let av = unproject(a, height), let bv = unproject(b, height),
+              let tv = unproject(towards, height) else {
+            showTapFeedback("Lost the plane at the solved height (remote)")
+            return false
+        }
+        do {
+            let built = try TableCalibration.fromEndRail(av, bv, towards: tv, size: size)
+            calibration.handle(.resetRequested)
+            calibration.handle(.restored(built))
+            CalibrationStore.saveTableSpec(size)
+            if let anchorTransform = lockAnchorTransform {
+                persistCalibration(built, anchorTransform: anchorTransform)
+            }
+            restartPipelineForCalibrationChange()
+            startLiveTrackingIfReady()
+            let field = built.size.playField
+            let line = String(format: "Calibrated from one rail: %.3f × %.3f m, cloth at y=%.3f",
+                              field.width, field.height, height)
+            showTapFeedback(line + " (remote)")
+            Self.log.notice("\(line, privacy: .public)")
+            return true
+        } catch {
+            showTapFeedback("End-rail calibration refused: \(error) (remote)")
+            return false
+        }
+    }
+}
+
+extension SessionModel {
+    /// Calibration commands from the mirror. Returns false for anything it
+    /// does not recognise, so `handleMirrorCommand` can carry on.
+    func handleCalibrationMirrorCommand(_ params: [String: String]) -> Bool {
+        switch params["action"] {
+        case "beginCalibration":
+            beginCalibration()
+            showTapFeedback("Calibration started — place four corners (remote)")
+        case "placeCorner":
+            guard let x = params["x"].flatMap(Double.init),
+                  let y = params["y"].flatMap(Double.init) else { return false }
+            placeCornerRemotely(at: CGPoint(x: x, y: y),
+                                planeHeight: params["h"].flatMap(Double.init))
+        case "lockCalibration":
+            if !requestCalibrationLock() {
+                let reason = calibration.lastError.map(String.init(describing:)) ?? "not ready"
+                showTapFeedback("Lock refused: \(reason) (remote)")
+            }
+        case "cancelCalibration":
+            cancelCalibration()
+            showTapFeedback("Calibration cancelled (remote)")
+        case "calibrateEndRail":
+            // ax,ay bx,by = the visible short rail; tx,ty = any point on
+            // the cloth further down the table; v = table size.
+            let n = ["ax", "ay", "bx", "by", "tx", "ty"].compactMap { params[$0].flatMap(Double.init) }
+            guard n.count == 6 else { return false }
+            let size: TableSize
+            switch params["v"] ?? "eightFoot" {
+            case "sevenFoot": size = .sevenFoot
+            case "nineFoot": size = .nineFoot
+            default: size = .eightFoot
+            }
+            calibrateFromEndRail(a: CGPoint(x: n[0], y: n[1]),
+                                 b: CGPoint(x: n[2], y: n[3]),
+                                 towards: CGPoint(x: n[4], y: n[5]),
+                                 size: size)
+        case "tableSize":
+            // measured | sevenFoot | eightFoot | nineFoot | w,h in metres
+            guard let raw = params["v"] else { return false }
+            let size: TableSize?
+            switch raw {
+            case "sevenFoot": size = .sevenFoot
+            case "eightFoot": size = .eightFoot
+            case "nineFoot": size = .nineFoot
+            default:
+                let parts = raw.split(separator: ",").compactMap { Double($0) }
+                size = parts.count == 2 ? .custom(width: parts[0], height: parts[1]) : nil
+            }
+            guard let size else { return false }
+            updateSettings { $0.tableSize = .standard(size) }
+            resizeCalibration(to: size)
+        case "nudgeCorner":
+            guard let index = params["i"].flatMap(Int.init) else { return false }
+            let dx = params["dx"].flatMap(Double.init) ?? 0
+            let dy = params["dy"].flatMap(Double.init) ?? 0
+            nudgeLockedCorner(index: index, by: Vec2(dx, dy))
+        default:
+            return false
+        }
+        return true
+    }
+}

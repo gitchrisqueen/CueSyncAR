@@ -284,6 +284,10 @@ final class SessionModel {
     /// Started/stopped only by SessionModel+DebugMirror; the recorder and
     /// the mirror publisher just read it.
     @ObservationIgnored var debugMirror: DebugMirrorServer?
+
+    /// The live AR session, so mirror commands can raycast a screen point
+    /// the way a finger does. Weak: RootView owns it.
+    @ObservationIgnored weak var arCoordinator: ARSessionCoordinator?
     /// Written only alongside `debugMirror` (SessionModel+DebugMirror).
     var debugMirrorURL: String?
     /// Raw detector labels from the latest pipeline frame (debug mirror).
@@ -721,7 +725,14 @@ extension SessionModel {
     /// the remote debugging agent iterate with the device untouched at
     /// the table. Internal only so SessionModel+DebugMirror can install it
     /// as the server's command handler — nothing else should call it.
+    /// Remote control from the mirror page. Split across three handlers
+    /// rather than one switch: the calibration and shot-selection command
+    /// sets each grew past the point where a single `switch` stayed under
+    /// SwiftLint's complexity limit, and they are separate concerns
+    /// anyway. Each returns whether it consumed the action.
     func handleMirrorCommand(_ params: [String: String]) {
+        if handleCalibrationMirrorCommand(params) { return }
+        if handleShotSelectionMirrorCommand(params) { return }
         switch params["action"] {
         case "resetTracking":
             resetBallTracking()
@@ -768,24 +779,6 @@ extension SessionModel {
             showTapFeedback(settings.deviceParked
                             ? "Parked: aiming from the cue only (remote)"
                             : "Hand-held: device-pose aiming on (remote)")
-        case "setGroup":
-            guard let raw = params["group"], let group = BallGroup(rawValue: raw) else { return }
-            setBallGroup(group)
-        case "setSkill":
-            guard let raw = params["skill"], let level = SkillLevel(rawValue: raw) else { return }
-            setSkillLevel(level)
-            showTapFeedback("Skill: \(level.title) (remote)")
-        case "target":
-            // Same generous radius as `designate`: the caller clicked a
-            // listed ball's own coordinates, not a screen guess.
-            guard let x = params["x"].flatMap(Double.init),
-                  let y = params["y"].flatMap(Double.init) else { return }
-            if !selectTarget(near: Vec2(x, y), maxDistance: 0.4) {
-                showTapFeedback("No rankable ball near that point (remote)")
-            }
-        case "clearTarget":
-            clearTarget()
-            showTapFeedback("Back to the suggested shot (remote)")
         case "followAnchor":
             guard let v = params["v"].flatMap(Int.init) else { return }
             setFollowsTableAnchor(v != 0)

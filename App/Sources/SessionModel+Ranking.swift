@@ -208,3 +208,33 @@ extension ShotConfidence {
         }
     }
 }
+
+extension SessionModel {
+    /// Group, skill and target commands from the mirror. Returns false for
+    /// anything it does not recognise.
+    func handleShotSelectionMirrorCommand(_ params: [String: String]) -> Bool {
+        switch params["action"] {
+        case "setGroup":
+            guard let raw = params["group"], let group = BallGroup(rawValue: raw) else { return false }
+            setBallGroup(group)
+        case "setSkill":
+            guard let raw = params["skill"], let level = SkillLevel(rawValue: raw) else { return false }
+            setSkillLevel(level)
+            showTapFeedback("Skill: \(level.title) (remote)")
+        case "target":
+            // Same generous radius as `designate`: the caller clicked a
+            // listed ball's own coordinates, not a screen guess.
+            guard let x = params["x"].flatMap(Double.init),
+                  let y = params["y"].flatMap(Double.init) else { return false }
+            if !selectTarget(near: Vec2(x, y), maxDistance: 0.4) {
+                showTapFeedback("No rankable ball near that point (remote)")
+            }
+        case "clearTarget":
+            clearTarget()
+            showTapFeedback("Back to the suggested shot (remote)")
+        default:
+            return false
+        }
+        return true
+    }
+}
