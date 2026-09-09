@@ -469,21 +469,48 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
         report(nil)
     }
 
+    /// Why tracking is degraded, in a form the HUD can act on.
+    ///
+    /// Published alongside the human-readable `sessionEvent` because the
+    /// two have different jobs: the string is for a log or a developer, the
+    /// case is for the status capsule. Before this, the capsule had
+    /// `.degraded(.lowLight)` and friends defined and unreachable, so a
+    /// player in a dim room was shown the raw enum dump "Tracking limited:
+    /// insufficientFeatures" instead of "Need more light".
+    public enum TrackingTrouble: Sendable, Equatable {
+        case fastMotion
+        case lowLight
+        case relocalizing
+        case unavailable
+    }
+
+    /// Non-nil while ARKit reports degraded tracking.
+    public private(set) var trackingTrouble: TrackingTrouble?
+
     public nonisolated func session(_ session: ARSession,
                                     cameraDidChangeTrackingState camera: ARCamera) {
         switch camera.trackingState {
         case .normal:
-            report(nil)
+            report(nil, trouble: nil)
         case .notAvailable:
-            report("Tracking unavailable")
+            report("Tracking unavailable", trouble: .unavailable)
         case .limited(let reason):
-            report("Tracking limited: \(String(describing: reason))")
+            let trouble: TrackingTrouble? = switch reason {
+            case .excessiveMotion: .fastMotion
+            case .insufficientFeatures: .lowLight
+            case .relocalizing: .relocalizing
+            case .initializing: nil
+            @unknown default: nil
+            }
+            report("Tracking limited: \(String(describing: reason))", trouble: trouble)
         }
     }
 
-    private nonisolated func report(_ message: String?) {
+    private nonisolated func report(_ message: String?,
+                                    trouble: TrackingTrouble? = nil) {
         Task { @MainActor in
             self.sessionEvent = message
+            self.trackingTrouble = trouble
         }
     }
 }
