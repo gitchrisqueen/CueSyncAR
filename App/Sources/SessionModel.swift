@@ -205,6 +205,30 @@ final class SessionModel {
     /// The track currently treated as the cue ball, for the mirror.
     var designatedCueBallID: BallID? { cueIdentity.currentID }
 
+    /// What each tracked ball is, accumulated over many looks at it.
+    ///
+    /// Fed from `PerceptionOutput.appearances`; read back by the ranking,
+    /// which filters on the player's chosen half of the rack. Naming is
+    /// deliberately allowed to stay `.unknown` — `BallGroup.includes`
+    /// admits unnamed balls into both halves, so an unsure classifier
+    /// costs the player nothing but a less specific label.
+    private(set) var ballIdentity = BallIdentity()
+
+    /// Pin what a ball is, overriding the classifier for the life of the
+    /// track, and re-label the table immediately so the player sees the
+    /// correction land rather than waiting for the next frame.
+    ///
+    /// Lives here rather than in +Ranking because `ballIdentity`,
+    /// `cueIdentity` and `tableState` are all `private(set)`, which in
+    /// Swift means private to this FILE — a setter in an extension in
+    /// another file cannot reach them.
+    func applyBallCorrection(_ kind: Ball.Kind?, to id: BallID) {
+        ballIdentity.setOverride(kind, for: id)
+        guard let state = tableState else { return }
+        tableState = cueIdentity.apply(to: ballIdentity.apply(to: state))
+        recomputeRanking()
+    }
+
     /// Transient feedback line for the HUD after a tap — designation
     /// success/misses must never be silent (device debugging showed taps
     /// swallowed by guards with no visible reaction).
@@ -416,7 +440,13 @@ final class SessionModel {
                 let count = outputCount
                 await MainActor.run {
                     guard let self else { return }
-                    self.tableState = self.cueIdentity.apply(to: output.state)
+                    // Colour first, cue designation last: the player's
+                    // tap and the detector's own white-ball class both
+                    // outrank a colour vote.
+                    self.ballIdentity.observe(output.appearances)
+                    self.ballIdentity.retain(Set(output.state.balls.map(\.id)))
+                    self.tableState = self.cueIdentity.apply(
+                        to: self.ballIdentity.apply(to: output.state))
                     self.recomputeRanking()
                     self.stickQuad = output.stickQuad
                     self.latestDetectionLabels = output.detectionLabels
@@ -458,6 +488,13 @@ final class SessionModel {
         // has to outlive the restart or every recalibration and every
         // reset costs the user another tap.
         cueIdentity.trackingReset(at: clock())
+        // The conversation ends with the session: nothing said about the
+        // last rack should suppress the same line about the next one.
+        narrator.reset()
+        // Colours, unlike the cue-ball position, are keyed to track ids
+        // and nothing else. A restarted tracker reuses ids, so keeping
+        // them would paint the last session's balls onto this one's.
+        ballIdentity.clear()
         usingOnDeviceDetection = false
         shotPlanner.reset()
         trackingIngestThrottle.reset()
@@ -537,6 +574,9 @@ final class SessionModel {
         shotPrediction = plan.prediction
         shotGuide = ShotGuide.recommend(state: state, prediction: plan.prediction)
         recomputeCalledShotOnLine()
+        // The aim moved, so the correction may have. Everything about
+        // whether that is worth saying out loud is decided downstream.
+        narrateIfNeeded()
     }
 
     /// Why no guides render — the #1 question when the screen shows
@@ -551,6 +591,18 @@ final class SessionModel {
     /// ARView snapshot and contains no SwiftUI, so without this there is no
     /// way to check the HUD from a browser.
     var hudStatusLabel = ""
+    /// The status the label came from, pushed in alongside it by
+    /// `noteHUDStatus` (SessionModel+Speech). Spoken guidance reads the
+    /// state rather than parsing the words back out of the label, and gets
+    /// the screen's own answer to "what is expected next" for free.
+    var hudStatus: HUDStatus?
+
+    // MARK: Spoken guidance (SessionModel+Speech.swift)
+
+    /// Says the guidance out loud. Silent until the player turns it on in
+    /// Settings; `SpokenGuidance` inside it owns every rule about what is
+    /// worth saying and how often.
+    @ObservationIgnored let narrator = SpeechNarrator()
 
     /// When `aimSource` last changed, for the mirror's `aimSourceRunSeconds`
     /// — a source that flips every second is the "weird formations" symptom
@@ -768,8 +820,13 @@ extension SessionModel {
     /// SwiftLint's complexity limit, and they are separate concerns
     /// anyway. Each returns whether it consumed the action.
     func handleMirrorCommand(_ params: [String: String]) {
-        if handleCalibrationMirrorCommand(params) { return }
-        if handleShotSelectionMirrorCommand(params) { return }
+        // A list rather than a chain of `if`s: this function already sits
+        // at SwiftLint's cyclomatic ceiling, and every new command set
+        // added as another branch pushes it further past.
+        let handlers = [handleCalibrationMirrorCommand,
+                        handleShotSelectionMirrorCommand,
+                        handleSpeechMirrorCommand]
+        for handler in handlers where handler(params) { return }
         switch params["action"] {
         case "resetTracking":
             resetBallTracking()

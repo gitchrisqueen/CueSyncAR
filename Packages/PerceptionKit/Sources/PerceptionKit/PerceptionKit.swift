@@ -54,17 +54,32 @@ public struct PerceptionConfig: Sendable, Equatable {
     /// time then projects balls into a stale table frame. OFF reproduces
     /// the frozen-at-lock behaviour so the two can be A/B'd at the table.
     public var followsTableAnchor: Bool
+    /// Sample each tracked ball's COLOUR every Nth frame; 0 disables it.
+    ///
+    /// Not `appearanceFrames` above, which is about persistence — this
+    /// is the sampler that reads pixels off the ball to tell a stripe
+    /// from a solid. Rate-limited because colour is a property of the
+    /// ball rather than of the moment, and because the reads happen on
+    /// the pipeline actor, which shares a cooperative pool with detector
+    /// inference.
+    public var colourFrameInterval: Int
+    /// How ball colour is sampled and classified.
+    public var colour: BallAppearancePass.Config
 
     public init(detectionRate: Double = 15,
                 appearanceFrames: Int = 3,
                 disappearanceFrames: Int = 10,
                 confidenceFloor: Double = 0.35,
-                followsTableAnchor: Bool = true) {
+                followsTableAnchor: Bool = true,
+                colourFrameInterval: Int = 6,
+                colour: BallAppearancePass.Config = .default) {
         self.detectionRate = detectionRate
         self.appearanceFrames = appearanceFrames
         self.disappearanceFrames = disappearanceFrames
         self.confidenceFloor = confidenceFloor
         self.followsTableAnchor = followsTableAnchor
+        self.colourFrameInterval = colourFrameInterval
+        self.colour = colour
     }
 
     public static let `default` = PerceptionConfig()

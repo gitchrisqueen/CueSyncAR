@@ -112,6 +112,50 @@ ball shows its band. A per-frame verdict should not be attempted.
 The eight-ball is the exception and is easy — near-zero chroma with a white number
 patch is unlike anything else on the table.
 
+### Correction, 2026-09-09: the second cause above was wrong
+
+Both stripes' bands were **plainly visible in the frames all along** — the lower
+40 % of each ball, facing the camera. They were rendered and looked at. The band
+simply is not white: on these balls, under this light, it is a warm cream whose
+absolute chroma is about 0.29, as far from neutral as the coloured half is. A
+whiteness test cannot see it and no amount of aggregation fixes that.
+
+Two consequences.
+
+**Sampling the "upper lit portion" is actively wrong.** It was implemented and
+measured: keeping the brightest 65 % of the disc discards the band, because the band
+sits in the shaded lower hemisphere and is *darker* than the lit coloured cap. Both
+stripes then reported a white fraction of exactly 0.000. The sampler keeps the whole
+inset disc.
+
+**The signal is hue spread, not whiteness.** A solid ball is one pigment and hue
+survives shading, so its lit pixels agree; a stripe has two materials and they do
+not. Interquartile hue spread, over the chromatic pixels of the inset disc, measured
+across 14 frames of `Sessions/device-20260909T190855Z`:
+
+| ball | hue IQR |
+|---|---|
+| blue solid | 1.8–6.0° |
+| orange solid | 6.5–9.0° |
+| maroon stripe | 26.9–30.7° |
+| red stripe | 32.7–35.5° |
+
+No overlap, and a factor of three either side of the 16° threshold that ships. The
+cue ball and the eight produce no chromatic pixels at all, so they report no spread
+and are decided by the chroma/value route instead — which is correct, not a gap.
+
+The first cause stands unchanged, and it is why the *maximum* spread ever seen
+decides the group rather than the mean: a stripe presenting its solid pole is
+genuinely indistinguishable from a solid, so one clear look is proof of a stripe
+while never seeing one proves nothing.
+
+One more correction to the measurements above: `chromaFraction` must be computed from
+**absolute** chroma (max channel minus min), never a saturation ratio. Dividing by
+the value of a dark ball amplifies sensor noise into colour — relative saturation
+called 65 % of the eight ball's pixels chromatic, which would have sent the one ball
+that must never be misnamed down the hue path. Absolute chroma separates perfectly:
+eight 0.000 and cue 0.000 against 0.97–1.00 for every coloured ball.
+
 ## Proposed design
 
 Three pieces, in dependency order.
@@ -166,15 +210,29 @@ Reports `.unknown` freely. An unnamed ball is already handled everywhere downstr
 `BallGroup.includes` admits `.unknown` into both halves of the rack precisely so the
 ranking does not go blank on a player who has picked a side.
 
-### 3. `BallPatchSampler` — the only platform-specific piece, in the app
+### 3. `BallPatchSampler` — shipped 2026-09-09, and not where this section put it
 
-Samples the live pixel buffer at each tracked ball's **projected** centre and radius,
-computed from the table plane and camera intrinsics the pipeline already has — the
-same reprojection `SnapshotReprojectionReport` performs. Not the detector's box: the
-boxes in this recording are not reliably centred on the ball, and a brightness search
-for the true centre runs away to the rail.
+Two things this section proposed were measured and reversed.
 
-Samples the **upper** portion of the disc, where the ball is lit.
+**It samples the detector's box, not the projected centre.** The premise — "the boxes
+in this recording are not reliably centred on the ball" — came from an offline
+analysis that read `detections.jsonl`'s `x, y` as a box centre when it is the
+**top-left corner**. Read correctly, the boxes are centred on the balls, and an
+overlay of the sampling disc on the frames confirms it by eye. Sampling the box needs
+no calibration, no plane and no intrinsics to be right, so it is also the more robust
+of the two.
+
+**It samples the whole inset disc, not the upper portion** — see the correction under
+"Two things that do not work" above.
+
+It is also not "in the app": only the CVPixelBuffer read is platform-specific, and
+that lives in `PerceptionKit/PixelBufferSampling.swift` behind a `canImport` check,
+containing no decisions. The geometry and statistics are pure and Linux-tested against
+colours measured off the table.
+
+Measured robustness: the box centre can be off by ±3 px — a fifth of a ball — in any
+direction without changing any ball's verdict, and the disc fraction is insensitive
+between 0.55 and 1.0 of the inscribed radius.
 
 ## Verification plan
 
@@ -190,9 +248,11 @@ Bars to hold:
 - the floor false-positive (`white 0.15`, no chroma, V 0.49 — brighter than the cue
   ball) never classified as a ball at all
 
-The sampler needs a device run: whether the projected centre lands on the ball is
-exactly the ring-accuracy question Phase 3 of plan v5 is already chasing, and the two
-should be measured together.
+The sampler no longer needs the ring-accuracy question answered first: sampling the
+detector's box decouples it from calibration entirely. What still needs a device run
+is the live path — that ARKit's YCbCr buffers convert to the same colours the
+recorded H.264 frames decoded to, and that the sampling cost is invisible at frame
+rate.
 
 ## Correction the player can make
 

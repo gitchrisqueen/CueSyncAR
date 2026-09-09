@@ -116,6 +116,8 @@ public enum SettingsKey {
     public static let ballGroup = "ballGroup"
     /// Whose aim the shot percentages are quoted for.
     public static let skillLevel = "skillLevel"
+    /// How much the app says out loud. Off unless the player asks.
+    public static let speechVerbosity = "speechVerbosity"
 }
 
 /// Everything the owner can change without a rebuild.
@@ -177,6 +179,16 @@ public struct SettingsModel: Sendable, Equatable {
     /// change takes effect on the next launch.
     public var detectorPinnedToCPU = false
 
+    /// Spoken guidance level (`SpokenGuidance`).
+    ///
+    /// One setting rather than an on/off flag plus a level, because two
+    /// would be two sources of truth for the same question and could
+    /// disagree — "enabled, verbosity coaching" and "disabled, verbosity
+    /// coaching" would both have to be stored, and only one of them means
+    /// anything. `.off` IS the off switch. Default `.off`, always: a build
+    /// that starts talking at someone unannounced is a bug, not a feature.
+    public var speechVerbosity: SpeechVerbosity = .off
+
     /// The defaults — what a fresh install runs on.
     public init() {}
 
@@ -226,6 +238,10 @@ public struct SettingsModel: Sendable, Equatable {
            let value = SkillLevel(rawValue: raw) {
             skillLevel = value
         }
+        if let raw = store.string(forKey: SettingsKey.speechVerbosity),
+           let value = SpeechVerbosity(rawValue: raw) {
+            speechVerbosity = value
+        }
     }
 
     /// Write every setting. Writing all of them (rather than only what
@@ -251,7 +267,8 @@ public struct SettingsModel: Sendable, Equatable {
             SettingsKey.visibleMissGrace: .double(visibleMissGrace),
             SettingsKey.detectorPinnedToCPU: .bool(detectorPinnedToCPU),
             SettingsKey.ballGroup: .string(ballGroup.rawValue),
-            SettingsKey.skillLevel: .string(skillLevel.rawValue)
+            SettingsKey.skillLevel: .string(skillLevel.rawValue),
+            SettingsKey.speechVerbosity: .string(speechVerbosity.rawValue)
         ]
     }
 

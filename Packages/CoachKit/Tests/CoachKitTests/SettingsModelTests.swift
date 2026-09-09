@@ -39,6 +39,7 @@ struct SettingsModelTests {
         written.detectorPinnedToCPU = true
         written.ballGroup = .solids
         written.skillLevel = .beginner
+        written.speechVerbosity = .coaching
         written.persist(to: store)
 
         let reloaded = SettingsModel(loading: store)
@@ -68,6 +69,7 @@ struct SettingsModelTests {
         written.detectorPinnedToCPU = true
         written.ballGroup = .solids
         written.skillLevel = .beginner
+        written.speechVerbosity = .coaching
         written.persist(to: store)
 
         // A brand-new store instance over the same defaults — the app's
@@ -226,6 +228,7 @@ struct SettingsModelTests {
         settings.deviceParked = true
         settings.ballGroup = .stripes
         settings.skillLevel = .advanced
+        settings.speechVerbosity = .keyMoments
 
         let snapshot = settings.snapshot
         #expect(snapshot[SettingsKey.detectorPinnedToCPU] == .bool(true))
@@ -238,9 +241,10 @@ struct SettingsModelTests {
         #expect(snapshot[SettingsKey.deviceParked] == .bool(true))
         #expect(snapshot[SettingsKey.ballGroup] == .string("stripes"))
         #expect(snapshot[SettingsKey.skillLevel] == .string("advanced"))
+        #expect(snapshot[SettingsKey.speechVerbosity] == .string("keyMoments"))
         // Every setting is in the snapshot: the mirror is how the owner
         // confirms a change took effect without touching the device.
-        #expect(snapshot.count == 10)
+        #expect(snapshot.count == 11)
     }
 
     // MARK: Pipeline restart hints

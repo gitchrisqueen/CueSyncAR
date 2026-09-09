@@ -11,6 +11,76 @@ rather than argued from the code; every one of them still needs a table run
 to confirm. Read "2026-09-09" below first — it supersedes the 2026-09-07
 notes, which are kept for context.
 
+## Track identity (Phase 3.1) — what landed, and the knob NOT turned
+
+Branch `fix/track-identity-churn`. Measured on the two committed device
+bundles through `Packages/SessionReplay`; no device needed, and both
+bundles' `outputs.jsonl` were regenerated deliberately.
+
+| bundle | ids before → after | churn before → after | cue id changes |
+|---|---|---|---|
+| `device-lying-cue` (static layout, 66 s) | 14 → **8** | 6 → **0** | 0 → 0 |
+| `device-aimed-cue` (active play, 66 s) | 18 → **14** | 11 → **7** | 4 → 4 |
+| `scripted-5ball` | 5 → 5 | 0 → 0 | byte-identical golden |
+
+**Two causes fixed, both about what a ball is CALLED, neither a threshold.**
+
+1. **Retired ids were never re-used.** A grace period cannot solve identity:
+   on the aiming recording the detector loses a given ball for tens of
+   seconds (it sees 2–4 of 7 balls per frame while the operator stands over
+   the table), and no budget large enough to bridge that is compatible with
+   clearing a pocketed ball's ring in ~1 s. `BallTracker` now remembers a
+   CONFIRMED track's identity when it retires (`DormantIdentity`) and a new
+   observation within 1.6 ball radii of that spot reclaims the id, radius
+   and kind votes. It does NOT reclaim confirmation, so a one-frame phantom
+   over a remembered spot still earns nothing. On `device-lying-cue` the
+   entire churn was ONE flickering rail detection reborn seven times; it
+   now keeps its own id and the bar is ratcheted to zero.
+2. **Absorption used the association gate, which is wider than a ball.**
+   An unmatched track next to a matched one within `gatingDistance` (8 cm)
+   was absorbed as a duplicate — but two distinct ball centres can be
+   5.7 cm apart (frozen, in contact). So the first frame the detector
+   missed one of a frozen pair, its identity was destroyed outright, with
+   no retirement and therefore no chance of re-identification. Duplicates
+   are now judged by `BallTracker.duplicateDistance` (1.6 r, below one
+   diameter), which cannot conflate two real balls. Found BY the new
+   fixture, not before it.
+
+**New regression fixture `scripted-frozen-pair`** — two stationary balls in
+contact plus a cue ball, one of the pair dropped from detection for 3.1 s
+(longer than the 2.5 s grace, so its track really retires). Three balls,
+three ids, zero churn, and the id on the far side of the gap is the same
+id. Its `minRecall` bar is 0.96 rather than 0.98 because the dropout is the
+scenario; `maxTrackChurn: 0` is what the fixture actually asserts.
+
+**The knob deliberately NOT turned, with its numbers.** `strikeMissGrace`
+(0.75 s) is armed by a position-blind test — "did ANY observation this
+frame match no track?" — so a ball re-acquired anywhere, at any distance,
+at any point in a track's silence, collapses every occluded ball's budget
+from the 2.5 s the owner chose to 0.75 s. Measured on `device-aimed-cue`:
+**25 of 29 retirements ran on the short budget**, and the flag fired on
+observations up to **2.05 m away on a 2.34 m table**. Restricting it to the
+track's FIRST missed frame was implemented and measured, then reverted,
+because the trade is the owner's to make and not obviously good:
+
+- it buys guide availability — aimed frames 42.0 % → 46.3 %;
+- it costs guide steadiness — worst per-frame heading swing 6.0° → **20.1°**,
+  `planChanged` 21.0 % → 24.7 %, `farEndShift` p95 1.23 → 1.28 m;
+- it buys **almost no identity**: churn 11 → 10 on its own.
+
+Distance cannot rescue it: a struck ball is unexplained only on the single
+frame it reappears, and at the device's ~5 Hz tick any reachability bound
+loose enough for a real shot (0.65 m in 0.115 s = 5.7 m/s, the existing
+`struckBallDoesNotLeaveAPhantomTrackAtTheShotOrigin` test) spans most of
+the table. **Decision for the owner:** more guide, twitchier guide, or
+leave it. Nothing in this branch depends on the answer.
+
+**Still open, and honestly stated:** `cueIDChanges` on `device-aimed-cue`
+stays at 4. All four are the operator physically MOVING the cue ball
+between shots with the detector losing it for seconds in between — the
+positions are 0.4–1.5 m apart. Nothing offline can tie those together, and
+nothing should. `needs-device-run`: none of this has been seen at a table.
+
 **The finding of that session:** every guide line had been rendering at the
 wrong heading on any table whose axes are not the session's world axes — a
 right angle on the operator's table. `OverlayLayout` emitted a TABLE-space

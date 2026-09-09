@@ -117,8 +117,8 @@ struct RootView: View {
         // RootView owns the status decision tree; the model owns what the
         // mirror publishes. Pushed on change (never written during a body
         // evaluation) so a browser can read the HUD.
-        .onChange(of: hudStatus.label, initial: true) { _, label in
-            model.hudStatusLabel = label
+        .onChange(of: hudStatus, initial: true) { _, status in
+            model.noteHUDStatus(status)
         }
         .onPreferenceChange(HUDBottomInsetKey.self) { height in
             // + the VStack's own bottom padding: the calibration controls

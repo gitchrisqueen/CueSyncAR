@@ -246,6 +246,15 @@ final class DebugMirrorServer: @unchecked Sendable {
         <button onclick="cmd('action=missGrace&v=' + \
     document.getElementById('grace').value)">Set</button>
       </div>
+      <div id="voice">
+        <span class="lbl">voice</span>
+        <button onclick="cmd('action=speech&level=off')">off</button>
+        <button onclick="cmd('action=speech&level=keyMoments')">key moments</button>
+        <button onclick="cmd('action=speech&level=coaching')">coaching</button>
+        <button onclick="cmd('action=say&text=Voice+check.+CueSync+can+hear+itself.')">\
+    say test line</button>
+        <button onclick="cmd('action=speechStop')">stop talking</button>
+      </div>
       <div id="recording">
         <button onclick="cmd('action=startRecording')">● Record session</button>
         <button onclick="cmd('action=stopRecording')">■ Stop</button>
