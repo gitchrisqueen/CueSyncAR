@@ -63,15 +63,25 @@ private let goldenBundles: [GoldenBundle] = [
 
     // 300 frames of the operator AIMING a real cue, 2026-09-09. The clip
     // the stick gate has to accept.
+    // `maxHeadingDeltaMax` was 3.0 and is now 7.0 — a bar deliberately
+    // LOOSENED, which needs saying out loud. Aim continuity changes which
+    // of a quad's two near-mirror diagonals wins, so a genuine re-aim now
+    // costs one visible step here (measured 6.0 deg on this clip) where the
+    // old code simply never re-acquired. What it bought, on the 1291-frame
+    // recording that actually contained the pathology: the worst per-frame
+    // swing fell from 21.2 to 2.1 degrees, and the far-end shift on THIS
+    // clip fell from 2.03 m to 1.63 m — so `maxFarEndShiftP95` is tightened
+    // 2.2 -> 1.7 in the same change. Net: one bar out, one bar in, both
+    // measured.
     GoldenBundle(name: "device-aimed-cue",
                  stability: StabilityBars(
                     minStickAimRate: 0.75,
                     maxSourceTransitionsPerMinute: 5.0,
-                    maxHeadingDeltaMax: 3.0,
+                    maxHeadingDeltaMax: 7.0,
                     maxPlanChangedRate: 0.26,
                     maxSegmentCount: 11,
                     maxPredictionLengthP95: 4.0,
-                    maxFarEndShiftP95: 2.2,
+                    maxFarEndShiftP95: 1.7,
                     maxTrackChurn: 16,
                     maxCueIDChanges: 6)),
 
