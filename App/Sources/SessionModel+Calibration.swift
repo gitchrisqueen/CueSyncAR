@@ -652,3 +652,68 @@ extension SessionModel {
         return true
     }
 }
+
+// MARK: - Calibration that tightens as evidence arrives
+//
+// The corner taps fix the table's EXTENT and HEADING. The cloth estimate
+// fixes its HEIGHT — and that estimate keeps improving for as long as balls
+// are visible, going from three samples to thirty as the user moves around.
+//
+// A calibration locked in the first second should not be frozen at what was
+// known then. Nobody re-calibrates later, so if it does not tighten by
+// itself it stays wrong; and a residual height error is not cosmetic — it
+// puts each corner at the wrong DEPTH along its ray, which is what makes
+// the quad slide across the table when the device changes angle or height.
+
+extension SessionModel {
+
+    /// The best cloth height available right now, and how it was obtained.
+    func currentClothHeight() -> (height: Double?, source: CalibrationHeightSource) {
+        guard let plane = estimateClothPlane() else {
+            return (nil, .unconstrained)
+        }
+        return (plane.height,
+                .balls(samples: plane.sampleCount,
+                       spreadMillimetres: Int((plane.spread * 1000).rounded())))
+    }
+
+    /// Re-derive the corners at a better-measured cloth height.
+    ///
+    /// Re-intersects the stored TAP RAYS rather than nudging the existing
+    /// points, because the correction is along each ray, not straight up.
+    @discardableResult
+    func refineCalibrationHeightIfBetter() -> Bool {
+        guard !placement.cornerRays.isEmpty, let locked = placement.clothHeight,
+              let plane = estimateClothPlane() else { return false }
+        let decision = CalibrationRefinement.decide(
+            lockedHeight: locked,
+            samples: plane.sampleCount,
+            spreadMillimetres: Int((plane.spread * 1000).rounded()),
+            estimatedHeight: plane.height)
+        guard case let .refine(to, correction) = decision else { return false }
+        guard let corners = placement.corners(atHeight: to) else { return false }
+
+        placement.adopt(height: to, source: .balls(
+            samples: plane.sampleCount,
+            spreadMillimetres: Int((plane.spread * 1000).rounded())))
+        // ONLY while adjusting, and deliberately not once locked.
+        //
+        // Refining a locked table means re-deriving it and restarting the
+        // pipeline, which is a visible jump in the middle of someone's game
+        // for a correction of a few millimetres. Before lock it is free: the
+        // user is still looking at the quad and is the one who asked for it
+        // to be right.
+        guard case .adjusting = calibration.state else { return false }
+        for (index, corner) in corners.enumerated() {
+            calibration.handle(.cornerMoved(index: index, to: corner))
+        }
+        Self.log.notice("""
+            calibration refined: cloth \(locked, privacy: .public) -> \
+            \(to, privacy: .public) (\(Int(correction * 1000), privacy: .public) mm, \
+            \(plane.sampleCount, privacy: .public) samples)
+            """)
+        showTapFeedback(String(format: "Table tightened %+.0f mm from %d balls",
+                               correction * 1000, plane.sampleCount))
+        return true
+    }
+}

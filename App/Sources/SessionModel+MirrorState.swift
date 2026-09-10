@@ -45,6 +45,10 @@ extension SessionModel {
             // with no SwiftUI in it, so this is the only way to read the
             // HUD from a browser.
             "hudStatus": hudStatusLabel,
+            // Where the calibration's plane height came from. A calibration
+            // built on "unconstrained" is a guess and should not read the
+            // same as one built on thirty balls.
+            "calibrationHeightSource": heightSource.summary,
             // MVP item 6's three numbers, none of which anything could read
             // before: ">= 30 FPS, overlay latency under ~100 ms, no crashes
             // across a 15-minute session". Battery and thermal state are the
