@@ -103,7 +103,9 @@ struct RootView: View {
                     // "which build is this?" without a cable, and sits below
                     // the table in frame so it never occludes the cloth
                     // during play.
-                    BuildBadge(identity: AppBuild.identity)
+                    if DeveloperMode.shared.isUnlocked {
+                        BuildBadge(identity: AppBuild.identity)
+                    }
                 }
                 .measuringHUDBottomInset()
             }
