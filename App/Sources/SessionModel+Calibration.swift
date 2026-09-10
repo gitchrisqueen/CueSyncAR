@@ -110,6 +110,7 @@ extension SessionModel {
     }
 
     func moveCorner(index: Int, to world: Vec3) {
+        noteCornerAdjustedByHand()
         calibration.handle(.cornerMoved(index: index, to: world))
     }
 
@@ -704,7 +705,23 @@ extension SessionModel {
         // user is still looking at the quad and is the one who asked for it
         // to be right.
         guard case .adjusting = calibration.state else { return false }
-        for (index, corner) in corners.enumerated() {
+        // AND ONLY IF THE USER HAS NOT DRAGGED ANYTHING. A drag is a human
+        // saying "the corner is HERE"; the stored ray only remembers where
+        // they first tapped. Re-deriving from rays after a drag silently
+        // throws that correction away, which is far worse than a few
+        // millimetres of height error.
+        guard !cornersWereAdjustedByHand else { return false }
+        // REORDER, and this is the bug that drew an X on the table.
+        //
+        // `placeCorner` sorts the four taps cyclically around the centroid
+        // before proposing them, because a user taps corners in whatever
+        // order they like. The rays are stored in TAP order — so writing
+        // them straight back into indices 0-3 replaced an ordered quad with
+        // an unordered one, and a quad whose corners are not cyclic draws as
+        // a self-crossing X.
+        let ordered = CornerOrdering.orderedAroundCentroid(
+            corners, planeNormal: arCoordinator?.horizontalPlaneNormal() ?? Vec3(0, 1, 0))
+        for (index, corner) in ordered.enumerated() {
             calibration.handle(.cornerMoved(index: index, to: corner))
         }
         Self.log.notice("""

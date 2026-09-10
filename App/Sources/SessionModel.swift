@@ -271,9 +271,16 @@ final class SessionModel {
 
     func beginCornerPlacement(height: Double?, source: CalibrationHeightSource) {
         placement.begin(height: height, source: source)
+        cornersWereAdjustedByHand = false
     }
 
     func recordCornerRay(_ ray: TapRay) { placement.recordRay(ray) }
+
+    /// Whether the user has dragged a corner. Once they have, their hand
+    /// outranks the stored tap ray and refinement stops.
+    private(set) var cornersWereAdjustedByHand = false
+
+    func noteCornerAdjustedByHand() { cornersWereAdjustedByHand = true }
 
     /// Pocket sighting (C2b): which pockets the user has tapped, and which
     /// one the next tap means. Stored here because `@Observable` only
