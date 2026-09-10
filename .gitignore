@@ -41,3 +41,7 @@ App/Config/Secrets.xcconfig
 .agent-outbox/
 .agent-inbox/
 .pr-body.md
+
+# Xcode derivedDataPath output from scripted builds (contains resolved
+# xcconfig values, including secrets, in XCBuildData manifests)
+build/

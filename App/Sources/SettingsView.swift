@@ -35,6 +35,8 @@ struct SettingsView: View {
     /// Whether the record button is pinned in the HUD (see HUDPins).
     @AppStorage(HUDPins.recordButtonKey) private var showRecordButton = HUDPins.recordButtonDefault
 
+    @State private var developerMode = DeveloperMode.shared
+
     var body: some View {
         NavigationStack {
             Form {
@@ -45,7 +47,8 @@ struct SettingsView: View {
                 trackingSection
                 practiceSection
                 voiceSection
-                developerSection
+                aboutSection
+                if developerMode.isUnlocked { developerSection }
             }
             .task { refreshComputeSnapshot() }
             .navigationTitle("Settings")
@@ -261,6 +264,27 @@ struct SettingsView: View {
     /// the camera flip, the model picker, the millisecond readout and the
     /// rotate button — next to the mirror switch that was already here.
     /// Every one of them still has its `/cmd` route on the debug mirror.
+    /// Always visible, and the way in. The version is legitimately useful
+    /// to a player reporting a problem; the seven-tap gesture on it is the
+    /// idiom iOS itself taught everyone.
+    private var aboutSection: some View {
+        Section {
+            LabeledContent("Version", value: AppBuild.identity.versionLabel)
+                .contentShape(Rectangle())
+                .onTapGesture { developerMode.noteVersionTap() }
+                .accessibilityIdentifier("settings-version")
+            if let hint = developerMode.hint {
+                Text(hint).font(.footnote).foregroundStyle(.secondary)
+            }
+            if developerMode.isUnlocked {
+                Button("Hide developer options") { developerMode.lock() }
+                    .accessibilityIdentifier("settings-lock-developer")
+            }
+        } header: {
+            Text("About")
+        }
+    }
+
     private var developerSection: some View {
         Section {
             Toggle("Debug mirror", isOn: binding(\.debugMirrorEnabled))

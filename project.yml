@@ -63,7 +63,14 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: CueSync AR
-        UILaunchScreen: {}
+        # Not a splash screen with a logo: Apple's guidance is that a
+        # launch screen should resemble the FIRST screen, and this app's
+        # first screen is a live camera feed. An empty dict rendered a
+        # white flash before a dark camera view; a dark ground matches
+        # what actually appears next, and the icon is what identifies the
+        # app before it opens.
+        UILaunchScreen:
+          UIColorName: LaunchBackground
         # Why there is no NSBonjourServices alongside this: the key is
         # inert for a plain NWListener on a fixed port, which is what the
         # debug mirror is. Advertising the service would make iOS raise the
@@ -91,7 +98,6 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         # Secrets surfaced from App/Config/Secrets.xcconfig (untracked).
         ROBOFLOW_API_KEY: $(ROBOFLOW_API_KEY)
-        ANTHROPIC_API_KEY: $(ANTHROPIC_API_KEY)
     postBuildScripts:
       # Stamps the built Info.plist with the git SHA/branch/dirty flag the
       # build came from, so the HUD badge, the debug mirror and the startup
