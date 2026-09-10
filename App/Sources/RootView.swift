@@ -213,7 +213,6 @@ struct RootView: View {
         switch model.phase {
         case .launching: return .launching
         case .findingTable: return .findingTable
-        case .ready: return .tracking(ballCount: 0)
         }
     }
 

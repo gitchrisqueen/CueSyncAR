@@ -41,10 +41,13 @@ import CoreML
 @MainActor
 @Observable
 final class SessionModel {
+    /// Only these two. There used to be a `.ready` case; nothing ever
+    /// assigned it, and the branch that read it in RootView would have
+    /// reported "Tracking 0 balls" if it ever had. Live tracking is
+    /// signalled by `isLiveTracking`, not by a phase.
     enum Phase {
         case launching
         case findingTable
-        case ready
     }
 
     /// Diagnostics channel — filter the Xcode console with "cuesync".
