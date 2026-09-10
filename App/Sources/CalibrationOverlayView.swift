@@ -75,7 +75,7 @@ struct CalibrationOverlayView: View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { _ in
             ZStack {
                 tapCatcher
-                derivedPockets
+                derivedGeometry
                 cornerGraphics
             }
         }
@@ -189,22 +189,67 @@ struct CalibrationOverlayView: View {
             corners, preferredSize: model.calibration.preferredSize)
     }
 
-    /// Where the solved table says its six pockets are.
+    /// Everything the candidate table implies, drawn back onto the cloth.
     ///
-    /// THIS IS THE CHECK THAT MATTERS. Everything downstream — pocket
-    /// positions, cushion bounce points, every shot line — is built on this
-    /// calibration, and a rigid fit always returns a table whether or not it
-    /// is the right one. Drawing the pockets it DERIVES back onto the cloth
-    /// lets a person confirm it against holes they can see, using features
-    /// they did not tap. If these rings do not sit in the real pockets, the
-    /// calibration is wrong, whatever the residual says.
+    /// THIS IS THE CHECK THAT MATTERS. Every pocket position, cushion
+    /// bounce and shot line downstream is built on this calibration, and a
+    /// rigid fit always returns a table whether or not it is the right
+    /// one. The residual says the taps agree with each other and with a
+    /// table of the declared size; it cannot say they were on the right
+    /// holes, and it is entirely silent about the wrong SIZE being picked,
+    /// because every standard table is 2:1 and a wrong size fits perfectly
+    /// at a proportionally wrong height.
+    ///
+    /// So this draws geometry the calibration DID NOT USE: the six pocket
+    /// mouths, and the eighteen diamonds inlaid in the rails at eighths
+    /// and quarters. The diamonds are the strong evidence — they are
+    /// physically there, in front of the user, and were no part of the
+    /// fit. The question stops being "do you trust this?" and becomes "do
+    /// those eighteen dots line up with your eighteen dots?", which
+    /// someone can answer from across the room without believing a word
+    /// anyone says.
+    ///
+    /// One overlay call, not one per feature, so the diamonds can never be
+    /// drawn from a different calibration than the pockets.
     @ViewBuilder
-    private var derivedPockets: some View {
+    private var derivedGeometry: some View {
         if let calibration = candidateCalibration {
-            let table = Table(size: calibration.size)
-            ForEach(table.pockets, id: \.id) { pocket in
-                if let screen = coordinator.projectToScreen(
-                    calibration.tableToWorld(pocket.position)) {
+            let marks = CalibrationVerification.overlay(for: calibration)
+            ForEach(Array(marks.quarterLines.enumerated()), id: \.offset) { _, line in
+                if let a = coordinator.projectToScreen(line.0),
+                   let b = coordinator.projectToScreen(line.1) {
+                    Path { path in
+                        path.move(to: a)
+                        path.addLine(to: b)
+                    }
+                    .stroke(feltGreen.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [6, 5]))
+                    .allowsHitTesting(false)
+                }
+            }
+            ForEach(Array(marks.diamonds.enumerated()), id: \.offset) { _, mark in
+                if let screen = coordinator.projectToScreen(mark) {
+                    // A diamond, drawn as one: a square on its point reads
+                    // as the inlay it is being compared against, where a
+                    // dot would read as another of the app's own markers.
+                    Rectangle()
+                        .fill(feltGreen)
+                        .frame(width: 11, height: 11)
+                        .rotationEffect(.degrees(45))
+                        .position(screen)
+                        .allowsHitTesting(false)
+                }
+            }
+            ForEach(Array(marks.spots.enumerated()), id: \.offset) { _, spot in
+                if let screen = coordinator.projectToScreen(spot) {
+                    Circle()
+                        .fill(feltGreen.opacity(0.7))
+                        .frame(width: 8, height: 8)
+                        .position(screen)
+                        .allowsHitTesting(false)
+                }
+            }
+            ForEach(Array(marks.pockets.enumerated()), id: \.offset) { _, pocket in
+                if let screen = coordinator.projectToScreen(pocket) {
                     Circle()
                         .strokeBorder(feltGreen, lineWidth: 3)
                         .background(Circle().fill(feltGreen.opacity(0.18)))
@@ -307,8 +352,9 @@ struct CalibrationOverlayView: View {
             // rather than silently produce a confident wrong answer.
             // Say what the rings are for, or they are just decoration.
             if candidateCalibration != nil {
-                Text("Green rings are where it thinks the pockets are — "
-                     + "they should sit in the real ones")
+                Text("Check the green marks against your table — the "
+                     + "diamonds should line up and the rings should sit "
+                     + "in the pockets")
                     .font(.caption)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 10)
