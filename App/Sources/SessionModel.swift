@@ -722,7 +722,8 @@ final class SessionModel {
         await registry.register(AppSecrets() as any SecretsProviding)
         // Settings first: the mirror's start-on-launch preference, the
         // practice mode and the guide speed all come out of this load.
-        settings = SettingsModel(loading: appSettingsStore)
+        settings = SettingsModel(loading: appSettingsStore,
+                                 debugMirrorEnabledByDefault: Self.mirrorOnByDefault)
         startDebugMirrorIfEnabled(announcing: false)
         // M2-01 winner, bundled: YOLOv11n on the pool-ball-agzev fork,
         // mAP50 0.896 / mAP50-95 0.765 (Linux fine-tune, epoch 19).

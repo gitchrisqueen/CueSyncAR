@@ -12,9 +12,43 @@
 //  for SwiftLint's file_length limit.
 //
 
+import CoachKit
 import Foundation
+import os
 
 extension SessionModel {
+
+    /// Diagnostics for the mirror specifically, so the token line can be
+    /// found without wading through the session category.
+    static let mirrorLog = Logger(subsystem: "com.cuesync.ar", category: "mirror")
+
+    /// Whether the mirror starts on its own when nothing is persisted.
+    ///
+    /// A caveat worth knowing before testing this: it only applies to a
+    /// FRESH store. A device that has already run a build with the old
+    /// default has `true` written down, so flipping this changes nothing
+    /// there until the setting is toggled or the app is reinstalled.
+    static var mirrorOnByDefault: Bool {
+        #if DEBUG
+        true
+        #else
+        false
+        #endif
+    }
+
+    /// Open in development, token-gated in a Release build. Decided here,
+    /// in the app target, rather than with a `#if DEBUG` inside CoachKit —
+    /// that package is pure and Linux-tested, and its tests assert the
+    /// defaults, so a configuration-dependent value there would change
+    /// behaviour under `swift test -c release`.
+    static func mirrorAccessMode() -> MirrorAccessPolicy.Mode {
+        #if DEBUG
+        return .open
+        #else
+        return .tokenRequired(MirrorAccessPolicy.freshToken())
+        #endif
+    }
+
     /// HUD antenna button. Flips the persisted preference; the mirror is
     /// brought up or down by `applyDebugMirrorSetting`, so the button and
     /// the Settings sheet toggle drive exactly one switch.
@@ -55,6 +89,11 @@ extension SessionModel {
                     self?.handleMirrorCommand(params)
                 }
             }
+            // Who may talk to it. DEBUG is open, because the whole
+            // agent-driven table loop is `curl`-shaped and must not need a
+            // secret; Release requires a per-launch token.
+            let policy = MirrorAccessPolicy(mode: Self.mirrorAccessMode())
+            server.setAccessPolicy(policy)
             debugMirror = server
             // NOT `server.sessionsRoot = ...` here, deliberately.
             //
@@ -72,8 +111,15 @@ extension SessionModel {
             // has plainly said they intend to pull something off.
             server.setActiveSession(recorder?.sessionID)
             let host = DebugMirrorServer.deviceIPAddress() ?? "<device-ip>"
-            debugMirrorURL = "http://\(host):\(DebugMirrorServer.port)"
-            Self.log.info("debug mirror at \(self.debugMirrorURL ?? "?", privacy: .public)")
+            debugMirrorURL = policy.viewerURL(host: host, port: DebugMirrorServer.port)
+            // `.notice` and not `.info`: this is the only way to read the
+            // token off a device that is propped at a table with nobody
+            // near the screen. `log stream --predicate 'subsystem ==
+            // "com.cuesync.ar"'` over `devicectl` picks it up, which is
+            // what the remote-verification loop actually does. Putting it
+            // in /state.json instead would hand it to the very reader the
+            // token exists to stop.
+            Self.mirrorLog.notice("debug mirror at \(self.debugMirrorURL ?? "?", privacy: .public)")
             // The address used to sit in a permanent green capsule at the
             // top of the player's screen. It now lives in the More sheet
             // and in Settings -> Developer (both selectable) — but it is
@@ -83,8 +129,12 @@ extension SessionModel {
                 showTapFeedback("Debug mirror on — \(debugMirrorURL ?? "")")
             }
         } catch {
+            // Say what actually happened. This is the owner's only
+            // debugging channel, and "port in use?" was a guess that would
+            // send someone hunting the wrong problem — a denied local-network
+            // permission fails here too, and looks identical.
             Self.log.error("debug mirror failed: \(String(describing: error), privacy: .public)")
-            showTapFeedback("Mirror failed to start (port in use?)")
+            showTapFeedback("Mirror could not start — \(DebugMirrorServer.startFailureHint(error))")
         }
     }
 
