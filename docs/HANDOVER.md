@@ -47,18 +47,28 @@ value is.
   rest→rest teleport with zero mid-flight samples. This is a *documented
   negative result*, and Phase F's whole architecture is built around it
   (score from rest transitions, never from seeing the ball move).
-- **The cue ball is identified in only 41 % of frames** on the aiming
-  recording — and in **0 % of 1301 frames** on a five-minute play session
-  recorded with a *measle* (dotted) practice cue ball, which the model
-  classifies as an object ball. That session produced **no aim line at
-  all**, with the stick visible 90 % of the time and a pocket called.
-  Swapping a plain cue ball for a dotted one takes identification from
-  55–99 % to zero. The app says the right thing throughout ("Place the cue
-  ball — or tap a ball to mark it") and one tap fixes it, but nobody taps
-  it while holding a cue. See
-  `docs/validation/2026-09-10-play-session-no-cue-ball.md` — this is the
-  likeliest way a first demo fails, and it is the binding constraint on
-  shot detection too.
+- **Cue-ball identity is THE constraint on guidance, not one of several.**
+  Across three real five-minute play sessions recorded on 2026-09-10,
+  aim %, prediction % and cue-ball-identification % are the same number to
+  one decimal place: 0.0 / 0.0 / 0.0, then 53.6 / 53.6 / 53.6, then
+  0.0 / 0.0 / 0.0. **Ten of those fifteen minutes produced no guidance at
+  all**, on a correctly calibrated table with a real player shooting and
+  the cue stick visible 57–91 % of the time. The only session that
+  produced any guidance is the only one in which the cue ball was tapped
+  to designate it — though the ball may also have differed, so that pair
+  is not a controlled experiment. See
+  `docs/validation/2026-09-10-three-play-sessions.md`; the fix is #131 and
+  the controlled pair that would settle it is ten minutes at a table.
+- **A shot is never observed in motion, and not even within one track.**
+  Over 9,819 consecutive-frame measurements in a real play session: median
+  step 0.1 cm, p99 1.6 cm, largest 2.5 cm, and **zero** steps above 10 cm.
+  A ball rolling at 1 m/s covers 23 cm between frames at 4.3 Hz. Worse,
+  that session produced **128 track ids for about eight balls on the
+  cloth** — a struck ball is lost and returns as a new identity. Shot
+  detection therefore cannot follow a ball through a shot, and cannot
+  follow its id either; it has to work on rest positions across identity
+  changes. Anything built on "watch the cue ball leave and see where it
+  goes" will not work on this hardware at this frame rate.
 - **Guide availability is 42 % of aimed frames.** The aim line is off
   screen more often than on. Nothing gates on it. `StabilityReport.swift`
   already computes the number.
@@ -261,7 +271,10 @@ one recording at 5 minutes (~225 MB).
 **Nothing records audio.** No microphone capture anywhere in the app, no
 usage-description key, and the video has a single H.264 video stream.
 Spoken commentary during a recording is not captured, and neither is the
-app's own spoken guidance.
+app's own spoken guidance. Two of the 2026-09-10 sessions were narrated
+aloud and none of that audio exists. If talk-through is wanted as a
+development input it has to be built: a microphone input, a usage string,
+an audio track on the writer, and a decision about recording bystanders.
 
 ### Iterating without a table
 
