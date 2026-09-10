@@ -281,6 +281,22 @@ final class SessionModel {
         calibrationStartedAt = nil
     }
 
+    /// How many frames the change gate skipped, and what fraction that is.
+    private(set) var skippedFrames = 0
+    private(set) var frameSkipRate: Double?
+
+    /// Turn the unchanged-frame gate on or off on the live pipeline. Here
+    /// rather than in an extension because `pipeline` is file-private.
+    func setFrameGateEnabled(_ enabled: Bool) {
+        guard let pipeline else { return }
+        Task { await pipeline.setFrameGateEnabled(enabled) }
+    }
+
+    func noteFrameGate(_ output: PerceptionOutput) {
+        skippedFrames = output.skippedFrames
+        frameSkipRate = output.frameSkipRate
+    }
+
     func noteDetectionHealth(_ output: PerceptionOutput) {
         detectionHealth.observe(detected: output.state.balls.count,
                                 luminance: output.luminance,
@@ -557,6 +573,7 @@ final class SessionModel {
                         self.recordClothPlaneSample(detections: output.detections, frame: pose)
                     }
                     self.noteDetectionHealth(output)
+                    self.noteFrameGate(output)
                     self.noteFrameHealth(cameraTimestamp: output.state.timestamp)
                     self.tableState = self.cueIdentity.apply(
                         to: self.ballIdentity.apply(to: output.state))
@@ -870,6 +887,14 @@ extension SessionModel {
             calledPocket = nil
             calledShotOnLine = false
             showRemoteFeedback("Pocket call cleared")
+        case "frameGate":
+            // The switch that matters when something looks stale: turn the
+            // change gate off without a rebuild and see if the symptom goes
+            // with it.
+            let on = (params["v"].flatMap(Int.init) ?? 1) != 0
+            setFrameGateEnabled(on)
+            showRemoteFeedback(on ? "Frame gate on — unchanged frames skipped"
+                                  : "Frame gate off — every frame processed")
         case "guideSpeed":
             guard let v = params["v"].flatMap(Double.init) else { return }
             updateSettings { $0.guideSpeed = v } // clamped by SettingsModel

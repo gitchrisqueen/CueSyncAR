@@ -84,6 +84,11 @@ public struct PerceptionOutput: Sendable {
     public var luminance: Double?
     /// What the playing-surface gate did to this frame.
     public var surfaceGate: SurfaceGateCounts
+    /// How many frames the change gate has skipped so far, and the fraction
+    /// of all frames that represents. Cumulative, and carried on the next
+    /// PROCESSED frame — a skipped frame produces no output by definition.
+    public var skippedFrames: Int
+    public var frameSkipRate: Double?
 
     public init(state: TableState, stickQuad: [Vec2]? = nil,
                 detectionLabels: [String] = [],
@@ -91,7 +96,9 @@ public struct PerceptionOutput: Sendable {
                 detections: [Detection2D] = [],
                 pose: CapturedFrame? = nil,
                 luminance: Double? = nil,
-                surfaceGate: SurfaceGateCounts = SurfaceGateCounts()) {
+                surfaceGate: SurfaceGateCounts = SurfaceGateCounts(),
+                skippedFrames: Int = 0,
+                frameSkipRate: Double? = nil) {
         self.state = state
         self.stickQuad = stickQuad
         self.detectionLabels = detectionLabels
@@ -100,6 +107,8 @@ public struct PerceptionOutput: Sendable {
         self.pose = pose
         self.luminance = luminance
         self.surfaceGate = surfaceGate
+        self.skippedFrames = skippedFrames
+        self.frameSkipRate = frameSkipRate
     }
 }
 
@@ -131,6 +140,8 @@ public actor PerceptionPipeline {
     /// Frames whose pixel buffer the colour sampler could not read.
     private var unreadableBufferCount = 0
     private var suppressedCount = 0
+    /// Skips detection when the picture has not changed (live path only).
+    private var frameChangeGate: FrameChangeGate
     #if canImport(os)
     private static let log = Logger(subsystem: "com.cuesync.ar", category: "pipeline")
     #endif
@@ -159,6 +170,8 @@ public actor PerceptionPipeline {
         }
         self.config = config
         self.surface = PlayingSurfaceGate(table: Table(size: calibration.size))
+        self.frameChangeGate = FrameChangeGate(config: config.frameChange,
+                                               isEnabled: config.skipsUnchangedFrames)
         self.tracker = BallTracker(config: trackerConfig)
         (stream, continuation) = AsyncStream.makeStream(of: PerceptionOutput.self)
     }
@@ -202,11 +215,63 @@ public actor PerceptionPipeline {
     /// inference suspends without blocking ingest.
     private func drain() async {
         while let (frame, anchorTransform) = takePending() {
+            // Don't look at a picture we already looked at. Between shots
+            // the table is the same table, frame after frame, and every one
+            // of those used to cost a Core ML pass.
+            //
+            // Deliberately here and NOT in `processFrame`: that is the
+            // replay seam, which must process every recorded frame in order
+            // for goldens to stay byte-identical. This is a live-path
+            // optimisation and it must not change what replay computes.
+            guard frameChangeGate.shouldProcess(signature(of: frame),
+                                                at: frame.timestamp) else {
+                #if canImport(os)
+                if frameChangeGate.skipped == 1 || frameChangeGate.skipped % 200 == 0 {
+                    let rate = Int((frameChangeGate.skipRate ?? 0) * 100)
+                    Self.log.info("frame gate: skipped \(self.frameChangeGate.skipped, privacy: .public) unchanged frames (\(rate, privacy: .public)%)")
+                }
+                #endif
+                continue
+            }
             if let output = await process(frame, tableAnchorTransform: anchorTransform) {
                 continuation.yield(output)
             }
         }
         isProcessing = false
+    }
+
+    /// Turn the change gate on or off while running. The first thing to
+    /// try when the overlay looks stale is switching this off; needing a
+    /// rebuild to do that would make it useless at a table.
+    public func setFrameGateEnabled(_ enabled: Bool) {
+        frameChangeGate.isEnabled = enabled
+        if !enabled { frameChangeGate.reset() }
+    }
+
+    /// A coarse fingerprint of the frame for `FrameChangeGate`. Nil when the
+    /// pixels cannot be read, which the gate treats as "process it".
+    private func signature(of frame: CapturedFrame) -> FrameSignature? {
+        #if canImport(CoreVideo)
+        guard config.skipsUnchangedFrames else { return nil }
+        guard let image = frame.image as? PixelBufferImage else { return nil }
+        return image.withReader { reader -> FrameSignature? in
+            let steps = 24
+            guard reader.pixelWidth > steps, reader.pixelHeight > steps else { return nil }
+            let dx = reader.pixelWidth / steps
+            let dy = reader.pixelHeight / steps
+            var cells: [Double] = []
+            cells.reserveCapacity(steps * steps)
+            for row in 0..<steps {
+                for column in 0..<steps {
+                    guard let rgb = reader.rgb(x: column * dx, y: row * dy) else { return nil }
+                    cells.append(0.299 * rgb.x + 0.587 * rgb.y + 0.114 * rgb.z)
+                }
+            }
+            return FrameSignature(cells: cells)
+        } ?? nil
+        #else
+        return nil
+        #endif
     }
 
     private func takePending() -> (CapturedFrame, Transform3D?)? {
@@ -378,7 +443,9 @@ public actor PerceptionPipeline {
                                     luminance: luminance(of: frame),
                                     surfaceGate: SurfaceGateCounts(rejected: rejected,
                                                                    clamped: clamped,
-                                                                   suppressed: suppressed))
+                                                                   suppressed: suppressed),
+                                    skippedFrames: frameChangeGate.skipped,
+                                    frameSkipRate: frameChangeGate.skipRate)
         } catch {
             // A failed frame is dropped; the previous state stands — but
             // NEVER silently: a permanently-failing detector looks like

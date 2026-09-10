@@ -355,6 +355,10 @@ extension SessionModel {
         if let latency = overlayLatencyMilliseconds { state["overlayLatencyMs"] = Int(latency) }
         if let worst = worstOverlayLatencyMilliseconds { state["worstLatencyMs"] = Int(worst) }
         if let seconds = calibrationSeconds { state["calibrationSeconds"] = seconds }
+        // The change gate's effect, so the saving is measured rather than
+        // assumed — and so a stale overlay can be checked against it.
+        state["skippedFrames"] = skippedFrames
+        if let rate = frameSkipRate { state["frameSkipPercent"] = Int((rate * 100).rounded()) }
         #if canImport(UIKit)
         // Off by default; enabling it is what makes the reading valid, and
         // -1 means "not being monitored" rather than "flat".
