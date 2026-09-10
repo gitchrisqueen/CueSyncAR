@@ -37,11 +37,25 @@ extension SessionModel {
     /// only when every sighted pocket is on the same rail, which is the
     /// usual case for a device parked at the side.
     @discardableResult
+    /// - Parameter lockAfterProposing: whether to commit the solved table
+    ///   immediately. The mirror route says true, because the operator
+    ///   drives it with one URL and expects a locked table back. The in-app
+    ///   route says false, so the solve lands in `.adjusting` with four
+    ///   draggable handles and the user gets a chance to correct it.
+    ///
+    ///   Either way the solve now goes through `.cornersProposed` rather
+    ///   than `.restored`. That used to jump straight to `.locked`, which
+    ///   skipped the correction UI entirely — fine for a debug command
+    ///   typed by a careful operator, wrong for a user, because the table
+    ///   locked with no way to fix it and the residual arrived as a toast
+    ///   nobody could act on. One code path also means the corner round
+    ///   trip is exercised by both routes rather than only the manual one.
     func calibrateFromPockets(_ sightings: [(PocketID, CGPoint)],
                               towards: CGPoint?,
                               alongRail: (CGPoint, CGPoint)? = nil,
                               size: TableSize,
-                              planeHeight: Double? = nil) -> Bool {
+                              planeHeight: Double? = nil,
+                              lockAfterProposing: Bool = true) -> Bool {
         guard let coordinator = arCoordinator else {
             showTapFeedback("No AR session to calibrate in")
             return false
@@ -88,14 +102,37 @@ extension SessionModel {
                 solution = try PocketCalibration.solve(placed, size: size,
                                                        planeNormal: normal, towards: hint)
             }
+            // Propose, do not restore. `.cornersProposed` only fires from
+            // `.planeFound`, so the reset has to walk back through it.
+            // `preferredSize` is set FIRST because `.lockRequested`
+            // re-derives the size from these corners and would otherwise be
+            // free to snap to a different standard one.
             calibration.handle(.resetRequested)
-            calibration.handle(.restored(solution.calibration))
-            CalibrationStore.saveTableSpec(size)
-            if let anchorTransform = lockAnchorTransform {
-                persistCalibration(solution.calibration, anchorTransform: anchorTransform)
+            calibration.handle(.planeDetected)
+            calibration.preferredSize = size
+            calibration.handle(.cornersProposed(solution.calibration.worldCorners))
+            if lockAfterProposing {
+                guard requestCalibrationLock(), let locked = tableCalibration else {
+                    let reason = calibration.lastError
+                        .map { Self.lockRefusalText($0) } ?? "unknown reason"
+                    showRemoteFeedback("Pocket fit would not lock — \(reason)")
+                    return false
+                }
+                // `requestCalibrationLock` deliberately does not anchor or
+                // persist — the AR layer owns that, because it is the one
+                // holding the coordinator. The mirror route has no AR layer
+                // above it, so it does the same work here.
+                if let anchorTransform = lockAnchorTransform {
+                    persistCalibration(locked, anchorTransform: anchorTransform)
+                }
+                restartPipelineForCalibrationChange()
+                startLiveTrackingIfReady()
+            } else {
+                // Leave it in `.adjusting` with the overlay up: four
+                // draggable handles over a table the solver already found,
+                // which is the correction step the old route skipped.
+                calibrationVisible = true
             }
-            restartPipelineForCalibrationChange()
-            startLiveTrackingIfReady()
             // The residual is the whole point of reporting rather than
             // just succeeding: a rigid fit always returns a table, and
             // this is how anyone finds out whether to believe it.
@@ -169,5 +206,97 @@ extension SessionModel {
         calibrateFromPockets(sightings, towards: towards, alongRail: rail, size: size,
                              planeHeight: params["h"].flatMap(Double.init))
         return true
+    }
+
+    /// Why a lock was refused, in words rather than an enum case.
+    static func lockRefusalText(_ error: CalibrationError) -> String {
+        switch error {
+        case .needFourCorners:
+            "the fit did not produce four corners"
+        case .degenerateCorners:
+            "the fitted corners are not a rectangle"
+        case .unrecognizedTableSize(let width, let height):
+            String(format: "%.2f x %.2f m is not a standard table", width, height)
+        }
+    }
+}
+
+// MARK: - Tapping pockets instead of cushion noses (C2b)
+//
+// The four-tap corner flow asks the user to find the cushion NOSE line —
+// which, on a table with cloth-wrapped cushions, they cannot see. That is
+// the whole reason the pocket solver exists. This is the same solver,
+// reachable with a finger instead of a debug URL.
+
+extension SessionModel {
+
+    /// Enter pocket-sighting mode.
+    func beginPocketSighting() {
+        pocketFlow.reset()
+        armedPocket = PocketID.allCases.first
+        pocketSightingActive = true
+        calibrationVisible = true
+        noteCalibrationStarted()
+        showTapFeedback(pocketFlow.prompt)
+    }
+
+    func cancelPocketSighting() {
+        pocketSightingActive = false
+        pocketFlow.reset()
+    }
+
+    /// Arm which pocket the next tap means. The user names the pocket
+    /// BEFORE tapping it, rather than the app guessing from position —
+    /// guessing is what a wrong table looks like, and a person standing at
+    /// the table knows which hole is which without being told.
+    func armPocket(_ pocket: PocketID) { armedPocket = pocket }
+
+    /// A tap on the cloth while sighting.
+    func notePocketTap(at screen: CGPoint) {
+        guard pocketSightingActive else { return }
+        if pocketFlow.readiness == .needTowardsPoint || pocketFlow.canSolve,
+           pocketFlow.towards == nil, armedPocket == nil {
+            pocketFlow.setTowards(Vec2(screen.x, screen.y))
+            showTapFeedback(pocketFlow.prompt)
+            return
+        }
+        guard let pocket = armedPocket else { return }
+        pocketFlow.sight(pocket, at: Vec2(screen.x, screen.y))
+        // Advance to the next unsighted pocket so the common case is
+        // tap-tap-tap without touching the picker.
+        let sighted = Set(pocketFlow.sightings.map(\.pocket))
+        armedPocket = PocketID.allCases.first { !sighted.contains($0) }
+        if pocketFlow.readiness == .needTowardsPoint { armedPocket = nil }
+        showTapFeedback(pocketFlow.prompt)
+    }
+
+    func undoPocketSighting() {
+        pocketFlow.undoLastSighting()
+        let sighted = Set(pocketFlow.sightings.map(\.pocket))
+        armedPocket = PocketID.allCases.first { !sighted.contains($0) }
+        showTapFeedback(pocketFlow.prompt)
+    }
+
+    /// Solve from what has been sighted and hand the result to the
+    /// correction UI. Does NOT lock: the user gets four draggable handles
+    /// over the solver's answer, which is the step the mirror route used to
+    /// skip.
+    @discardableResult
+    func commitPocketSighting(size: TableSize) -> Bool {
+        guard pocketFlow.canSolve else {
+            showTapFeedback(pocketFlow.prompt)
+            return false
+        }
+        let sightings = pocketFlow.sightings.map {
+            ($0.pocket, CGPoint(x: $0.screen.x, y: $0.screen.y))
+        }
+        let towards = pocketFlow.towards.map { CGPoint(x: $0.x, y: $0.y) }
+        let rail = pocketFlow.railHeading.map {
+            (CGPoint(x: $0.from.x, y: $0.from.y), CGPoint(x: $0.to.x, y: $0.to.y))
+        }
+        let solved = calibrateFromPockets(sightings, towards: towards, alongRail: rail,
+                                          size: size, lockAfterProposing: false)
+        if solved { pocketSightingActive = false }
+        return solved
     }
 }
