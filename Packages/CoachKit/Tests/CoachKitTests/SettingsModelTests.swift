@@ -229,6 +229,7 @@ struct SettingsModelTests {
         settings.ballGroup = .stripes
         settings.skillLevel = .advanced
         settings.speechVerbosity = .keyMoments
+        settings.sessionPreset = .withFriends
 
         let snapshot = settings.snapshot
         #expect(snapshot[SettingsKey.detectorPinnedToCPU] == .bool(true))
@@ -242,9 +243,10 @@ struct SettingsModelTests {
         #expect(snapshot[SettingsKey.ballGroup] == .string("stripes"))
         #expect(snapshot[SettingsKey.skillLevel] == .string("advanced"))
         #expect(snapshot[SettingsKey.speechVerbosity] == .string("keyMoments"))
+        #expect(snapshot[SettingsKey.sessionPreset] == .string("withFriends"))
         // Every setting is in the snapshot: the mirror is how the owner
         // confirms a change took effect without touching the device.
-        #expect(snapshot.count == 11)
+        #expect(snapshot.count == 12)
     }
 
     // MARK: Pipeline restart hints
