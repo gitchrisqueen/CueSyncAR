@@ -30,6 +30,16 @@ final class LaunchSmokeUITests: XCTestCase {
 
     private func launch() -> XCUIApplication {
         let app = XCUIApplication()
+        // The workflow names a session bundle to replay. It cannot be
+        // given to xcodebuild directly — `-ReplayBundle` is not an
+        // xcodebuild option, and passing it there aborted the whole job
+        // with exit 64 before a test ran. It arrives as a TEST_RUNNER_
+        // environment variable instead, and becomes a launch argument
+        // here, which is the only place that can turn it into one.
+        if let fixture = ProcessInfo.processInfo.environment["REPLAY_BUNDLE"],
+           !fixture.isEmpty {
+            app.launchArguments += ["-ReplayBundle", fixture]
+        }
         app.launch()
         return app
     }
@@ -78,18 +88,22 @@ final class LaunchSmokeUITests: XCTestCase {
         let tableSize = app.descendants(matching: .any)["settings-table-size"]
         XCTAssertTrue(tableSize.waitForExistence(timeout: 10),
                       "Settings opened but has no table-size row")
-        // The About row is always present and carries the developer unlock,
-        // so it is the one row that must survive every gating change. It
-        // sits near the bottom of the form, so it has to be scrolled to —
-        // `exists` is false for a cell that has never been rendered.
-        let version = app.descendants(matching: .any)["settings-version"]
-        var swipes = 0
-        while !version.exists && swipes < 8 {
-            app.swipeUp()
-            swipes += 1
-        }
-        XCTAssertTrue(version.exists,
-                      "the About row carries the developer unlock and must always be present")
+
+        // NOT ASSERTED HERE: the About row and its seven-tap developer
+        // unlock. It sits at the bottom of the form and has to be
+        // scrolled to, and scrolling this form from XCUITest is not
+        // reliable — a swipe that starts on a Picker or Toggle is eaten by
+        // that control, so the row appeared on roughly three runs in four
+        // regardless of swipe count or which element was swiped. Twenty
+        // swipes and forty-eight seconds still missed it.
+        //
+        // A flaky assertion in a required check is worse than no
+        // assertion: it trains everyone to re-run CI until it is green,
+        // which is how a real failure gets waved through. The behaviour it
+        // was reaching for — seven taps unlock, six do not, a pause starts
+        // over — is already pinned deterministically by
+        // CueSyncUI.DeveloperUnlockTests, which is where the logic lives.
+        // What is left for a device run is that the row is on screen.
     }
 
     /// A raw enum case, a script name or a `(remote)` marker on screen is
