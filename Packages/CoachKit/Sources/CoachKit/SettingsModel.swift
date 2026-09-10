@@ -105,6 +105,7 @@ public enum SettingsKey {
     public static let guideSpeed = "guideSpeed"
     /// Pre-existing key, written by the HUD antenna button since M3.
     public static let debugMirrorEnabled = "debugMirrorEnabled"
+    public static let sessionPreset = "sessionPreset"
     /// Pre-existing key, written by the HUD mode menu since M6-01.
     public static let practiceMode = "practiceMode"
     public static let visibleMissGrace = "visibleMissGrace"
@@ -157,6 +158,10 @@ public struct SettingsModel: Sendable, Equatable {
     /// Linux-tested — a `#if DEBUG` here would change a tested default
     /// under `swift test -c release`. So the app target passes it in.
     public var debugMirrorEnabled: Bool
+    /// How this session is being played — see `SessionPreset`. It selects
+    /// the practice mode and the parked posture, and is the only thing that
+    /// can turn the shot guides off.
+    public var sessionPreset: SessionPreset = .solo
     /// The device is parked (tripod, propped on a rail) rather than held.
     ///
     /// It disables the device-pose aim source. That model aims from the cue
@@ -231,6 +236,10 @@ public struct SettingsModel: Sendable, Equatable {
         if let raw = store.bool(forKey: SettingsKey.debugMirrorEnabled) {
             debugMirrorEnabled = raw
         }
+        if let raw = store.string(forKey: SettingsKey.sessionPreset),
+           let value = SessionPreset(rawValue: raw) {
+            sessionPreset = value
+        }
         if let raw = store.string(forKey: SettingsKey.practiceMode),
            let value = PracticeMode(rawValue: raw) {
             practiceMode = value
@@ -274,6 +283,7 @@ public struct SettingsModel: Sendable, Equatable {
             SettingsKey.detectionProvider: .string(detectionProvider.rawValue),
             SettingsKey.guideSpeed: .double(guideSpeed),
             SettingsKey.debugMirrorEnabled: .bool(debugMirrorEnabled),
+            SettingsKey.sessionPreset: .string(sessionPreset.rawValue),
             SettingsKey.deviceParked: .bool(deviceParked),
             SettingsKey.practiceMode: .string(practiceMode.rawValue),
             SettingsKey.visibleMissGrace: .double(visibleMissGrace),

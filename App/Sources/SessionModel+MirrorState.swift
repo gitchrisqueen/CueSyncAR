@@ -38,6 +38,8 @@ extension SessionModel {
             "rootTapCount": rootTapCount,
             "tapCatcherMounted": tapCatcherMounted,
             "lastTapNote": lastTapNote ?? "",
+            // See SessionModel.lastProbe — the unprojection made readable.
+            "lastProbe": placement.lastProbe ?? "",
 
             "aimSource": String(describing: aimSource),
             "calledShotOnLine": calledShotOnLine,
@@ -45,6 +47,14 @@ extension SessionModel {
             // with no SwiftUI in it, so this is the only way to read the
             // HUD from a browser.
             "hudStatus": hudStatusLabel,
+            // Where the calibration's plane height came from. A calibration
+            // built on "unconstrained" is a guess and should not read the
+            // same as one built on thirty balls.
+            "calibrationHeightSource": heightSource.summary,
+            // The pocket-sighting flow, so a failure can be READ rather than
+            // guessed at. "Find my table does not work" is not something the
+            // mirror could answer before this.
+            "pocketSighting": pocketSightingMirrorState(),
             // MVP item 6's three numbers, none of which anything could read
             // before: ">= 30 FPS, overlay latency under ~100 ms, no crashes
             // across a 15-minute session". Battery and thermal state are the
@@ -344,10 +354,21 @@ extension SessionModel {
         var state: [String: Any] = [
             "thermal": Self.thermalReading().rawValue
         ]
-        if let fps = framesPerSecond { state["fps"] = (fps * 10).rounded() / 10 }
+        // Two different numbers, named apart on purpose. `fps` used to mean
+        // the pipeline rate and read 2.9 next to MVP item 6's ">= 30 FPS
+        // camera feed" — which looks like a catastrophic miss and is not
+        // one: the camera runs normally and the pipeline samples roughly
+        // one ARKit frame in sixteen. A number that invites that misreading
+        // is the same defect as printing a raw enum case at a user.
+        if let hertz = pipelineHertz { state["pipelineHz"] = (hertz * 10).rounded() / 10 }
+        if let camera = cameraFramesPerSecond { state["cameraFps"] = Int(camera.rounded()) }
         if let latency = overlayLatencyMilliseconds { state["overlayLatencyMs"] = Int(latency) }
         if let worst = worstOverlayLatencyMilliseconds { state["worstLatencyMs"] = Int(worst) }
         if let seconds = calibrationSeconds { state["calibrationSeconds"] = seconds }
+        // The change gate's effect, so the saving is measured rather than
+        // assumed — and so a stale overlay can be checked against it.
+        state["skippedFrames"] = skippedFrames
+        if let rate = frameSkipRate { state["frameSkipPercent"] = Int((rate * 100).rounded()) }
         #if canImport(UIKit)
         // Off by default; enabling it is what makes the reading valid, and
         // -1 means "not being monitored" rather than "flat".
@@ -370,5 +391,30 @@ extension SessionModel {
         case .critical: .critical
         @unknown default: .unknown
         }
+    }
+
+    /// What the pocket-sighting flow currently has, and what it still wants.
+    private func pocketSightingMirrorState() -> [String: Any] {
+        var state: [String: Any] = [
+            "active": pocketSightingActive,
+            "canSolve": pocketFlow.canSolve,
+            "prompt": pocketFlow.prompt,
+            "armed": armedPocket?.rawValue ?? "",
+            "sighted": pocketFlow.sightings.map {
+                ["pocket": $0.pocket.rawValue,
+                 "x": Int($0.screen.x), "y": Int($0.screen.y)]
+            },
+            "collinear": pocketFlow.sightingsAreCollinear
+        ]
+        if let towards = pocketFlow.towards {
+            state["towards"] = ["x": Int(towards.x), "y": Int(towards.y)]
+        }
+        switch pocketFlow.readiness {
+        case .needMorePockets(let have): state["needs"] = "morePockets(\(have))"
+        case .needRailHeading: state["needs"] = "railHeading"
+        case .needTowardsPoint: state["needs"] = "towardsPoint"
+        case .ready: state["needs"] = "nothing"
+        }
+        return state
     }
 }

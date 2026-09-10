@@ -71,17 +71,19 @@ targets:
         # app before it opens.
         UILaunchScreen:
           UIColorName: LaunchBackground
-        # Why there is no NSBonjourServices alongside this: the key is
-        # inert for a plain NWListener on a fixed port, which is what the
-        # debug mirror is. Advertising the service would make iOS raise the
-        # local-network prompt for real -- and a denial kills the listener
-        # and surfaces as a start failure, taking the only remote debugging
-        # channel with it. The string is here so that if the prompt ever
-        # does appear, it says something true.
-        NSLocalNetworkUsageDescription: >-
-          CueSync AR can mirror its screen and tracking data to a browser on
-          your own Wi-Fi, so you can watch the app while the device sits at
-          the table. Nothing leaves your network.
+        # NO NSLocalNetworkUsageDescription, and this is a REGRESSION FIX,
+        # not an oversight.
+        #
+        # It was added in #110 on the reasoning that the key is inert for a
+        # plain NWListener on a fixed port. That reasoning was wrong on iOS
+        # 26: declaring it opts the app into local-network permission
+        # enforcement for the LISTENER too, and on the owner's iPad the
+        # mirror stopped binding and its address disappeared from the More
+        # sheet -- taking the only remote debugging channel with it.
+        #
+        # The review of that PR predicted this outcome specifically and was
+        # overruled. Do not re-add the key without a device test that the
+        # mirror still answers afterwards.
         NSCameraUsageDescription: >-
           CueSync AR uses the camera to see the billiards table and balls so
           it can draw live shot guidance on top of them.

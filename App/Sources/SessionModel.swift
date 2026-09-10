@@ -110,6 +110,10 @@ final class SessionModel {
     private(set) var frameDiagnostics: FrameDiagnostics?
 
     func updateFrameDiagnostics(_ diagnostics: FrameDiagnostics) {
+        // ARKit's own delegate counter is the honest source for the CAMERA
+        // rate: it counts frames the session produced, not frames this app
+        // chose to process, so throttling the pipeline cannot flatter it.
+        health.noteCameraFrames(seen: diagnostics.framesSeen, at: clock())
         let previous = frameDiagnostics
         frameDiagnostics = diagnostics
         // Log on change only (the loop polls every few seconds regardless).
@@ -240,8 +244,11 @@ final class SessionModel {
     private(set) var calibrationSeconds: Double?
     @ObservationIgnored private var calibrationStartedAt: TimeInterval?
 
-    /// Live frame rate over the last few seconds; nil before two frames.
-    var framesPerSecond: Double? { health.framesPerSecond }
+    /// How often the perception pipeline produces a result. NOT the camera
+    /// frame rate — see `cameraFramesPerSecond`.
+    var pipelineHertz: Double? { health.pipelineHertz }
+    /// The camera's own frame rate, from ARKit's cumulative counter.
+    var cameraFramesPerSecond: Double? { health.cameraFramesPerSecond }
     /// Median camera-to-overlay latency in ms; nil before the first sample.
     var overlayLatencyMilliseconds: Double? { health.overlayLatencyMilliseconds }
     var worstOverlayLatencyMilliseconds: Double? { health.worstLatencyMilliseconds }
@@ -252,6 +259,35 @@ final class SessionModel {
     }
 
     func resetFrameHealth() { health.reset() }
+
+    /// What the calibration in progress is resting on — the tap rays, the
+    /// frozen cloth height, and where that height came from. Its own type
+    /// (CalibrationPlacement.swift) because it is one concern and this file
+    /// hit the lint ceiling adding it, exactly as A0 predicted.
+    @ObservationIgnored let placement = CalibrationPlacement()
+
+    var workingClothHeight: Double? { placement.clothHeight }
+    var heightSource: CalibrationHeightSource { placement.heightSource }
+
+    func beginCornerPlacement(height: Double?, source: CalibrationHeightSource) {
+        placement.begin(height: height, source: source)
+        cornersWereAdjustedByHand = false
+    }
+
+    func recordCornerRay(_ ray: TapRay) { placement.recordRay(ray) }
+
+    /// Whether the user has dragged a corner. Once they have, their hand
+    /// outranks the stored tap ray and refinement stops.
+    private(set) var cornersWereAdjustedByHand = false
+
+    func noteCornerAdjustedByHand() { cornersWereAdjustedByHand = true }
+
+    /// Pocket sighting (C2b): which pockets the user has tapped, and which
+    /// one the next tap means. Stored here because `@Observable` only
+    /// instruments the class body.
+    var pocketFlow = PocketSightingFlow()
+    var pocketSightingActive = false
+    var armedPocket: PocketID?
 
     /// Start the calibration stopwatch. Restarting calibration restarts it.
     func noteCalibrationStarted() {
@@ -265,6 +301,22 @@ final class SessionModel {
         guard let started = calibrationStartedAt else { return }
         calibrationSeconds = ((clock() - started) * 10).rounded() / 10
         calibrationStartedAt = nil
+    }
+
+    /// How many frames the change gate skipped, and what fraction that is.
+    private(set) var skippedFrames = 0
+    private(set) var frameSkipRate: Double?
+
+    /// Turn the unchanged-frame gate on or off on the live pipeline. Here
+    /// rather than in an extension because `pipeline` is file-private.
+    func setFrameGateEnabled(_ enabled: Bool) {
+        guard let pipeline else { return }
+        Task { await pipeline.setFrameGateEnabled(enabled) }
+    }
+
+    func noteFrameGate(_ output: PerceptionOutput) {
+        skippedFrames = output.skippedFrames
+        frameSkipRate = output.frameSkipRate
     }
 
     func noteDetectionHealth(_ output: PerceptionOutput) {
@@ -543,6 +595,7 @@ final class SessionModel {
                         self.recordClothPlaneSample(detections: output.detections, frame: pose)
                     }
                     self.noteDetectionHealth(output)
+                    self.noteFrameGate(output)
                     self.noteFrameHealth(cameraTimestamp: output.state.timestamp)
                     self.tableState = self.cueIdentity.apply(
                         to: self.ballIdentity.apply(to: output.state))
@@ -856,6 +909,14 @@ extension SessionModel {
             calledPocket = nil
             calledShotOnLine = false
             showRemoteFeedback("Pocket call cleared")
+        case "frameGate":
+            // The switch that matters when something looks stale: turn the
+            // change gate off without a rebuild and see if the symptom goes
+            // with it.
+            let on = (params["v"].flatMap(Int.init) ?? 1) != 0
+            setFrameGateEnabled(on)
+            showRemoteFeedback(on ? "Frame gate on — unchanged frames skipped"
+                                  : "Frame gate off — every frame processed")
         case "guideSpeed":
             guard let v = params["v"].flatMap(Double.init) else { return }
             updateSettings { $0.guideSpeed = v } // clamped by SettingsModel

@@ -461,6 +461,11 @@ struct ARCameraView: View {
                    let anchorPosition = coordinator.calibrationAnchorPosition {
                     model.rebaseCorners(clusterAnchorAt: anchorPosition)
                 }
+                // Tighten to the balls as more of them are seen. Rebasing
+                // above only tracks the ANCHOR's drift; this corrects the
+                // PLANE, which is what puts each corner at the right depth
+                // and stops the quad sliding when the device moves.
+                model.refineCalibrationHeightIfBetter()
                 // A saved venue relocalized → jump straight to locked.
                 if let anchorTransform = coordinator.restoredTableAnchorTransform,
                    let saved = CalibrationStore.load() {
@@ -550,7 +555,14 @@ struct ARCameraView: View {
             return
         }
         let layout: OverlayLayout
-        if let prediction = model.shotPrediction {
+        if !model.showsShotGuides {
+            // A game with friends: rings so the app is visibly awake and
+            // keeping score, but no aim line. This is the branch that gives
+            // `ModeConfiguration.showsShotGuides` its first consumer — every
+            // PracticeMode sets it true, so it has never read false before.
+            layout = OverlayLayout.ballsOnly(state: state, calibration: calibration,
+                                             target: nil)
+        } else if let prediction = model.shotPrediction {
             layout = OverlayLayout.compose(state: state, prediction: prediction,
                                            calibration: calibration,
                                            calledPocket: model.calledPocket,
