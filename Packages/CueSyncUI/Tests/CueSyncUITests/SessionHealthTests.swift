@@ -10,24 +10,24 @@ import Testing
 @Suite("Session health")
 struct SessionHealthTests {
 
-    @Test("Frame rate needs two frames before it says anything")
+    @Test("Pipeline rate needs two ticks before it says anything")
     func rateNeedsTwoFrames() {
         var health = SessionHealth()
-        #expect(health.framesPerSecond == nil)
+        #expect(health.pipelineHertz == nil)
         health.note(cameraTimestamp: 0, publishedAt: 0)
-        #expect(health.framesPerSecond == nil)
+        #expect(health.pipelineHertz == nil)
         health.note(cameraTimestamp: 0.2, publishedAt: 0.2)
-        #expect(health.framesPerSecond == 5)
+        #expect(health.pipelineHertz == 5)
     }
 
-    @Test("A steady 5 Hz reads as 5 Hz, which is what the device actually does")
+    @Test("A steady 5 Hz pipeline reads as 5 Hz")
     func measuredDeviceCadence() {
         var health = SessionHealth()
         for tick in 0..<20 {
             let time = Double(tick) * 0.2
             health.note(cameraTimestamp: time, publishedAt: time)
         }
-        let rate = try? #require(health.framesPerSecond)
+        let rate = try? #require(health.pipelineHertz)
         #expect(abs((rate ?? 0) - 5) < 0.001)
     }
 
@@ -67,18 +67,59 @@ struct SessionHealthTests {
             let time = 5 + Double(tick) * 0.2
             health.note(cameraTimestamp: time, publishedAt: time)
         }
-        let rate = try? #require(health.framesPerSecond)
+        let rate = try? #require(health.pipelineHertz)
         #expect(abs((rate ?? 0) - 5) < 0.001)
     }
 
-    @Test("Reset clears both readings")
+    @Test("Reset clears every reading")
     func reset() {
         var health = SessionHealth()
         health.note(cameraTimestamp: 0, publishedAt: 0.05)
         health.note(cameraTimestamp: 0.2, publishedAt: 0.25)
+        health.noteCameraFrames(seen: 0, at: 0)
+        health.noteCameraFrames(seen: 60, at: 1)
         health.reset()
-        #expect(health.framesPerSecond == nil)
+        #expect(health.pipelineHertz == nil)
         #expect(health.overlayLatencyMilliseconds == nil)
+        #expect(health.cameraFramesPerSecond == nil)
+    }
+
+    @Test("Camera rate is measured from ARKit's own counter, not from our schedule")
+    func cameraRateIsIndependentOfThePipeline() {
+        var health = SessionHealth()
+        // The real device reading that caused the confusion: ARKit had seen
+        // 61,580 frames while the pipeline had pulled 3,890 of them. The
+        // camera is fine; the pipeline samples about one frame in sixteen.
+        health.noteCameraFrames(seen: 0, at: 100)
+        health.noteCameraFrames(seen: 60, at: 101)
+        let rate = try? #require(health.cameraFramesPerSecond)
+        #expect(abs((rate ?? 0) - 60) < 0.001)
+        // Meanwhile the pipeline ticks slowly, and the two must not be
+        // confused for one another.
+        for tick in 0..<10 { health.note(cameraTimestamp: Double(tick) / 3, publishedAt: Double(tick) / 3) }
+        let hertz = try? #require(health.pipelineHertz)
+        #expect(abs((hertz ?? 0) - 3) < 0.001)
+        #expect(health.cameraFramesPerSecond != health.pipelineHertz)
+    }
+
+    @Test("A restarted session does not report a negative camera rate")
+    func counterGoingBackwardsIsIgnored() {
+        var health = SessionHealth()
+        health.noteCameraFrames(seen: 5000, at: 100)
+        health.noteCameraFrames(seen: 5060, at: 101)
+        #expect(health.cameraFramesPerSecond != nil)
+        let before = health.cameraFramesPerSecond
+        // AR session restarted: the counter resets to near zero.
+        health.noteCameraFrames(seen: 12, at: 102)
+        #expect(health.cameraFramesPerSecond == before, "a reset counter must not publish a rate")
+    }
+
+    @Test("Samples taken too close together are mostly quantisation and are skipped")
+    func tooSoonIsSkipped() {
+        var health = SessionHealth()
+        health.noteCameraFrames(seen: 0, at: 100)
+        health.noteCameraFrames(seen: 3, at: 100.1)
+        #expect(health.cameraFramesPerSecond == nil)
     }
 }
 

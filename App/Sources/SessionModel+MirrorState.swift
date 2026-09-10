@@ -344,7 +344,14 @@ extension SessionModel {
         var state: [String: Any] = [
             "thermal": Self.thermalReading().rawValue
         ]
-        if let fps = framesPerSecond { state["fps"] = (fps * 10).rounded() / 10 }
+        // Two different numbers, named apart on purpose. `fps` used to mean
+        // the pipeline rate and read 2.9 next to MVP item 6's ">= 30 FPS
+        // camera feed" — which looks like a catastrophic miss and is not
+        // one: the camera runs normally and the pipeline samples roughly
+        // one ARKit frame in sixteen. A number that invites that misreading
+        // is the same defect as printing a raw enum case at a user.
+        if let hertz = pipelineHertz { state["pipelineHz"] = (hertz * 10).rounded() / 10 }
+        if let camera = cameraFramesPerSecond { state["cameraFps"] = Int(camera.rounded()) }
         if let latency = overlayLatencyMilliseconds { state["overlayLatencyMs"] = Int(latency) }
         if let worst = worstOverlayLatencyMilliseconds { state["worstLatencyMs"] = Int(worst) }
         if let seconds = calibrationSeconds { state["calibrationSeconds"] = seconds }
