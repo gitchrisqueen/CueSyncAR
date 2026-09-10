@@ -4,12 +4,71 @@
 (or human) can resume without a prior chat session. Update this file whenever
 a work session ends or a major finding lands.
 
-**Last update: 2026-09-09 (agent session, `main` @ `8a1f96d`).** Twelve PRs
-merged across three sessions. All four device-visible symptoms the operator
-reported now have fixes, each measured against recordings of his own table
-rather than argued from the code; every one of them still needs a table run
-to confirm. Read "2026-09-09" below first — it supersedes the 2026-09-07
-notes, which are kept for context.
+**Last update: 2026-09-10 — THE PROJECT IS PAUSED HERE.**
+
+**Read [`docs/HANDOVER.md`](../HANDOVER.md) first.** It supersedes this
+file as the entry point: it says where the project actually stands, the
+four findings worth knowing before touching anything, and what to do
+first. This file remains the running log of how each finding was reached,
+newest first, and is worth reading for the reasoning rather than the
+status.
+
+### 2026-09-10 — calibration finished, and the reason it was wrong
+
+The last working session. Both calibration paths were driven remotely
+against the parked iPad over the debug mirror, which is how the cause was
+found rather than argued about.
+
+**The finding.** Every calibration path rested on a cloth height measured
+from the apparent size of the balls. On one table in one session that
+estimate reported `-0.349`, `-0.370`, `-0.512` and `-0.229` — 283 mm of
+range — against a truth of `-0.528`, while reporting 8–15 mm of "spread"
+throughout. Spread measures whether the balls agree with *each other*,
+and the error is systematic: at 2.4–4 m a ball is about sixteen pixels
+across, so one pixel of box error is six per cent of range and three
+centimetres of cloth. Every sample moves together, and adding balls
+tightens the spread without touching the error.
+
+That is both symptoms the owner reported — the quad floating above the
+cloth, and the lines sliding when the device angle changed.
+
+**The fix.** The height never needed measuring. It is determined by the
+tap rays (exact) and the table size (chosen from a list): rays from one
+place fan out, so exactly one depth cuts a 2.34 × 1.17 m shape out of
+them. Height became an *output* of the calibration, with a residual.
+
+| path | result, driven over `/cmd` |
+|---|---|
+| pockets, four corners tapped | cloth solved to 6 mm rms, table fit **5 mm rms** |
+| corners, tapped **out of order** | tightened **-144 mm**, locked 2.34 × 1.17 m — *"8 ft +1.0 cm"* |
+
+**What the pockets cannot do, and why the balls stay.** Every standard
+table is exactly 2:1, so a nine-foot table's pockets are a uniform
+scaling of an eight-foot table's — and moving the plane is a uniform
+scaling. Solving for the wrong size fits perfectly at a proportionally
+wrong height, residual zero. The ball estimate is the only measurement
+independent of that choice, and is now asked for nothing else.
+
+**Also landed** (#127, #128, #129): a four-pocket minimum with a fit that
+can be refused; refusals that name the bad pocket instead of guessing
+"stand closer"; drift tracking, so an estimate still converging cannot
+read as settled; `/cmd?action=probe`, which unprojects one view point and
+reports the world point and range — the command the 158 mm was found
+with; multi-table storage, so a second venue stops silently destroying
+the first; and the verification overlay, which draws the eighteen
+diamonds the candidate calibration implies back onto the cloth.
+
+**Not verified:** that the diamonds *look* right on a real table.
+`/frame.jpg` is an ARView snapshot with no SwiftUI in it, so the overlay
+cannot be photographed remotely. First person at the table sees it first.
+
+---
+
+**Previous update: 2026-09-09 (agent session, `main` @ `8a1f96d`).**
+Twelve PRs merged across three sessions. All four device-visible symptoms
+the operator reported have fixes, each measured against recordings of his
+own table rather than argued from the code. Read "2026-09-09" below —
+it supersedes the 2026-09-07 notes, which are kept for context.
 
 ## Track identity (Phase 3.1) — what landed, and the knob NOT turned
 
