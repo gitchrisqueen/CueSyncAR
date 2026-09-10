@@ -3,10 +3,8 @@
 //  CueSync AR
 //
 //  The app's single source of truth and composition root: registers the
-//  default provider implementations (see docs/roadmap/02-ARCHITECTURE.md),
-//  exposes session state to SwiftUI, and — while model selection (M2-01)
-//  is in progress — drives the Detection Preview loop that runs a chosen
-//  Roboflow hosted model against live camera frames.
+//  default provider implementations (see docs/roadmap/02-ARCHITECTURE.md)
+//  and exposes session state to SwiftUI.
 //
 //  Every stored property lives in this file (`@Observable` tracks only the
 //  class body). Behaviour that only reads, or has a single owning file,
@@ -14,6 +12,14 @@
 //  Providers, AnchorFollowing, DebugMirror, MirrorState, Recording. Keep
 //  this file for the composition root, live tracking, and the tracking
 //  commands that mutate its private state.
+//
+//  When this file needs to shrink, the move that works is lifting a whole
+//  CONCERN into its own `@Observable` type and forwarding to it — see
+//  DetectionPreviewModel.swift. Shuffling methods into another extension
+//  file mostly does not, because ~20 properties here are `private(set)`
+//  and `private` is file-scoped: an extension elsewhere cannot write them,
+//  and widening those setters would give up the single-writer invariant
+//  that makes this class safe to reason about.
 //
 
 import ARExperience
@@ -39,12 +45,6 @@ final class SessionModel {
         case launching
         case findingTable
         case ready
-    }
-
-    struct PreviewStats {
-        var latencyMilliseconds: Int = 0
-        var detectionCount: Int = 0
-        var lastError: String?
     }
 
     /// Diagnostics channel — filter the Xcode console with "cuesync".
@@ -440,7 +440,7 @@ final class SessionModel {
         // offline, ~15 Hz); either still stands in for the other when the
         // preferred one is unavailable: no bundled model in a simulator
         // build, no key/selected model for the hosted evaluation adapter.
-        let hosted = provider.map { $0 as any DetectionProviding }
+        let hosted = detectionPreview.hostedProvider
         let preferHosted = settings.detectionProvider == .hosted && hosted != nil
         guard let detector = (preferHosted ? hosted : onDeviceProvider) ?? hosted ?? onDeviceProvider else {
             Self.log.error("""
@@ -466,8 +466,7 @@ final class SessionModel {
         isLiveTracking = true
         // Spatial overlays take over — stale 2D preview boxes would linger
         // frozen over the camera otherwise.
-        latestDetections = []
-        previewStats = PreviewStats()
+        detectionPreview.clearPreviewOutput()
         statesTask = Task { [weak self] in
             var outputCount = 0
             for await output in await newPipeline.outputs {
@@ -696,28 +695,26 @@ final class SessionModel {
         Self.log.info("camera: \(front ? "front preview" : "back (AR)", privacy: .public)")
     }
 
-    // MARK: Detection preview state
+    // MARK: Detection preview (hosted-model evaluation tooling)
+    //
+    // The loop itself lives in DetectionPreviewModel.swift — its state is
+    // *stored*, and `@Observable` instruments only the class body, so it
+    // cannot live in an extension of this type. The forwarding below keeps
+    // the views talking to one façade: reading `model.latestDetections`
+    // registers the nested object's property with the same observation
+    // transaction, so SwiftUI still updates.
 
-    /// Currently selected hosted model; nil = preview off.
-    private(set) var selectedModel: RoboflowModelRef?
-    private(set) var latestDetections: [Detection2D] = []
-    private(set) var previewStats = PreviewStats()
-    var hasRoboflowKey: Bool { !(secrets.secret(for: .roboflowAPIKey) ?? "").isEmpty }
+    @ObservationIgnored let detectionPreview = DetectionPreviewModel(
+        secrets: AppSecrets(), makeEncoder: SessionModel.makeEncoder)
 
-    private let secrets: any SecretsProviding = AppSecrets()
-    private var detectTask: Task<Void, Never>?
-    @ObservationIgnored private var provider: RoboflowRemoteProvider?
-    /// Encodes preview frames to JPEG *before* the upload task starts so the
-    /// ARKit pixel buffer inside the frame is released immediately (see
-    /// `ingestPreviewFrame`).
-    @ObservationIgnored private var frameEncoder: (any FrameJPEGEncoding)?
-    /// Skips detection passes while the camera is still: full cadence while
-    /// moving, ~2 s heartbeat once settled (battery / API quota / thermals).
-    @ObservationIgnored private var motionGate = MotionGate()
-    /// Seconds between hosted-API calls (keep the free tier happy).
-    private let previewInterval: TimeInterval = 0.5
+    var selectedModel: RoboflowModelRef? { detectionPreview.selectedModel }
+    var latestDetections: [Detection2D] { detectionPreview.latestDetections }
+    var previewStats: DetectionPreviewModel.PreviewStats { detectionPreview.previewStats }
+    var hasRoboflowKey: Bool { detectionPreview.hasRoboflowKey }
+    var wantsPreviewFrame: Bool { detectionPreview.wantsPreviewFrame }
 
-    private static let selectedModelKey = "selectedDetectionModelID"
+    func selectModel(_ model: RoboflowModelRef?) { detectionPreview.selectModel(model) }
+    func ingestPreviewFrame(_ frame: CapturedFrame) { detectionPreview.ingestPreviewFrame(frame) }
 
     func bootstrap() async {
         AppBuild.logStartup()
@@ -736,113 +733,13 @@ final class SessionModel {
         onDeviceProvider = await Self.loadBundledDetector()
         #endif
         phase = .findingTable
+        // The preview loop feeds the same cloth-plane estimator the live
+        // pipeline does, so a hosted-model session still learns the cloth.
+        detectionPreview.onDetections = { [weak self] detections, frame in
+            self?.recordClothPlaneSample(detections: detections, frame: frame)
+        }
         // Restore the last-used preview model.
-        if let saved = UserDefaults.standard.string(forKey: Self.selectedModelKey),
-           let match = DetectionModelCatalog.candidates.first(where: { $0.id == saved }) {
-            selectModel(match)
-        }
-    }
-
-    func selectModel(_ model: RoboflowModelRef?) {
-        selectedModel = model
-        latestDetections = []
-        previewStats = PreviewStats()
-        UserDefaults.standard.set(model?.id, forKey: Self.selectedModelKey)
-        guard let model else {
-            provider = nil
-            frameEncoder = nil
-            return
-        }
-        // Fresh gate per model so a newly picked candidate detects
-        // immediately even if the phone is resting on the rail.
-        motionGate = MotionGate()
-        let encoder = makeEncoder()
-        frameEncoder = encoder
-        provider = RoboflowRemoteProvider(
-            model: model,
-            apiKey: secrets.secret(for: .roboflowAPIKey) ?? "",
-            transport: URLSessionTransport(),
-            encoder: encoder)
-    }
-
-    /// Whether the preview loop should bother pulling a camera frame now.
-    var wantsPreviewFrame: Bool {
-        provider != nil && detectTask == nil
-            && Date().timeIntervalSince(lastDetectionAt) >= previewInterval
-    }
-
-    /// Feed one camera frame into the preview loop. Skipped while a request
-    /// is in flight or inside the throttle window — latest state wins.
-    ///
-    /// The frame wraps one of ARKit's few camera pixel buffers; retaining it
-    /// across the hosted-API round trip (200–800 ms every 0.5 s) starves the
-    /// capture pool — black camera feed, `(Fig) err=-12710`, and CAMetalLayer
-    /// drawable failures. So: encode to JPEG synchronously (~640 px, a few ms
-    /// at 2 Hz) and let `frame` die *before* any async work starts. Nothing
-    /// below this method may capture `frame`.
-    private var lastDetectionAt: Date = .distantPast
-    func ingestPreviewFrame(_ frame: CapturedFrame) {
-        guard let provider, let frameEncoder, detectTask == nil,
-              Date().timeIntervalSince(lastDetectionAt) >= previewInterval else { return }
-        // Motion gate: full cadence while the camera moves; slow heartbeat
-        // when it's still. Uses the frame's own monotonic capture timestamp.
-        // Poseless sources (front camera / plain AVCapture send .identity)
-        // bypass the gate — there's no motion signal to gate on.
-        if frame.cameraTransform != .identity {
-            guard motionGate.shouldRunDetection(pose: frame.cameraTransform,
-                                                timestamp: frame.timestamp) else { return }
-        }
-        lastDetectionAt = Date()
-        // Pose and intrinsics only — a value type. The rule above forbids
-        // capturing `frame` itself past this point because it wraps one of
-        // ARKit's few pixel buffers; this copy holds no buffer.
-        let poseOnly = CapturedFrame(timestamp: frame.timestamp,
-                                     cameraTransform: frame.cameraTransform,
-                                     intrinsics: frame.intrinsics)
-        let jpeg: Data
-        do {
-            jpeg = try frameEncoder.encodeJPEG(from: frame).data
-        } catch {
-            previewStats.lastError = shortDescription(of: error)
-            return
-        }
-        detectTask = Task { [weak self] in
-            let started = Date()
-            do {
-                let detections = try await provider.detect(jpegData: jpeg)
-                await MainActor.run {
-                    guard let self else { return }
-                    self.latestDetections = detections
-                    self.recordClothPlaneSample(detections: detections, frame: poseOnly)
-                    // The HUD count is BALLS, not raw boxes: cue-stick
-                    // detections and low-confidence noise (server floor is
-                    // 0.2 for evaluation) don't belong in "Tracking N".
-                    let ballCount = detections.filter {
-                        !$0.isCueStick && $0.confidence >= 0.35
-                    }.count
-                    self.previewStats = PreviewStats(
-                        latencyMilliseconds: Int(Date().timeIntervalSince(started) * 1000),
-                        detectionCount: ballCount,
-                        lastError: nil)
-                }
-            } catch {
-                await MainActor.run {
-                    guard let self else { return }
-                    self.previewStats.lastError = self.shortDescription(of: error)
-                }
-            }
-            await MainActor.run { self?.detectTask = nil }
-        }
-    }
-
-    private func shortDescription(of error: Error) -> String {
-        if case RoboflowError.missingAPIKey = error {
-            return "No Roboflow key — add it to Secrets.xcconfig"
-        }
-        if case let RoboflowError.badResponse(detail) = error {
-            return "API: \(detail.prefix(80))"
-        }
-        return String(describing: error).prefix(80).description
+        detectionPreview.restoreSelectedModel()
     }
 }
 
@@ -976,4 +873,3 @@ extension SessionModel {
     }
 
 }
-

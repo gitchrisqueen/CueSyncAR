@@ -221,7 +221,11 @@ extension SessionModel {
         }
     }
 
-    func makeEncoder() -> any FrameJPEGEncoding {
+    func makeEncoder() -> any FrameJPEGEncoding { Self.makeEncoder() }
+
+    /// Static because `DetectionPreviewModel` is built in a property
+    /// initializer, where `self` is not yet available.
+    static func makeEncoder() -> any FrameJPEGEncoding {
         #if canImport(CoreImage)
         PixelBufferJPEGEncoder()
         #else
