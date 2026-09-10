@@ -11,6 +11,7 @@
 //  rather than cushion noses.
 //
 
+import ARExperience
 import CueSyncCore
 import Foundation
 import PerceptionKit
@@ -60,9 +61,31 @@ extension SessionModel {
             showTapFeedback("No AR session to calibrate in")
             return false
         }
-        guard let height = planeHeight ?? estimateClothPlane()?.height else {
-            showRemoteFeedback("No cloth height: put a few balls on the table, or pass h")
+        // THE TAPS DECIDE THE HEIGHT, not the balls.
+        //
+        // Two or more pockets and a known table size determine the plane
+        // exactly: rays from one place fan out, so only one depth cuts a
+        // shape 2.34 m by 1.17 m out of them. Measured on device, that
+        // solve agreed with itself to 1.5 mm across two independent pairs
+        // of pockets, while the ball estimate ranged over 283 mm in the
+        // same session and settled 158 mm wrong. An explicit `h` still
+        // wins, because that is a person overriding on purpose.
+        let ballHeight = estimateClothPlane()?.height
+        let solvedHeight = pocketHeightFromTaps(sightings, size: size, coordinator: coordinator)
+        guard let height = planeHeight ?? solvedHeight?.height ?? ballHeight else {
+            showRemoteFeedback("Nothing to put the cloth on yet — tap at least "
+                               + "two pockets, or pass h")
             return false
+        }
+        // The pockets cannot tell one standard size from another (they are
+        // all 2:1, so a bigger table is the same shape further away). The
+        // balls can, crudely, and this is the only thing they are asked.
+        if let solvedHeight, let ballHeight,
+           let better = betterFittingSize(than: size, ballHeight: ballHeight,
+                                          solved: solvedHeight, sightings: sightings,
+                                          coordinator: coordinator) {
+            showRemoteFeedback("This looks more like a \(Self.sizeName(better)) table "
+                               + "than a \(Self.sizeName(size)) one — check the size setting")
         }
         func unproject(_ p: CGPoint) -> Vec3? {
             coordinator.raycastHorizontalPlane(screenPoint: p, fallbackPlaneHeight: height)
@@ -113,12 +136,18 @@ extension SessionModel {
             // The cause is not the solver. The pocket unprojection is only
             // as good as the cloth height it is cast against, and the cloth
             // estimator's precision falls off with range.
+            //
+            // The refusal SAYS WHICH TAP AND WHY. It used to print one
+            // number and then guess -- "stand closer, or sight a third
+            // pocket" -- when on device the dominant error was neither
+            // range nor pocket count but the cloth height. `spanReport`
+            // separates the two without needing the fit to have worked.
             guard solution.residual <= Self.pocketFitLimit else {
-                let refusal = String(
-                    format: "Fit is %.0f cm out - stand closer, or sight a third "
-                        + "pocket. (%d sighted, cloth y=%.3f)",
-                    solution.residual * 100, placed.count, height)
+                let refusal = Self.pocketRefusalText(
+                    residual: solution.residual, height: height,
+                    report: PocketCalibration.spanReport(placed, size: size))
                 showRemoteFeedback(refusal)
+                Self.log.error("\(refusal, privacy: .public)")
                 notePocketFit(refusal)
                 return false
             }
@@ -130,6 +159,13 @@ extension SessionModel {
             calibration.handle(.resetRequested)
             calibration.handle(.planeDetected)
             calibration.preferredSize = size
+            // Record where the height came from BEFORE proposing, so a
+            // calibration built on 7 mm of pocket geometry never again
+            // reads the same as one built on nothing.
+            placement.adopt(height: height, source: solvedHeight.map {
+                .pocketGeometry(spans: $0.spanCount,
+                                residualMillimetres: Int(($0.residual * 1000).rounded()))
+            } ?? (ballHeight != nil ? currentClothHeight().source : .unconstrained))
             calibration.handle(.cornersProposed(solution.calibration.worldCorners))
             if lockAfterProposing {
                 guard requestCalibrationLock(), let locked = tableCalibration else {
@@ -168,12 +204,14 @@ extension SessionModel {
             // A one-pocket fit reproduces its single point exactly, so
             // its residual is meaningless and must not be printed as if
             // it were evidence.
+            let source = planeHeight != nil ? "given"
+                : (solvedHeight != nil ? "from the taps" : "from the balls")
             let line = placed.count == 1
-                ? String(format: "Pockets: 1 (%@) + rail heading, cloth y=%.3f — "
+                ? String(format: "Pockets: 1 (%@) + rail heading, cloth y=%.3f (%@) — "
                          + "no residual to check, verify by where the balls land",
-                         solution.worstPocket.rawValue, height)
-                : String(format: "Pockets: %d sighted, cloth y=%.3f, fit %.0f mm rms, worst %@ %.0f mm",
-                         placed.count, height, solution.residual * 1000,
+                         solution.worstPocket.rawValue, height, source)
+                : String(format: "Pockets: %d sighted, cloth y=%.3f (%@), fit %.0f mm rms, worst %@ %.0f mm",
+                         placed.count, height, source, solution.residual * 1000,
                          solution.worstPocket.rawValue, solution.worstError * 1000)
             showRemoteFeedback(line)
             Self.log.notice("\(line, privacy: .public)")
@@ -188,6 +226,151 @@ extension SessionModel {
 }
 
 extension SessionModel {
+
+    /// The cloth height the tapped pockets imply, or nil when they cannot
+    /// say (fewer than two distinct pockets, or rays too alike to pin a
+    /// depth down).
+    ///
+    /// Uses the RAYS, not the unprojected points — the points would need
+    /// a height to exist, which is the thing being solved for.
+    func pocketHeightFromTaps(_ sightings: [(PocketID, CGPoint)],
+                              size: TableSize,
+                              coordinator: ARSessionCoordinator)
+    -> PocketCalibration.SolvedHeight? {
+        let rays = sightings.compactMap { pocket, point -> (pocket: PocketID, ray: TapRay)? in
+            coordinator.worldRay(through: point).map { (pocket, $0) }
+        }
+        // Every outcome is recorded, including the refusals. A silent nil
+        // here reads downstream as "the balls were used", which is the
+        // same thing a working solve that was never attempted looks like.
+        guard rays.count == sightings.count else {
+            placement.noteProbe("height: only \(rays.count) of \(sightings.count) "
+                                + "taps produced a ray")
+            return nil
+        }
+        let solved: PocketCalibration.SolvedHeight
+        do {
+            solved = try PocketCalibration.solveHeight(rays: rays, size: size)
+        } catch {
+            placement.noteProbe("height: \(error)")
+            return nil
+        }
+        // A shape that does not fit the declared table is not a height to
+        // build on, however precisely it was found. 30 mm rms is already
+        // twice anything a clean set of taps produces.
+        guard solved.residual <= 0.03 else {
+            placement.noteProbe(String(
+                format: "height: %.4f rejected, shape is %.0f mm rms off a %@ table",
+                solved.height, solved.residual * 1000, Self.sizeName(size)))
+            return nil
+        }
+        placement.noteProbe(String(format: "height: %.4f from %d spans, %.1f mm rms",
+                                   solved.height, solved.spanCount, solved.residual * 1000))
+        return solved
+    }
+
+    /// A standard size that matches the balls better than the chosen one,
+    /// or nil when the chosen one is fine.
+    ///
+    /// Deliberately conservative: it only speaks when another size is a
+    /// clearly better match, because the ball estimate is worth about
+    /// +/-15 cm and the sizes are 4-7 cm apart in implied height. It
+    /// suggests; it never switches anything.
+    func betterFittingSize(than chosen: TableSize,
+                           ballHeight: Double,
+                           solved: PocketCalibration.SolvedHeight,
+                           sightings: [(PocketID, CGPoint)],
+                           coordinator: ARSessionCoordinator) -> TableSize? {
+        let rays = sightings.compactMap { pocket, point -> (pocket: PocketID, ray: TapRay)? in
+            coordinator.worldRay(through: point).map { (pocket, $0) }
+        }
+        let ranked = PocketCalibration.sizeAgreeingWith(ballHeight: ballHeight, rays: rays)
+        guard let best = ranked.first, best.size != chosen,
+              let chosenRank = ranked.first(where: { $0.size == chosen }) else { return nil }
+        // Twice as close AND at least 5 cm better, or it is noise.
+        guard chosenRank.disagreement > best.disagreement * 2,
+              chosenRank.disagreement - best.disagreement > 0.05 else { return nil }
+        return best.size
+    }
+
+    static func sizeName(_ size: TableSize) -> String {
+        switch size {
+        case .sevenFoot: "7-foot"
+        case .eightFoot: "8-foot"
+        case .nineFoot: "9-foot"
+        default: "custom"
+        }
+    }
+
+    /// `/cmd?action=probe&x=320&y=177[&h=-0.367]` — where does that tap
+    /// actually land?
+    ///
+    /// Answers the question every wrong calibration raises and none of
+    /// them could answer: was the tap in the wrong place, or cast against
+    /// the wrong plane? It reports the world point, its distance from the
+    /// camera, and the plane height used, which between them separate the
+    /// two. Probing a pair of pockets and subtracting also measures the
+    /// table directly, with no fit involved — the check that says whether
+    /// a refusal was the solver being fussy or the taps being wrong.
+    func handleProbeCommand(_ params: [String: String]) -> Bool {
+        guard let x = params["x"].flatMap(Double.init),
+              let y = params["y"].flatMap(Double.init) else { return false }
+        guard let coordinator = arCoordinator else {
+            placement.noteProbe("no AR session")
+            return true
+        }
+        guard let height = params["h"].flatMap(Double.init) ?? estimateClothPlane()?.height else {
+            placement.noteProbe("no cloth height: put a few balls out, or pass h")
+            return true
+        }
+        guard let world = coordinator.raycastHorizontalPlane(
+            screenPoint: CGPoint(x: x, y: y), fallbackPlaneHeight: height) else {
+            placement.noteProbe(String(format: "(%.0f, %.0f) missed the plane at y=%.3f", x, y, height))
+            return true
+        }
+        // The ray origin IS the camera, so range comes free with the ray.
+        let range = coordinator.worldRay(through: CGPoint(x: x, y: y))
+            .map { ($0.origin - world).length }
+        placement.noteProbe(String(format: "(%.0f, %.0f) -> %.4f %.4f %.4f  range %@ m  plane y=%.3f",
+                                x, y, world.x, world.y, world.z,
+                                range.map { String(format: "%.2f", $0) } ?? "?", height))
+        Self.log.notice("probe \(self.placement.lastProbe ?? "?", privacy: .public)")
+        return true
+    }
+
+    /// Why the fit was refused, in terms of something the user can act on.
+    ///
+    /// Two causes, told apart by whether the taps disagree with each other
+    /// or only with the table. Taps that agree among themselves but come
+    /// out uniformly small or large were cast against the wrong cloth
+    /// height -- no amount of walking closer or tapping more pockets fixes
+    /// that, which is what the old advice kept telling people to do. Taps
+    /// that disagree with each other have one bad pocket in them, and the
+    /// span report names it.
+    static func pocketRefusalText(residual: Double, height: Double,
+                                  report: PocketCalibration.SpanReport) -> String {
+        let scale = report.medianRatio
+        let head = String(format: "Fit is %.0f cm out. ", residual * 100)
+        if let suspect = report.suspectPocket, report.worstDisagreement > 0.08 {
+            return head + String(
+                format: "%@ disagrees with the others by %.0f cm - re-tap it, "
+                    + "or check it is the hole you meant.",
+                suspect.rawValue, report.worstDisagreement * 100)
+        }
+        if scale > 0, abs(scale - 1) > 0.05 {
+            let direction = scale < 1 ? "too small" : "too large"
+            return head + String(
+                format: "The taps agree with each other but land %.0f%% %@ - "
+                    + "that is the cloth height (y=%.3f), not the pockets. "
+                    + "Put a few balls on the table and look at them first.",
+                abs(scale - 1) * 100, direction, height)
+        }
+        return head + String(
+            format: "The taps are self-consistent at the right scale, so the "
+                + "labels are probably swapped - check which rail is which. "
+                + "(cloth y=%.3f)", height)
+    }
+
     /// `/cmd?action=calibrateFromPockets&p=cornerTopLeft,412,318&p=sideTop,1042,300
     ///  &p=cornerTopRight,1663,296&towards=900,520&v=eightFoot`
     ///

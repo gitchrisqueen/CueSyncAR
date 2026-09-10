@@ -34,7 +34,22 @@ public enum CalibrationHeightSource: Sendable, Equatable {
 
     /// Measured from balls resting on the cloth. The best answer available,
     /// and the only one that improves on its own.
-    case balls(samples: Int, spreadMillimetres: Int)
+    ///
+    /// `driftMillimetres` is how far the estimate has moved over the last
+    /// several seconds, or nil when there is not yet enough history to
+    /// say. It carries the weight that `spreadMillimetres` was wrongly
+    /// being asked to carry: spread says the balls agree with each other,
+    /// drift says the answer has stopped changing, and only the second one
+    /// can see a systematic error. See ClothHeightHistory for the readings
+    /// that made the difference — 8 mm of spread on an estimate 114 mm
+    /// wrong.
+    case balls(samples: Int, spreadMillimetres: Int, driftMillimetres: Int?)
+    /// Solved from the tapped pockets themselves against the known table
+    /// size — the best source there is, and the only one whose error can
+    /// be checked rather than assumed. Measured on device: 7 mm rms from
+    /// four corner taps, where the balls were 158 mm out at the same
+    /// moment. See ClothHeightFromPockets.
+    case pocketGeometry(spans: Int, residualMillimetres: Int)
     /// A real ARKit plane with actual detected extent under the tap.
     case detectedPlane
     /// No plane and no balls: the height came from wherever the ray
@@ -44,9 +59,20 @@ public enum CalibrationHeightSource: Sendable, Equatable {
     /// Whether a calibration built on this should be treated as settled.
     public var isTrustworthy: Bool {
         switch self {
-        case .balls(let samples, let spread): samples >= 3 && spread <= 40
-        case .detectedPlane: true
-        case .unconstrained: false
+        case .balls(let samples, let spread, let drift):
+            // All three, and the drift is the one that matters. A nil
+            // drift means "not enough history yet", which is NOT settled:
+            // the whole failure this guards against was an estimate that
+            // looked excellent thirty seconds before it moved 145 mm.
+            guard let drift else { return false }
+            return samples >= 3 && spread <= 40 && drift <= 15
+        case .pocketGeometry(let spans, let residual):
+            // The residual compares the tapped shape against a real
+            // table, so unlike spread it can actually be wrong — which is
+            // what makes it worth gating on.
+            return spans >= 1 && residual <= 30
+        case .detectedPlane: return true
+        case .unconstrained: return false
         }
     }
 
@@ -58,12 +84,23 @@ public enum CalibrationHeightSource: Sendable, Equatable {
     /// says three and says to spread them.
     public var advice: String? {
         switch self {
-        case .balls(let samples, let spread) where samples < 3:
+        case .balls(let samples, _, _) where samples < 3:
             return "Roll a few more balls out — \(samples) so far, three is enough"
-        case .balls(_, let spread) where spread > 40:
+        case .balls(_, let spread, _) where spread > 40:
             return "The balls disagree about where the cloth is (\(spread) mm) — "
                 + "check nothing else is being read as a ball"
+        case .balls(_, _, nil):
+            return "Still measuring the cloth — hold steady for a moment"
+        case .balls(_, _, .some(let drift)) where drift > 15:
+            // Say WHY waiting helps, or it reads as the app stalling.
+            return "The cloth measurement is still settling (\(drift) mm in the "
+                + "last few seconds) — move around the table a little and give it a moment"
         case .balls:
+            return nil
+        case .pocketGeometry(_, let residual) where residual > 30:
+            return "The pockets you tapped do not make a table that shape — "
+                + "check the table size, or re-tap the one that looks off"
+        case .pocketGeometry:
             return nil
         case .detectedPlane:
             return nil
@@ -76,7 +113,11 @@ public enum CalibrationHeightSource: Sendable, Equatable {
     /// Short label for the mirror and for a diagnostics row.
     public var summary: String {
         switch self {
-        case .balls(let samples, let spread): "balls (\(samples) samples, \(spread) mm spread)"
+        case .balls(let samples, let spread, let drift):
+            "balls (\(samples) samples, \(spread) mm spread, "
+                + (drift.map { "\($0) mm drift" } ?? "still settling") + ")"
+        case .pocketGeometry(let spans, let residual):
+            "pocket geometry (\(spans) spans, \(residual) mm rms)"
         case .detectedPlane: "detected plane"
         case .unconstrained: "unconstrained"
         }
@@ -98,15 +139,25 @@ public enum CalibrationRefinement: Sendable {
         /// the calibration. Silently yanking a locked table 20 cm because
         /// the detector had a bad minute is worse than leaving it.
         public var maximumCorrection: Double
+        /// Millimetres of recent movement in the estimate, above which it
+        /// is not something to refine TOWARDS.
+        ///
+        /// Refining to a moving target is worse than not refining at all:
+        /// each correction re-derives the corners, so the quad visibly
+        /// walks across the cloth chasing an answer that has not arrived.
+        /// That is what "the lines move when I change the angle" was.
+        public var maximumDrift: Int
 
         public init(minimumSamples: Int = 8,
                     maximumSpread: Int = 30,
                     minimumCorrection: Double = 0.005,
-                    maximumCorrection: Double = 0.15) {
+                    maximumCorrection: Double = 0.15,
+                    maximumDrift: Int = 15) {
             self.minimumSamples = minimumSamples
             self.maximumSpread = maximumSpread
             self.minimumCorrection = minimumCorrection
             self.maximumCorrection = maximumCorrection
+            self.maximumDrift = maximumDrift
         }
     }
 
@@ -120,18 +171,29 @@ public enum CalibrationRefinement: Sendable {
         /// The estimate disagrees so violently that it, not the
         /// calibration, is the suspect thing.
         case correctionImplausible(metres: Double)
+        /// The estimate is still converging. Nil drift means there is not
+        /// yet enough history to judge, which is treated the same way:
+        /// wait, rather than act on it.
+        case stillSettling(driftMillimetres: Int?)
     }
 
     public static func decide(lockedHeight: Double,
                               samples: Int,
                               spreadMillimetres: Int,
                               estimatedHeight: Double,
+                              driftMillimetres: Int?,
                               config: Config = Config()) -> Decision {
         guard samples >= config.minimumSamples else {
             return .estimateTooThin(samples: samples)
         }
         guard spreadMillimetres <= config.maximumSpread else {
             return .estimateTooScattered(spreadMillimetres: spreadMillimetres)
+        }
+        // BEFORE the correction is even computed, because a correction
+        // measured against a moving estimate is not a correction. Nil is
+        // "too early to tell" and is refused for the same reason.
+        guard let driftMillimetres, driftMillimetres <= config.maximumDrift else {
+            return .stillSettling(driftMillimetres: driftMillimetres)
         }
         let correction = estimatedHeight - lockedHeight
         let magnitude = abs(correction)

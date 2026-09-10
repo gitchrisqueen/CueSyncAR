@@ -33,6 +33,39 @@ final class CalibrationPlacement {
     /// across the table when the device changes angle.
     @ObservationIgnored private(set) var cornerRays: [TapRay] = []
 
+    /// The recent history of the cloth-height estimate, so the app can
+    /// tell "measured" from "still moving". Kept here rather than in
+    /// SessionModel because it belongs to the same concern as the height
+    /// itself, and SessionModel has no room.
+    @ObservationIgnored private var heightHistory = ClothHeightHistory()
+
+    /// Note what the estimator says right now. Called on every estimate,
+    /// not only when one is used, because drift is a property of the
+    /// estimate over time and cannot be reconstructed after the fact.
+    func recordHeightEstimate(_ height: Double, at time: TimeInterval) {
+        heightHistory.record(height: height, at: time)
+    }
+
+    /// Millimetres the estimate has moved lately, or nil if it is too
+    /// early to say.
+    var heightDriftMillimetres: Int? { heightHistory.driftMillimetres }
+
+    /// Where the last probed view point landed on the cloth, in world
+    /// metres, or why it did not land.
+    ///
+    /// The calibration paths take view points and hand back a fitted
+    /// table, with everything in between invisible. When the fit is wrong
+    /// that leaves nothing to look at: a refusal cannot say whether the
+    /// taps were in the wrong PLACE or against the wrong PLANE, and from
+    /// off-device there is no way to find out, because `/frame.jpg` is an
+    /// ARView snapshot with no overlay in it. This is that one step made
+    /// readable — one view point in, one world point out — so the geometry
+    /// can be measured instead of guessed at. It is how the 114 mm cloth
+    /// error was found.
+    private(set) var lastProbe: String?
+
+    func noteProbe(_ text: String) { lastProbe = text }
+
     /// The cloth height every corner in the current flow was placed
     /// against, frozen at the first tap.
     ///

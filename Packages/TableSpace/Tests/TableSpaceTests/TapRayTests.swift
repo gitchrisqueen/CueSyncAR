@@ -12,25 +12,25 @@ import Testing
 struct TapRayTests {
 
     @Test("A ray meets the plane it was aimed at")
-    func hitsThePlane() {
+    func hitsThePlane() throws {
         let ray = TapRay(origin: Vec3(0, 0, 0), direction: Vec3(0, -1, 0))
-        let hit = try? #require(ray.intersect(planeHeight: -0.533))
-        #expect(abs((hit?.y ?? 0) - (-0.533)) < 1e-9)
+        let hit = try #require(ray.intersect(planeHeight: -0.533))
+        #expect(abs(hit.y - (-0.533)) < 1e-9)
     }
 
     @Test("The SAME ray at a corrected height lands somewhere else — the point of storing it")
-    func reintersectingMovesTheCorner() {
+    func reintersectingMovesTheCorner() throws {
         // A tap taken at a slant. The whole reason to keep the ray is that
         // correcting the height moves the corner in x and z too, not only
         // in y — so translating a locked table vertically would NOT fix a
         // wrong plane.
         let ray = TapRay(origin: Vec3(0, 0, 0), direction: Vec3(0.5, -1, 0.3))
-        let wrong = try? #require(ray.intersect(planeHeight: -0.40))
-        let right = try? #require(ray.intersect(planeHeight: -0.533))
-        #expect(abs((right?.y ?? 0) - (-0.533)) < 1e-9)
-        #expect(abs((right?.x ?? 0) - (wrong?.x ?? 0)) > 0.05,
+        let wrong = try #require(ray.intersect(planeHeight: -0.40))
+        let right = try #require(ray.intersect(planeHeight: -0.533))
+        #expect(abs(right.y - (-0.533)) < 1e-9)
+        #expect(abs(right.x - wrong.x) > 0.05,
                 "correcting the height must move the corner horizontally too")
-        #expect(abs((right?.z ?? 0) - (wrong?.z ?? 0)) > 0.03)
+        #expect(abs(right.z - wrong.z) > 0.03)
     }
 
     @Test("A grazing ray has no honest answer")

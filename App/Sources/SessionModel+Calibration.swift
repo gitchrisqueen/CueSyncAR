@@ -340,8 +340,23 @@ extension SessionModel {
         // told what the geometry already proved. The hand flow keeps its
         // stricter gate: a person holding the device can simply move it,
         // and the "hold still" advice is right for them.
+        // A PROVISIONAL HEIGHT IS ENOUGH TO PLACE A CORNER, and refusing
+        // without one was a dead end for the setup this path exists for.
+        //
+        // A device parked beside the table gives ARKit no parallax, so no
+        // plane is ever detected; with no balls out there is no ball
+        // height either, and every tap was then refused with "corner
+        // missed the table plane" — on a table filling the frame. But a
+        // tap is a RAY, and the ray does not depend on the height at all.
+        // The height only decides where along it the corner sits, and
+        // once four are in, `refineCalibrationHeightIfBetter` solves that
+        // exactly from the four rays and the table size. So start
+        // anywhere plausible and let the geometry correct it.
+        let provisional = planeHeight
+            ?? estimateClothPlane()?.height
+            ?? coordinator.worldRay(through: point).map { $0.origin.y - 0.5 }
         guard let world = coordinator.raycastHorizontalPlane(
-            screenPoint: point, fallbackPlaneHeight: planeHeight) else {
+            screenPoint: point, fallbackPlaneHeight: provisional) else {
             showRemoteFeedback("Corner missed the table plane at \(Int(point.x)), \(Int(point.y))")
             return false
         }
@@ -353,8 +368,18 @@ extension SessionModel {
         if pendingCorners.isEmpty {
             coordinator.placeCalibrationAnchor(at: world)
             setCornerAnchorBase(world)
+            beginCornerPlacement(height: provisional,
+                                 source: planeHeight != nil ? .detectedPlane : .unconstrained)
         }
+        // KEEP THE RAY. Without it the corner is frozen at whatever height
+        // was current when it was tapped, and the solve that fixes that
+        // height has nothing to work from. The in-app path already did
+        // this; the remote one did not, which is why the remote route
+        // could never be tightened afterwards.
+        if let ray = coordinator.worldRay(through: point) { recordCornerRay(ray) }
         placeCorner(world, planeNormal: coordinator.horizontalPlaneNormal())
+        // With four rays in hand the height stops being a guess.
+        if pendingCorners.count == 4 { refineCalibrationHeightIfBetter() }
         Self.log.info("remote corner \(self.pendingCorners.count) at (\(Int(point.x)), \(Int(point.y)))")
         return true
     }
@@ -634,6 +659,8 @@ extension SessionModel {
                                planeHeight: params["h"].flatMap(Double.init))
         case "calibrateFromPockets":
             return handlePocketCalibrationCommand(params)
+        case "probe":
+            return handleProbeCommand(params)
         case "calibrateFromBalls":
             let n = ["ax", "ay", "bx", "by", "tx", "ty"].compactMap { params[$0].flatMap(Double.init) }
             guard n.count == 6 else { return false }
@@ -673,9 +700,15 @@ extension SessionModel {
         guard let plane = estimateClothPlane() else {
             return (nil, .unconstrained)
         }
+        // Record BEFORE reading the drift, so the reading includes the
+        // estimate being reported. Every call feeds the history; that is
+        // what makes the drift a property of the estimator rather than of
+        // whoever happened to ask.
+        placement.recordHeightEstimate(plane.height, at: ProcessInfo.processInfo.systemUptime)
         return (plane.height,
                 .balls(samples: plane.sampleCount,
-                       spreadMillimetres: Int((plane.spread * 1000).rounded())))
+                       spreadMillimetres: Int((plane.spread * 1000).rounded()),
+                       driftMillimetres: placement.heightDriftMillimetres))
     }
 
     /// Re-derive the corners at a better-measured cloth height.
@@ -684,19 +717,54 @@ extension SessionModel {
     /// points, because the correction is along each ray, not straight up.
     @discardableResult
     func refineCalibrationHeightIfBetter() -> Bool {
-        guard !placement.cornerRays.isEmpty, let locked = placement.clothHeight,
-              let plane = estimateClothPlane() else { return false }
-        let decision = CalibrationRefinement.decide(
-            lockedHeight: locked,
-            samples: plane.sampleCount,
-            spreadMillimetres: Int((plane.spread * 1000).rounded()),
-            estimatedHeight: plane.height)
-        guard case let .refine(to, correction) = decision else { return false }
+        guard !placement.cornerRays.isEmpty, let locked = placement.clothHeight
+        else { return false }
+
+        // THE CORNERS THEMSELVES ARE THE BEST MEASUREMENT, so try them
+        // before falling back to the balls.
+        //
+        // Four taps and a chosen table size determine the plane: rays from
+        // one place fan out, and only one depth cuts a 2.34 m by 1.17 m
+        // rectangle out of them. It needs no balls, cannot drift, and
+        // comes with a residual that says whether to believe it. On the
+        // owner's table it closed to 7 mm while the ball estimate was
+        // 158 mm out in the same session.
+        let target: (height: Double, source: CalibrationHeightSource)?
+        if let solved = try? PocketCalibration.solveHeightForCorners(
+            rays: placement.cornerRays, size: calibration.preferredSize ?? .eightFoot),
+           solved.residual <= 0.03 {
+            target = (solved.height,
+                      .pocketGeometry(spans: solved.spanCount,
+                                      residualMillimetres: Int((solved.residual * 1000).rounded())))
+        } else if let plane = estimateClothPlane() {
+            // Only when the taps cannot answer: four corners that do not
+            // make a rectangle of that size mean a mis-tap or the wrong
+            // size setting, and the balls are then the only thing left.
+            let decision = CalibrationRefinement.decide(
+                lockedHeight: locked,
+                samples: plane.sampleCount,
+                spreadMillimetres: Int((plane.spread * 1000).rounded()),
+                estimatedHeight: plane.height,
+                driftMillimetres: placement.heightDriftMillimetres)
+            guard case .refine = decision else { return false }
+            target = (plane.height,
+                      .balls(samples: plane.sampleCount,
+                             spreadMillimetres: Int((plane.spread * 1000).rounded()),
+                             driftMillimetres: placement.heightDriftMillimetres))
+        } else {
+            target = nil
+        }
+        guard let target else { return false }
+        let correction = target.height - locked
+        // Still worth doing? The churn and implausibility bars apply
+        // whichever source won.
+        let config = CalibrationRefinement.Config()
+        guard abs(correction) >= config.minimumCorrection,
+              abs(correction) <= config.maximumCorrection else { return false }
+        let to = target.height
         guard let corners = placement.corners(atHeight: to) else { return false }
 
-        placement.adopt(height: to, source: .balls(
-            samples: plane.sampleCount,
-            spreadMillimetres: Int((plane.spread * 1000).rounded())))
+        placement.adopt(height: to, source: target.source)
         // ONLY while adjusting, and deliberately not once locked.
         //
         // Refining a locked table means re-deriving it and restarting the
@@ -727,10 +795,12 @@ extension SessionModel {
         Self.log.notice("""
             calibration refined: cloth \(locked, privacy: .public) -> \
             \(to, privacy: .public) (\(Int(correction * 1000), privacy: .public) mm, \
-            \(plane.sampleCount, privacy: .public) samples)
+            \(target.source.summary, privacy: .public))
             """)
-        showTapFeedback(String(format: "Table tightened %+.0f mm from %d balls",
-                               correction * 1000, plane.sampleCount))
+        // Name the SOURCE, because "from 30 balls" was reassuring and,
+        // as it turned out, the least reliable part of the sentence.
+        showTapFeedback(String(format: "Table tightened %+.0f mm — %@",
+                               correction * 1000, target.source.summary))
         return true
     }
 }

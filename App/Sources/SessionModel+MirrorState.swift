@@ -38,6 +38,8 @@ extension SessionModel {
             "rootTapCount": rootTapCount,
             "tapCatcherMounted": tapCatcherMounted,
             "lastTapNote": lastTapNote ?? "",
+            // See SessionModel.lastProbe — the unprojection made readable.
+            "lastProbe": placement.lastProbe ?? "",
 
             "aimSource": String(describing: aimSource),
             "calledShotOnLine": calledShotOnLine,
