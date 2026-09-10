@@ -41,8 +41,19 @@ for manifest in "$ROOT"/Packages/*/Package.swift; do
   pct="$(awk -v c="$covered" -v n="$count" 'BEGIN{ if (n==0) print "0.0"; else printf "%.1f", c*100/n }')"
   floor="$(jq -r --arg n "$name" '.floors[$n] // empty' "$FLOORS" 2>/dev/null || true)"
   verdict="-"
-  if [ "$CHECK" = 1 ] && [ -n "$floor" ]; then
-    if awk -v p="$pct" -v f="$floor" 'BEGIN{exit !(p+0 < f+0)}'; then verdict="BELOW FLOOR $floor"; status=1; else verdict="ok (floor $floor)"; fi
+  if [ "$CHECK" = 1 ]; then
+    if [ -z "$floor" ]; then
+      # A package with no floor entry used to leave verdict="-", leave
+      # `status` untouched, and exit 0 — so anything added to Packages/ was
+      # exempt from the gate by default, silently, with the ratchet policy
+      # in the floors file enforced only by whoever happened to read the PR.
+      echo "no floor for $name in $FLOORS — add one (see the note field)" >&2
+      verdict="NO FLOOR"; status=1
+    elif awk -v p="$pct" -v f="$floor" 'BEGIN{exit !(p+0 < f+0)}'; then
+      verdict="BELOW FLOOR $floor"; status=1
+    else
+      verdict="ok (floor $floor)"
+    fi
   fi
   rows+=("$(printf '%-20s %6s%%  %5s/%-5s  %s' "$name" "$pct" "$covered" "$count" "$verdict")")
   if [ -n "$LCOV" ]; then
