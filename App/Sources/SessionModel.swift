@@ -253,6 +253,13 @@ final class SessionModel {
 
     func resetFrameHealth() { health.reset() }
 
+    /// Pocket sighting (C2b): which pockets the user has tapped, and which
+    /// one the next tap means. Stored here because `@Observable` only
+    /// instruments the class body.
+    var pocketFlow = PocketSightingFlow()
+    var pocketSightingActive = false
+    var armedPocket: PocketID?
+
     /// Start the calibration stopwatch. Restarting calibration restarts it.
     func noteCalibrationStarted() {
         calibrationStartedAt = clock()

@@ -80,6 +80,20 @@ struct CalibrationOverlayView: View {
         Color.clear
             .contentShape(Rectangle())
             .onTapGesture(coordinateSpace: .local) { location in
+                // Sighting pockets is a different question being asked of
+                // the same taps: "which hole is that", not "where is the
+                // corner". The raycast still has to succeed, so the guards
+                // below apply either way — but the tap means something else.
+                if model.pocketSightingActive {
+                    guard coordinator.raycastHorizontalPlane(
+                        screenPoint: location,
+                        fallbackPlaneHeight: cornerPlaneHeight) != nil else {
+                        model.showTapFeedback(model.trackingCondition.missedTapAdvice)
+                        return
+                    }
+                    model.notePocketTap(at: location)
+                    return
+                }
                 // Both guards below used to drop the touch in silence, which
                 // is the one thing the project forbids — and the second one
                 // fires for a REASON the user can act on. While ARKit
@@ -228,6 +242,8 @@ struct CalibrationOverlayView: View {
                     .foregroundStyle(.white)
                     .accessibilityLabel("Measured table size")
             }
+            if model.pocketSightingActive { pocketSightingControls }
+
             HUDBar {
                 Button("Cancel", systemImage: "xmark") {
                     coordinator.removeCalibrationAnchor()
@@ -245,6 +261,18 @@ struct CalibrationOverlayView: View {
                     .accessibilityLabel("Restart corner placement")
                 }
 
+                if !isAdjusting && !model.pocketSightingActive {
+                    // The way out of a flow that asks for a line the user
+                    // cannot see. On cloth-wrapped cushions the nose is
+                    // invisible; a pocket is not.
+                    Button("Use pockets", systemImage: "circle.circle") {
+                        model.beginPocketSighting()
+                    }
+                    .labelStyle(.titleAndIcon)
+                    .font(.footnote.weight(.semibold))
+                    .accessibilityIdentifier("calibration-use-pockets")
+                }
+
                 if isAdjusting {
                     Button {
                         lockTapped()
@@ -257,6 +285,82 @@ struct CalibrationOverlayView: View {
                     .accessibilityIdentifier("calibration-lock")
                 }
             }
+        }
+    }
+
+    /// Name the pocket, then tap it. The user says which hole it is rather
+    /// than the app inferring it from position — inferring is what a
+    /// confidently wrong table looks like, and a person at the table knows
+    /// which hole is which without being told.
+    @ViewBuilder
+    private var pocketSightingControls: some View {
+        let sighted = Set(model.pocketFlow.sightings.map(\.pocket))
+        VStack(spacing: 8) {
+            Text(model.pocketFlow.prompt)
+                .font(.caption.weight(.medium))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(.ultraThinMaterial, in: Capsule())
+                .foregroundStyle(.white)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(PocketID.allCases, id: \.self) { pocket in
+                        Button(Self.pocketLabel(pocket)) { model.armPocket(pocket) }
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(sighted.contains(pocket) ? feltGreen
+                                        : (model.armedPocket == pocket ? .white.opacity(0.35)
+                                           : .black.opacity(0.35)),
+                                        in: Capsule())
+                            .foregroundStyle(.white)
+                    }
+                }
+                .padding(.horizontal, 12)
+            }
+
+            HUDBar {
+                Button("Undo", systemImage: "arrow.uturn.backward") {
+                    model.undoPocketSighting()
+                }
+                .labelStyle(.iconOnly)
+                .accessibilityLabel("Undo last pocket")
+
+                Button("Back to corners", systemImage: "xmark") {
+                    model.cancelPocketSighting()
+                }
+                .labelStyle(.iconOnly)
+                .accessibilityLabel("Back to corner taps")
+
+                Button {
+                    // Same precedence the corner flow uses: an explicit
+                    // Settings override, else the last table this device
+                    // locked, else the commonest size.
+                    model.commitPocketSighting(
+                        size: model.settings.tableSize.override
+                            ?? CalibrationStore.loadTableSpec() ?? .eightFoot)
+                } label: {
+                    Label("Find my table", systemImage: "sparkle.magnifyingglass")
+                        .font(.footnote.weight(.semibold))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(feltGreen)
+                .disabled(!model.pocketFlow.canSolve)
+                .accessibilityIdentifier("calibration-find-table")
+            }
+        }
+    }
+
+    /// Pocket names a person would use standing at the table.
+    static func pocketLabel(_ pocket: PocketID) -> String {
+        switch pocket {
+        case .cornerTopLeft: "Top-left"
+        case .cornerTopRight: "Top-right"
+        case .cornerBottomLeft: "Bottom-left"
+        case .cornerBottomRight: "Bottom-right"
+        case .sideTop: "Side top"
+        case .sideBottom: "Side bottom"
         }
     }
 
