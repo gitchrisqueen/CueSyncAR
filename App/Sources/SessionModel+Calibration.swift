@@ -152,8 +152,21 @@ extension SessionModel {
     /// returning visit relocalizes straight to Ready.
     func persistCalibration(_ locked: TableCalibration, anchorTransform: Transform3D) {
         lockAnchorTransform = anchorTransform
-        CalibrationStore.save(AnchoredCalibration(calibration: locked,
-                                                  anchorTransform: anchorTransform))
+        let outcome = CalibrationStore.save(
+            AnchoredCalibration(calibration: locked, anchorTransform: anchorTransform))
+        // SAY SO WHEN IT WAS NOT SAVED. The table works for this session
+        // either way, so a silent `.full` would look exactly like success
+        // until the user came back tomorrow and found nothing remembered.
+        switch outcome {
+        case .full:
+            showTapFeedback("Calibrated, but not remembered — you already have "
+                            + "\(SavedTableIndex.capacity) saved tables. "
+                            + "Delete one in Settings.")
+        case .added(let table):
+            Self.log.notice("saved a new table \(table.name, privacy: .public)")
+        case .updated(let table):
+            Self.log.notice("updated saved table \(table.name, privacy: .public)")
+        }
     }
 
     /// A saved venue relocalized — jump to locked (unless the user already

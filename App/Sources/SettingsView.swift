@@ -17,6 +17,7 @@ import CueSyncCore
 import CueSyncUI
 import Foundation
 import SwiftUI
+import TableSpace
 
 struct SettingsView: View {
     @Environment(SessionModel.self) private var model
@@ -37,10 +38,16 @@ struct SettingsView: View {
 
     @State private var developerMode = DeveloperMode.shared
 
+    /// Snapshotted rather than computed: reading the store migrates on
+    /// first call, and a Form body re-evaluates constantly.
+    @State private var savedTables: [SavedTable] = []
+    @State private var activeTableID: UUID?
+
     var body: some View {
         NavigationStack {
             Form {
                 tableSection
+                savedTablesSection
                 detectionSection
                 computeSection
                 guidesSection
@@ -50,7 +57,10 @@ struct SettingsView: View {
                 aboutSection
                 if developerMode.isUnlocked { developerSection }
             }
-            .task { refreshComputeSnapshot() }
+            .task {
+                refreshComputeSnapshot()
+                reloadSavedTables()
+            }
             .navigationTitle("Settings")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -83,6 +93,61 @@ struct SettingsView: View {
                 force it — takes effect the next time you calibrate.
                 """)
         }
+    }
+
+    /// The tables the app remembers, so a second venue is visible rather
+    /// than a thing that happened to the first one.
+    ///
+    /// Read once into state: `CalibrationStore.tables()` migrates on its
+    /// first call, and a computed property in a Form body would run it on
+    /// every layout pass.
+    @ViewBuilder
+    private var savedTablesSection: some View {
+        if !savedTables.isEmpty {
+            Section {
+                ForEach(savedTables) { table in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(table.name)
+                            Text(Self.describe(table))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if table.id == activeTableID {
+                            Text("In use")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .accessibilityIdentifier("saved-table-row")
+                }
+                .onDelete { offsets in
+                    for index in offsets { CalibrationStore.remove(id: savedTables[index].id) }
+                    reloadSavedTables()
+                }
+            } header: {
+                Text("Saved tables")
+            } footer: {
+                Text(savedTables.count >= SavedTableIndex.capacity
+                     ? "This is as many tables as the app keeps. Delete one to "
+                       + "make room before calibrating somewhere new."
+                     : "Each table keeps its own map of the room. Swipe to delete "
+                       + "one you no longer play on.")
+            }
+        }
+    }
+
+    private static func describe(_ table: SavedTable) -> String {
+        let field = table.size.playField
+        return String(format: "%.2f × %.2f m · last used %@",
+                      field.width, field.height,
+                      table.lastUsed.formatted(date: .abbreviated, time: .omitted))
+    }
+
+    private func reloadSavedTables() {
+        savedTables = CalibrationStore.tables().byMostRecentlyUsed
+        activeTableID = CalibrationStore.activeTableID
     }
 
     private var detectionSection: some View {
