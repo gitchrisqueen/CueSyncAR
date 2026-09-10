@@ -47,8 +47,18 @@ value is.
   rest→rest teleport with zero mid-flight samples. This is a *documented
   negative result*, and Phase F's whole architecture is built around it
   (score from rest transitions, never from seeing the ball move).
-- **The cue ball is identified in only 41 % of frames.** This is the
-  binding constraint on shot detection, not the shot detector itself.
+- **The cue ball is identified in only 41 % of frames** on the aiming
+  recording — and in **0 % of 1301 frames** on a five-minute play session
+  recorded with a *measle* (dotted) practice cue ball, which the model
+  classifies as an object ball. That session produced **no aim line at
+  all**, with the stick visible 90 % of the time and a pocket called.
+  Swapping a plain cue ball for a dotted one takes identification from
+  55–99 % to zero. The app says the right thing throughout ("Place the cue
+  ball — or tap a ball to mark it") and one tap fixes it, but nobody taps
+  it while holding a cue. See
+  `docs/validation/2026-09-10-play-session-no-cue-ball.md` — this is the
+  likeliest way a first demo fails, and it is the binding constraint on
+  shot detection too.
 - **Guide availability is 42 % of aimed frames.** The aim line is off
   screen more often than on. Nothing gates on it. `StabilityReport.swift`
   already computes the number.
@@ -238,6 +248,20 @@ swift test --package-path Packages/TableSpace
 
 CI must stay green: package tests on Linux and macOS, SwiftLint, gitleaks,
 an iOS Simulator build, and the golden replay.
+
+### Recordings
+
+They **never expire and never overwrite each other.** Bundle ids come from
+the clock (`device-<UTC timestamp>`), there is no purge path anywhere in
+the recorder, and they accumulate in `Documents/Sessions/` until deleted
+by hand. One device was carrying 11 bundles and 955 MB. The only guards
+are at the start: it refuses to record with under 400 MB free, and caps
+one recording at 5 minutes (~225 MB).
+
+**Nothing records audio.** No microphone capture anywhere in the app, no
+usage-description key, and the video has a single H.264 video stream.
+Spoken commentary during a recording is not captured, and neither is the
+app's own spoken guidance.
 
 ### Iterating without a table
 
