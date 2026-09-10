@@ -166,7 +166,8 @@ private let scriptedGenerators: [ScriptedGenerator] = [
 
 private let fixturesSubdirectory = "Fixtures/Sessions"
 
-private func fixtureDirectory(for name: String) throws -> URL {
+// Internal, not private: SnapshotReprojectionTests loads the same fixtures.
+func fixtureDirectory(for name: String) throws -> URL {
     let root = try #require(Bundle.module.resourceURL,
                             "test bundle has no resources — check Package.swift")
     return root.appendingPathComponent(fixturesSubdirectory).appendingPathComponent(name)

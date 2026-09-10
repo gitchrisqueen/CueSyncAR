@@ -19,6 +19,32 @@ import TableSpace
 import os
 #endif
 
+/// What the playing-surface gate did to one frame.
+///
+/// These three numbers were already computed every frame and thrown away
+/// into a log line every fortieth frame. They are the offline proxy the
+/// device checklist names for row 7 ("nothing renders past the cushion
+/// nose"), which could not be scored without them — a log is not a
+/// measurement, and nobody can read one from a table.
+public struct SurfaceGateCounts: Sendable, Equatable, Codable {
+    /// Projected outside the admit band entirely: reflections, balls on a
+    /// shelf, bad unprojections. Never seeded a track.
+    public var rejected: Int
+    /// Admitted within the calibration-error band and pulled back onto the
+    /// envelope — a ball resting against a cushion draws on the rail.
+    public var clamped: Int
+    /// Tracks that WERE outside the surface this frame and so were kept out
+    /// of `TableState`. Suppressed, not retired: retiring would lose the
+    /// ball's identity over a transient wobble.
+    public var suppressed: Int
+
+    public init(rejected: Int = 0, clamped: Int = 0, suppressed: Int = 0) {
+        self.rejected = rejected
+        self.clamped = clamped
+        self.suppressed = suppressed
+    }
+}
+
 /// One processed frame's worth of perception: the coherent ball state plus
 /// auxiliary (non-ball) observations like the cue stick's footprint.
 public struct PerceptionOutput: Sendable {
@@ -56,13 +82,16 @@ public struct PerceptionOutput: Sendable {
     /// no readable pixels. The HUD uses it to decide whether "more light
     /// would help" is a measurement or a guess.
     public var luminance: Double?
+    /// What the playing-surface gate did to this frame.
+    public var surfaceGate: SurfaceGateCounts
 
     public init(state: TableState, stickQuad: [Vec2]? = nil,
                 detectionLabels: [String] = [],
                 appearances: [BallID: AppearanceObservation] = [:],
                 detections: [Detection2D] = [],
                 pose: CapturedFrame? = nil,
-                luminance: Double? = nil) {
+                luminance: Double? = nil,
+                surfaceGate: SurfaceGateCounts = SurfaceGateCounts()) {
         self.state = state
         self.stickQuad = stickQuad
         self.detectionLabels = detectionLabels
@@ -70,6 +99,7 @@ public struct PerceptionOutput: Sendable {
         self.detections = detections
         self.pose = pose
         self.luminance = luminance
+        self.surfaceGate = surfaceGate
     }
 }
 
@@ -288,6 +318,7 @@ public actor PerceptionPipeline {
             // observations within a few frames or, unfed and in view,
             // retires through the tracker's own visible-miss grace.
             let balls = tracked.filter { surface.contains($0.position) }
+            let suppressed = tracked.count - balls.count
             if balls.count != tracked.count {
                 suppressedCount += 1
                 #if canImport(os)
@@ -344,7 +375,10 @@ public actor PerceptionPipeline {
                                     pose: CapturedFrame(timestamp: frame.timestamp,
                                                         cameraTransform: frame.cameraTransform,
                                                         intrinsics: frame.intrinsics),
-                                    luminance: luminance(of: frame))
+                                    luminance: luminance(of: frame),
+                                    surfaceGate: SurfaceGateCounts(rejected: rejected,
+                                                                   clamped: clamped,
+                                                                   suppressed: suppressed))
         } catch {
             // A failed frame is dropped; the previous state stands — but
             // NEVER silently: a permanently-failing detector looks like

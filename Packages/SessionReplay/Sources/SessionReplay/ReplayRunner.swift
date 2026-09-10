@@ -165,7 +165,8 @@ public struct ReplayRunner: Sendable {
                 calledPocket: session.calledPocket?.rawValue,
                 calledShotOnLine: onLine,
                 aimSourceRun: sourceRun,
-                strips: strips))
+                strips: strips,
+                surfaceGate: output.surfaceGate))
         }
         return ReplayResult(outputs: outputs, droppedFrames: dropped,
                             outputsText: SessionBundleWriter.outputsText(outputs))

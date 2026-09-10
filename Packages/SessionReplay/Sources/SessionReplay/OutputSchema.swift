@@ -12,6 +12,7 @@
 import ARExperience
 import CueSyncCore
 import Foundation
+import PerceptionKit
 
 // MARK: - Outputs (the golden)
 
@@ -237,12 +238,19 @@ public struct OutputRecord: Sendable, Equatable, Codable {
     /// which replay previously stopped short of. Without it "the strips
     /// drawn are the strips solved" was unverifiable offline.
     public var strips: [OutputStrip]?
+    /// What the playing-surface gate did this frame: how many projected
+    /// detections landed outside the cloth entirely, how many were pulled
+    /// back onto the envelope, and how many tracks were kept out of the
+    /// reported state. Device-checklist row 7 names these as its offline
+    /// proxy; until now they existed only in a log line.
+    public var surfaceGate: SurfaceGateCounts
 
     public init(frame: Int, timestamp: TimeInterval, balls: [OutputBall],
                 stick: [[Double]]?, labels: [String], aim: OutputAim?,
                 prediction: OutputPrediction?, planChanged: Bool,
                 calledPocket: String?, calledShotOnLine: Bool,
-                aimSourceRun: Int = 0, strips: [OutputStrip]? = nil) {
+                aimSourceRun: Int = 0, strips: [OutputStrip]? = nil,
+                surfaceGate: SurfaceGateCounts = SurfaceGateCounts()) {
         self.frame = frame
         self.timestamp = timestamp
         self.balls = balls
@@ -255,6 +263,7 @@ public struct OutputRecord: Sendable, Equatable, Codable {
         self.calledShotOnLine = calledShotOnLine
         self.aimSourceRun = aimSourceRun
         self.strips = strips
+        self.surfaceGate = surfaceGate
     }
 
     func canonical() -> JSONValue {
@@ -270,7 +279,12 @@ public struct OutputRecord: Sendable, Equatable, Codable {
             "calledPocket": .optional(calledPocket.map(JSONValue.string)),
             "calledShotOnLine": .bool(calledShotOnLine),
             "aimSourceRun": .int(aimSourceRun),
-            "strips": .optional(strips.map { .array($0.map { $0.canonical() }) })
+            "strips": .optional(strips.map { .array($0.map { $0.canonical() }) }),
+            "surfaceGate": .object([
+                "rejected": .int(surfaceGate.rejected),
+                "clamped": .int(surfaceGate.clamped),
+                "suppressed": .int(surfaceGate.suppressed)
+            ])
         ])
     }
 }
