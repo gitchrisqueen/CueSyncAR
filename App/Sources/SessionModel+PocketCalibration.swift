@@ -102,6 +102,26 @@ extension SessionModel {
                 solution = try PocketCalibration.solve(placed, size: size,
                                                        planeNormal: normal, towards: hint)
             }
+            // REFUSE A BAD FIT INSTEAD OF PROPOSING IT.
+            //
+            // A rigid fit always returns a table -- that is why the solver
+            // reports a residual at all. Observed on device: two pockets
+            // sighted from 3-4 m away produced "fit 429 mm rms", a table 43
+            // cm out, and the old code proposed it anyway, leaving the user
+            // looking at a wrong quad with no explanation.
+            //
+            // The cause is not the solver. The pocket unprojection is only
+            // as good as the cloth height it is cast against, and the cloth
+            // estimator's precision falls off with range.
+            guard solution.residual <= Self.pocketFitLimit else {
+                let refusal = String(
+                    format: "Fit is %.0f cm out - stand closer, or sight a third "
+                        + "pocket. (%d sighted, cloth y=%.3f)",
+                    solution.residual * 100, placed.count, height)
+                showRemoteFeedback(refusal)
+                notePocketFit(refusal)
+                return false
+            }
             // Propose, do not restore. `.cornersProposed` only fires from
             // `.planeFound`, so the reset has to walk back through it.
             // `preferredSize` is set FIRST because `.lockRequested`
@@ -131,6 +151,15 @@ extension SessionModel {
                 // Leave it in `.adjusting` with the overlay up: four
                 // draggable handles over a table the solver already found,
                 // which is the correction step the old route skipped.
+                // CHECK that the propose actually landed. The transition
+                // walks three events, and if any is refused the user is left
+                // staring at an unchanged screen with a success toast --
+                // which is what "Find my table does not work" looked like.
+                guard case .adjusting = calibration.state else {
+                    showRemoteFeedback("The fit did not take - the flow was not "
+                                       + "ready. Tap Set up table first.")
+                    return false
+                }
                 calibrationVisible = true
             }
             // The residual is the whole point of reporting rather than
@@ -230,6 +259,11 @@ extension SessionModel {
 
 extension SessionModel {
 
+    /// Worst rigid-fit residual worth proposing, metres. A pocket mouth is
+    /// about 7 cm across, so a fit worse than that is placing pockets
+    /// outside the holes they were sighted on.
+    static let pocketFitLimit = 0.07
+
     /// Enter pocket-sighting mode.
     func beginPocketSighting() {
         pocketFlow.reset()
@@ -254,19 +288,26 @@ extension SessionModel {
     /// A tap on the cloth while sighting.
     func notePocketTap(at screen: CGPoint) {
         guard pocketSightingActive else { return }
-        if pocketFlow.readiness == .needTowardsPoint || pocketFlow.canSolve,
-           pocketFlow.towards == nil, armedPocket == nil {
+        // Once the solver only wants a side, the next tap IS the side —
+        // regardless of which chip happens to be armed. Requiring the chip
+        // to be cleared first meant the flow could sit waiting for a tap it
+        // was already being given.
+        if pocketFlow.readiness == .needTowardsPoint, pocketFlow.towards == nil {
             pocketFlow.setTowards(Vec2(screen.x, screen.y))
             showTapFeedback(pocketFlow.prompt)
             return
         }
-        guard let pocket = armedPocket else { return }
+        // No chip armed and nothing left to sight: a stray tap should say
+        // what it wanted rather than vanish.
+        guard let pocket = armedPocket else {
+            showTapFeedback(pocketFlow.prompt)
+            return
+        }
         pocketFlow.sight(pocket, at: Vec2(screen.x, screen.y))
         // Advance to the next unsighted pocket so the common case is
         // tap-tap-tap without touching the picker.
         let sighted = Set(pocketFlow.sightings.map(\.pocket))
         armedPocket = PocketID.allCases.first { !sighted.contains($0) }
-        if pocketFlow.readiness == .needTowardsPoint { armedPocket = nil }
         showTapFeedback(pocketFlow.prompt)
     }
 

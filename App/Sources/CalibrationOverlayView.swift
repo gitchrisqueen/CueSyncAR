@@ -75,6 +75,7 @@ struct CalibrationOverlayView: View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { _ in
             ZStack {
                 tapCatcher
+                derivedPockets
                 cornerGraphics
             }
         }
@@ -179,6 +180,42 @@ struct CalibrationOverlayView: View {
             points: displayCorners.map { coordinator.projectToScreen($0) })
     }
 
+    /// The table the current corners imply, or nil while they do not make
+    /// one. Used to draw the DERIVED pockets back onto the cloth.
+    private var candidateCalibration: TableCalibration? {
+        let corners = displayCorners
+        guard corners.count == 4 else { return nil }
+        return try? TableCalibration.fromCorners(
+            corners, preferredSize: model.calibration.preferredSize)
+    }
+
+    /// Where the solved table says its six pockets are.
+    ///
+    /// THIS IS THE CHECK THAT MATTERS. Everything downstream — pocket
+    /// positions, cushion bounce points, every shot line — is built on this
+    /// calibration, and a rigid fit always returns a table whether or not it
+    /// is the right one. Drawing the pockets it DERIVES back onto the cloth
+    /// lets a person confirm it against holes they can see, using features
+    /// they did not tap. If these rings do not sit in the real pockets, the
+    /// calibration is wrong, whatever the residual says.
+    @ViewBuilder
+    private var derivedPockets: some View {
+        if let calibration = candidateCalibration {
+            let table = Table(size: calibration.size)
+            ForEach(table.pockets, id: \.id) { pocket in
+                if let screen = coordinator.projectToScreen(
+                    calibration.tableToWorld(pocket.position)) {
+                    Circle()
+                        .strokeBorder(feltGreen, lineWidth: 3)
+                        .background(Circle().fill(feltGreen.opacity(0.18)))
+                        .frame(width: 34, height: 34)
+                        .position(screen)
+                        .allowsHitTesting(false)
+                }
+            }
+        }
+    }
+
     @ViewBuilder
     private var cornerGraphics: some View {
         let layout = cornerLayout
@@ -268,6 +305,17 @@ struct CalibrationOverlayView: View {
             // What the height is resting on, and what would improve it.
             // An empty table cannot be calibrated well and should say so
             // rather than silently produce a confident wrong answer.
+            // Say what the rings are for, or they are just decoration.
+            if candidateCalibration != nil {
+                Text("Green rings are where it thinks the pockets are — "
+                     + "they should sit in the real ones")
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .foregroundStyle(.white)
+            }
             if let advice = model.heightSource.advice {
                 Text(advice)
                     .font(.caption)

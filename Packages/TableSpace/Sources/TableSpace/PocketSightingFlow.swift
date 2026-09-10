@@ -135,12 +135,36 @@ public struct PocketSightingFlow: Sendable, Equatable {
         }
     }
 
+    /// How many pockets to insist on before solving.
+    ///
+    /// FOUR, not two. Two is the minimum the solver can work with and it is
+    /// the wrong bar: a rigid fit through two points has zero redundancy, so
+    /// a mis-tapped pocket produces a confidently wrong table and a residual
+    /// of nearly zero to go with it. Measured on device, two pockets sighted
+    /// from across the room fitted 429 mm out.
+    ///
+    /// Four over-determines the fit. The residual then means something --
+    /// it is the disagreement between sightings, which is exactly the signal
+    /// needed to tell a good calibration from a plausible-looking bad one.
+    /// Everything downstream (pocket positions, cushion bounce points, every
+    /// shot line) is built on this, so the extra two taps are cheap.
+    public static let minimumPockets = 4
+
     public var readiness: Readiness {
         switch sightings.count {
-        case 0:
-            return .needMorePockets(have: 0)
+        case 0..<Self.minimumPockets where railHeading == nil:
+            return .needMorePockets(have: sightings.count)
         case 1:
-            guard railHeading != nil else { return .needRailHeading }
+            // ASK FOR ANOTHER POCKET, not a rail.
+            //
+            // The one-pocket-plus-rail-heading path exists for a camera
+            // parked at the side of the table that can only see one mouth.
+            // It is a FALLBACK, and demanding it as the next step made the
+            // flow a dead end on device: there is no rail-drag gesture, so
+            // "now drag along the rail it sits on" pointed the user at
+            // something they could not do, instead of at the second tap
+            // that was one finger away.
+            guard railHeading != nil else { return .needMorePockets(have: 1) }
             return towards == nil ? .needTowardsPoint : .ready
         default:
             // Three or more non-collinear pockets pin the table on their
@@ -156,8 +180,11 @@ public struct PocketSightingFlow: Sendable, Equatable {
     /// so the user can see the flow making progress.
     public var prompt: String {
         switch readiness {
-        case .needMorePockets:
-            return "Tap the pockets you can see (0 of 2)"
+        case .needMorePockets(let have):
+            // Count what is actually there. This said "(0 of 2)" whatever
+            // had been tapped, so the one thing a user could check to see
+            // whether their tap registered told them nothing.
+            return "Tap the pockets you can see (\(have) of \(Self.minimumPockets))"
         case .needRailHeading:
             return "One pocket — now drag along the rail it sits on"
         case .needTowardsPoint:

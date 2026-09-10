@@ -18,47 +18,82 @@ struct PocketSightingFlowTests {
         #expect(flow.prompt.contains("Tap the pockets"))
     }
 
-    @Test("Two pockets plus a middle point is enough")
-    func twoPocketsAndTowards() {
+    @Test("Two pockets is NOT enough, however tempting")
+    func twoPocketsIsRefused() {
         var flow = PocketSightingFlow()
         flow.sight(.cornerTopLeft, at: Vec2(100, 100))
         flow.sight(.cornerBottomRight, at: Vec2(900, 500))
-        // Two points are always collinear, so a side is always needed.
-        #expect(flow.readiness == .needTowardsPoint)
-        flow.setTowards(Vec2(500, 300))
+        // The solver can work with two. That is the wrong bar: a rigid fit
+        // through two points has zero redundancy, so a mis-tap gives a
+        // confidently wrong table AND a near-zero residual. Measured on
+        // device, two pockets from across the room fitted 429 mm out.
+        #expect(!flow.canSolve)
+        #expect(flow.readiness == .needMorePockets(have: 2))
+    }
+
+    @Test("Four pockets over-determine the fit and are enough")
+    func fourPocketsAreEnough() {
+        var flow = PocketSightingFlow()
+        flow.sight(.cornerTopLeft, at: Vec2(100, 100))
+        flow.sight(.cornerTopRight, at: Vec2(900, 120))
+        flow.sight(.cornerBottomLeft, at: Vec2(120, 600))
+        flow.sight(.cornerBottomRight, at: Vec2(920, 620))
         #expect(flow.readiness == .ready)
         #expect(flow.canSolve)
     }
 
-    @Test("One pocket needs a rail heading first, then a side")
-    func onePocketPath() {
+    @Test("One pocket asks for ANOTHER POCKET, not a rail the user cannot draw")
+    func onePocketAsksForASecond() {
         var flow = PocketSightingFlow()
         flow.sight(.sideTop, at: Vec2(500, 200))
-        #expect(flow.readiness == .needRailHeading)
+        // Demanding a rail heading here made the flow a dead end on device:
+        // there is no rail-drag gesture, so the prompt pointed at something
+        // impossible instead of at the second tap one finger away.
+        #expect(flow.readiness == .needMorePockets(have: 1))
+        #expect(flow.prompt.contains("1 of 4"))
+    }
+
+    @Test("The one-pocket path still works when a rail heading IS supplied")
+    func onePocketPathRemainsAvailable() {
+        // For a camera parked at the side that can only see one mouth.
+        var flow = PocketSightingFlow()
+        flow.sight(.sideTop, at: Vec2(500, 200))
         flow.setRailHeading(.init(from: Vec2(100, 190), to: Vec2(900, 210)))
         #expect(flow.readiness == .needTowardsPoint)
         flow.setTowards(Vec2(500, 400))
         #expect(flow.readiness == .ready)
     }
 
-    @Test("Three pockets off a line stand on their own")
-    func threeNonCollinearPocketsNeedNothingElse() {
+    @Test("The prompt counts what has actually been tapped")
+    func promptCounts() {
+        var flow = PocketSightingFlow()
+        #expect(flow.prompt.contains("0 of 4"))
+        flow.sight(.cornerTopLeft, at: Vec2(100, 100))
+        // It said "(0 of 2)" whatever had been tapped, so the one thing a
+        // user could check to see whether their tap registered told them
+        // nothing at all.
+        #expect(flow.prompt.contains("1 of 4"))
+    }
+
+    @Test("Three pockets off a line are still one short of the bar")
+    func threeIsStillNotEnough() {
         var flow = PocketSightingFlow()
         flow.sight(.cornerTopLeft, at: Vec2(100, 100))
         flow.sight(.cornerTopRight, at: Vec2(900, 120))
         flow.sight(.cornerBottomLeft, at: Vec2(120, 600))
         #expect(!flow.sightingsAreCollinear)
-        #expect(flow.readiness == .ready)
+        #expect(flow.readiness == .needMorePockets(have: 3))
     }
 
-    @Test("Three pockets ALONG one rail still need a side")
+    @Test("Four pockets ALONG one rail still need a side")
     func collinearPocketsAreAmbiguous() {
         var flow = PocketSightingFlow()
-        // The camera parked at the side of the table sees exactly this:
-        // one long rail's three pockets and nothing else.
+        // A camera parked at the side of the table sees one long rail.
+        // Collinear sightings are mirror-ambiguous however many there are.
         flow.sight(.cornerTopLeft, at: Vec2(100, 200))
-        flow.sight(.sideTop, at: Vec2(500, 200))
+        flow.sight(.sideTop, at: Vec2(400, 200))
         flow.sight(.cornerTopRight, at: Vec2(900, 200))
+        flow.sight(.sideBottom, at: Vec2(650, 200))
         #expect(flow.sightingsAreCollinear)
         #expect(flow.readiness == .needTowardsPoint)
         flow.setTowards(Vec2(500, 500))
