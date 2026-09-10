@@ -142,5 +142,27 @@ targets:
       Debug: App/Config/App.xcconfig
       Release: App/Config/App.xcconfig
     scheme:
-      testTargets: []
+      # Naming the target here is what makes `xcodebuild build-for-testing`
+      # produce a test bundle; without it .github/workflows/verify-sim.yml
+      # finds no CueSyncARUITests and silently takes its degraded
+      # launch-only branch, which is what it has always done.
+      testTargets:
+        - CueSyncARUITests
       gatherCoverageData: true
+
+  CueSyncARUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - App/UITests
+    dependencies:
+      - target: CueSyncAR
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: CQC.CueSync-AR.uitests
+        DEVELOPMENT_TEAM: 8VQNRK6J32
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "6.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        TEST_TARGET_NAME: CueSyncAR
