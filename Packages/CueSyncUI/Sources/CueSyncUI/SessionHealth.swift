@@ -33,8 +33,20 @@ public struct SessionHealth: Sendable, Equatable {
     /// react within a second at 5 Hz, large enough not to jitter.
     public static let window = 20
 
-    private var frameTimes: [TimeInterval] = []
+    private var pipelineTicks: [TimeInterval] = []
     private var latencies: [Double] = []
+    /// Cumulative ARKit frame count and when it was read, for the CAMERA
+    /// rate — a different number from the pipeline rate, and the one MVP
+    /// item 6 actually names.
+    private var lastCameraSample: CameraSample?
+
+    /// Named, not a tuple: a tuple member blocks `Equatable` synthesis.
+    private struct CameraSample: Sendable, Equatable {
+        var framesSeen: Int
+        var at: TimeInterval
+    }
+
+    private var cameraRate: Double?
 
     public init() {}
 
@@ -46,8 +58,8 @@ public struct SessionHealth: Sendable, Equatable {
     ///     published. The gap between them is the part of end-to-end
     ///     latency this app is responsible for.
     public mutating func note(cameraTimestamp: TimeInterval, publishedAt now: TimeInterval) {
-        frameTimes.append(now)
-        if frameTimes.count > Self.window { frameTimes.removeFirst() }
+        pipelineTicks.append(now)
+        if pipelineTicks.count > Self.window { pipelineTicks.removeFirst() }
         let latency = (now - cameraTimestamp) * 1000
         // Negative or absurd gaps mean the two timestamps came from
         // different clocks; publishing a nonsense number is worse than
@@ -58,11 +70,36 @@ public struct SessionHealth: Sendable, Equatable {
         }
     }
 
-    /// Frames per second over the window; nil until there are two frames.
-    public var framesPerSecond: Double? {
-        guard frameTimes.count >= 2, let first = frameTimes.first,
-              let last = frameTimes.last, last > first else { return nil }
-        return Double(frameTimes.count - 1) / (last - first)
+    /// How often the PERCEPTION PIPELINE produces a result, in hertz.
+    ///
+    /// Deliberately not called "fps". It was, and that was a mistake worth
+    /// recording: read from `/state.json` it looked like a catastrophic
+    /// miss against MVP item 6's ">= 30 FPS camera feed" — 2.9 against 30 —
+    /// when the camera was in fact running normally and the pipeline was
+    /// sampling roughly one ARKit frame in sixteen, by design. A number
+    /// that invites that misreading is the same defect as printing a raw
+    /// enum case at a user; the fix is the name, not a footnote.
+    public var pipelineHertz: Double? {
+        guard pipelineTicks.count >= 2, let first = pipelineTicks.first,
+              let last = pipelineTicks.last, last > first else { return nil }
+        return Double(pipelineTicks.count - 1) / (last - first)
+    }
+
+    /// The CAMERA's frame rate — the number MVP item 6 names. Derived from
+    /// ARKit's own cumulative frame counter rather than from anything the
+    /// app schedules, so throttling the pipeline cannot flatter it.
+    public var cameraFramesPerSecond: Double? { cameraRate }
+
+    /// Feed ARKit's cumulative delegate frame count.
+    public mutating func noteCameraFrames(seen: Int, at now: TimeInterval) {
+        defer { lastCameraSample = CameraSample(framesSeen: seen, at: now) }
+        guard let previous = lastCameraSample else { return }
+        let elapsed = now - previous.at
+        let frames = seen - previous.framesSeen
+        // A counter that went backwards means the session restarted; a
+        // sample taken too close to the last one is mostly quantisation.
+        guard elapsed >= 0.5, frames >= 0 else { return }
+        cameraRate = Double(frames) / elapsed
     }
 
     /// Median camera-to-overlay latency in milliseconds; nil until there is
@@ -79,7 +116,9 @@ public struct SessionHealth: Sendable, Equatable {
     public var worstLatencyMilliseconds: Double? { latencies.max() }
 
     public mutating func reset() {
-        frameTimes.removeAll()
+        pipelineTicks.removeAll()
         latencies.removeAll()
+        lastCameraSample = nil
+        cameraRate = nil
     }
 }

@@ -110,6 +110,10 @@ final class SessionModel {
     private(set) var frameDiagnostics: FrameDiagnostics?
 
     func updateFrameDiagnostics(_ diagnostics: FrameDiagnostics) {
+        // ARKit's own delegate counter is the honest source for the CAMERA
+        // rate: it counts frames the session produced, not frames this app
+        // chose to process, so throttling the pipeline cannot flatter it.
+        health.noteCameraFrames(seen: diagnostics.framesSeen, at: clock())
         let previous = frameDiagnostics
         frameDiagnostics = diagnostics
         // Log on change only (the loop polls every few seconds regardless).
@@ -240,8 +244,11 @@ final class SessionModel {
     private(set) var calibrationSeconds: Double?
     @ObservationIgnored private var calibrationStartedAt: TimeInterval?
 
-    /// Live frame rate over the last few seconds; nil before two frames.
-    var framesPerSecond: Double? { health.framesPerSecond }
+    /// How often the perception pipeline produces a result. NOT the camera
+    /// frame rate — see `cameraFramesPerSecond`.
+    var pipelineHertz: Double? { health.pipelineHertz }
+    /// The camera's own frame rate, from ARKit's cumulative counter.
+    var cameraFramesPerSecond: Double? { health.cameraFramesPerSecond }
     /// Median camera-to-overlay latency in ms; nil before the first sample.
     var overlayLatencyMilliseconds: Double? { health.overlayLatencyMilliseconds }
     var worstOverlayLatencyMilliseconds: Double? { health.worstLatencyMilliseconds }
