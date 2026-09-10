@@ -79,10 +79,24 @@ public struct TableCalibration: Sendable, Equatable, Codable {
     /// The four playing-field corners in world space, in the order
     /// `fromCorners` expects — so a locked calibration can be taken apart,
     /// adjusted, and rebuilt without remembering how it was made.
+    ///
+    /// The winding is load-bearing and was wrong. `fromCorners` reads its
+    /// short axis as `c0 -> c3`; this emitted `(-x,+y), (+x,+y), (+x,-y),
+    /// (-x,-y)`, so `c0 -> c3` ran along MINUS y. Every rebuild came back
+    /// with the y axis — and therefore the plane normal — exactly
+    /// inverted, while the origin and the long axis looked perfect, which
+    /// is why it survived: the existing round-trip test checked origin and
+    /// size and never the basis.
+    ///
+    /// It is reachable in the shipping app through `.reopened`
+    /// (CalibrationController): adjust a locked table and re-lock it, and
+    /// the normal points into the floor. Same class of defect as the
+    /// one-pocket handedness bug fixed in #56, and found the same way — by
+    /// asserting a round trip instead of assuming one.
     public var worldCorners: [Vec3] {
         let (w, h) = size.playField
         let hx = w / 2, hy = h / 2
-        return [Vec2(-hx, hy), Vec2(hx, hy), Vec2(hx, -hy), Vec2(-hx, -hy)]
+        return [Vec2(-hx, -hy), Vec2(hx, -hy), Vec2(hx, hy), Vec2(-hx, hy)]
             .map(tableToWorld)
     }
 

@@ -63,6 +63,15 @@ struct CalibrationRemoteCorrectionTests {
         let field = rebuilt.size.playField
         #expect(abs(field.width - short.size.playField.width) < 1e-6)
         #expect(abs(field.height - short.size.playField.height) < 1e-6)
+        // THE BASIS, not just the origin and the size. Checking only those
+        // two is how a y-axis inversion survived here: the corners are the
+        // same four points either way round, and the rebuilt table looked
+        // right by every measure this test used to take. Reopening a locked
+        // calibration goes through exactly this path, so a flipped normal
+        // meant a table whose "up" pointed into the floor.
+        #expect(rebuilt.xAxis.dot(short.xAxis) > 0.9999)
+        #expect(rebuilt.yAxis.dot(short.yAxis) > 0.9999)
+        #expect(rebuilt.normal.dot(short.normal) > 0.9999)
     }
 
     @Test("Reopening a locked table gives back its own four corners")
