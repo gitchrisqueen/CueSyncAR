@@ -101,7 +101,12 @@ private let goldenBundles: [GoldenBundle] = [
     // measured.
     GoldenBundle(name: "device-aimed-cue",
                  stability: StabilityBars(
-                    minAimedFrameRate: 0.35,
+                    // Ratcheted 0.35 -> 0.40 at the measured 42.0 %. This is the
+                    // headline feature's real number: the aim line is off screen
+                    // MORE OFTEN THAN ON, on the clip where the operator is
+                    // aiming a real cue. It is a floor, so it can only be moved
+                    // up, and moving it up is the point of C7's provisional line.
+                    minAimedFrameRate: 0.40,
                     minStickAimRate: 0.95,
                     maxSourceTransitionsPerMinute: 1.0,
                     maxHeadingDeltaMax: 7.0,

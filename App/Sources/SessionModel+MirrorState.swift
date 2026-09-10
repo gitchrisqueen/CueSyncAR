@@ -9,7 +9,11 @@
 
 import CoachKit
 import CueSyncCore
+import CueSyncUI
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 extension SessionModel {
     func mirrorStateJSON() -> Data? {
@@ -40,7 +44,19 @@ extension SessionModel {
             // The HUD capsule's text. `/frame.jpg` is an ARView snapshot
             // with no SwiftUI in it, so this is the only way to read the
             // HUD from a browser.
-            "hudStatus": hudStatusLabel
+            "hudStatus": hudStatusLabel,
+            // MVP item 6's three numbers, none of which anything could read
+            // before: ">= 30 FPS, overlay latency under ~100 ms, no crashes
+            // across a 15-minute session". Battery and thermal state are the
+            // 15-minute half; fps and latency are the rest.
+            //
+            // `overlayLatencyMs` is the part of end-to-end latency this app
+            // is responsible for: camera capture timestamp to overlay
+            // publish. It is NOT the checklist's row-15 number, which
+            // 04-TESTING-STRATEGY defines as a slow-motion camera pointed at
+            // the screen and therefore includes display pipeline the app
+            // cannot see. Quoting this one as that one would overstate it.
+            "health": healthMirrorState()
         ]
         // Whether the cue the detector can see has been sitting still long
         // enough to be furniture rather than an aim.
@@ -319,5 +335,40 @@ extension SessionModel {
             ]
         }
         return block
+    }
+
+    /// Frame rate, latency, thermal state and battery — plus how long the
+    /// last calibration took, which rows 1 and 2 of the device checklist
+    /// need and which nothing was timing.
+    private func healthMirrorState() -> [String: Any] {
+        var state: [String: Any] = [
+            "thermal": Self.thermalReading().rawValue
+        ]
+        if let fps = framesPerSecond { state["fps"] = (fps * 10).rounded() / 10 }
+        if let latency = overlayLatencyMilliseconds { state["overlayLatencyMs"] = Int(latency) }
+        if let worst = worstOverlayLatencyMilliseconds { state["worstLatencyMs"] = Int(worst) }
+        if let seconds = calibrationSeconds { state["calibrationSeconds"] = seconds }
+        #if canImport(UIKit)
+        // Off by default; enabling it is what makes the reading valid, and
+        // -1 means "not being monitored" rather than "flat".
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        let level = UIDevice.current.batteryLevel
+        if level >= 0 { state["batteryPercent"] = Int((level * 100).rounded()) }
+        #endif
+        return state
+    }
+
+
+    /// The platform's thermal state as the package's own reading.
+    /// `ProcessInfo.ThermalState` is Darwin-only, which is exactly why the
+    /// vocabulary lives in CueSyncUI and the mapping lives here.
+    static func thermalReading() -> ThermalReading {
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: .nominal
+        case .fair: .fair
+        case .serious: .serious
+        case .critical: .critical
+        @unknown default: .unknown
+        }
     }
 }

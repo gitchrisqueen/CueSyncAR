@@ -232,6 +232,41 @@ final class SessionModel {
     /// Counts the same balls the surface gate admitted, not raw boxes:
     /// off-table detections on foliage and floor tiles would otherwise
     /// hide exactly the collapse this is watching for.
+    /// Frame rate and camera-to-overlay latency — the two numbers MVP item
+    /// 6 promises and nothing could read. Fed from the live output loop.
+    @ObservationIgnored private var health = SessionHealth()
+    /// How long the last calibration took, start to lock. Checklist rows 1
+    /// and 2 have a <= 10 s / <= 30 s bar and no field to score it with.
+    private(set) var calibrationSeconds: Double?
+    @ObservationIgnored private var calibrationStartedAt: TimeInterval?
+
+    /// Live frame rate over the last few seconds; nil before two frames.
+    var framesPerSecond: Double? { health.framesPerSecond }
+    /// Median camera-to-overlay latency in ms; nil before the first sample.
+    var overlayLatencyMilliseconds: Double? { health.overlayLatencyMilliseconds }
+    var worstOverlayLatencyMilliseconds: Double? { health.worstLatencyMilliseconds }
+
+    /// Called once per processed frame, as the overlay for it is published.
+    func noteFrameHealth(cameraTimestamp: TimeInterval) {
+        health.note(cameraTimestamp: cameraTimestamp, publishedAt: clock())
+    }
+
+    func resetFrameHealth() { health.reset() }
+
+    /// Start the calibration stopwatch. Restarting calibration restarts it.
+    func noteCalibrationStarted() {
+        calibrationStartedAt = clock()
+        calibrationSeconds = nil
+    }
+
+    /// Stop it. No-op if nothing started it, so a relocalized venue does not
+    /// report a duration it never spent.
+    func noteCalibrationLocked() {
+        guard let started = calibrationStartedAt else { return }
+        calibrationSeconds = ((clock() - started) * 10).rounded() / 10
+        calibrationStartedAt = nil
+    }
+
     func noteDetectionHealth(_ output: PerceptionOutput) {
         detectionHealth.observe(detected: output.state.balls.count,
                                 luminance: output.luminance,
@@ -508,6 +543,7 @@ final class SessionModel {
                         self.recordClothPlaneSample(detections: output.detections, frame: pose)
                     }
                     self.noteDetectionHealth(output)
+                    self.noteFrameHealth(cameraTimestamp: output.state.timestamp)
                     self.tableState = self.cueIdentity.apply(
                         to: self.ballIdentity.apply(to: output.state))
                     self.recomputeRanking()

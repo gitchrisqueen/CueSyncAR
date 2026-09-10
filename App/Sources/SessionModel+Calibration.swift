@@ -30,6 +30,7 @@ extension SessionModel {
         // stored one is wrong (or the table moved). Prevents a stale bad
         // lock from relocalizing back over the fresh flow on next launch.
         CalibrationStore.clear()
+        noteCalibrationStarted()
         // Manual recalibration abandons any pending relocalization — stop
         // the stopwatch so a later restore can't misreport.
         relocalizationStartedAt = nil
@@ -117,6 +118,7 @@ extension SessionModel {
     func requestCalibrationLock() -> Bool {
         calibration.handle(.lockRequested)
         guard calibration.isLocked else { return false }
+        noteCalibrationLocked()
         calibrationVisible = false
         // T1.2 measurement truth: surface how far the measured field sits
         // from the nearest standard size the moment it locks — a big delta
