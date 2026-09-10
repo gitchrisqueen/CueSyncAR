@@ -18,6 +18,7 @@
 //    GET /sessions    recorded session bundles (DebugMirrorServer+Sessions)
 //
 
+import CoachKit
 import Foundation
 import Network
 import os
@@ -41,6 +42,35 @@ final class DebugMirrorServer: @unchecked Sendable {
     private var commandHandler: CommandHandler?
     private var sessionsRootValue: URL?
     private var activeSessionValue: String?
+    /// Lives here rather than in `SessionModel` because `response(for:)` is
+    /// synchronous on `queue` and cannot hop to the main actor to ask.
+    private var accessPolicy = MirrorAccessPolicy(mode: .open)
+
+    /// Set once at startup. `.open` is the development posture; Release
+    /// passes a per-launch token.
+    func setAccessPolicy(_ policy: MirrorAccessPolicy) {
+        lock.lock(); accessPolicy = policy; lock.unlock()
+    }
+
+    /// What to put on screen when the listener will not come up.
+    ///
+    /// This used to say "port in use?" unconditionally, which was a guess.
+    /// A denied Local Network permission fails in exactly the same place
+    /// and looks identical, and those two need opposite fixes — one is
+    /// "kill the other process", the other is "go to Settings ->
+    /// Privacy". The device is usually across the room with no console
+    /// attached, so the toast is all the operator gets.
+    static func startFailureHint(_ error: Error) -> String {
+        let posix = (error as NSError).code
+        switch posix {
+        case Int(EADDRINUSE):
+            return "port \(port) already in use"
+        case Int(EPERM), Int(EACCES):
+            return "local network permission refused"
+        default:
+            return "port \(port): \(String(describing: error).prefix(40))"
+        }
+    }
 
     func setCommandHandler(_ handler: @escaping CommandHandler) {
         lock.lock(); commandHandler = handler; lock.unlock()
@@ -134,6 +164,24 @@ final class DebugMirrorServer: @unchecked Sendable {
             }
             let path = request.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
             let cleanPath = path.split(separator: "?").first.map(String.init) ?? path
+            // Gate FIRST, before any routing. `/sessions` is matched below
+            // ahead of `/cmd`, so a mutation-only check would have missed
+            // the recorded bundles entirely; and `/frame.jpg` is a live
+            // picture of the room, which is the most sensitive path here,
+            // not the least.
+            self.lock.lock(); let policy = self.accessPolicy; self.lock.unlock()
+            switch policy.decide(token: MirrorAccessPolicy.token(fromRawPath: path)) {
+            case .allow:
+                break
+            case .missingToken, .badToken:
+                // One refusal body for both: the distinction is for the log,
+                // not for whoever is knocking.
+                Self.log.notice("mirror: refused \(cleanPath, privacy: .public) — no valid token")
+                connection.send(content: Self.httpResponse(status: "401 Unauthorized",
+                                                           body: Data("mirror: token required\n".utf8)),
+                                completion: .contentProcessed { _ in connection.cancel() })
+                return
+            }
             if cleanPath == "/sessions" || cleanPath.hasPrefix("/sessions/") {
                 self.serveSessions(path: cleanPath, requestHead: request, connection: connection)
                 return
@@ -200,7 +248,6 @@ final class DebugMirrorServer: @unchecked Sendable {
         head += "Content-Type: \(contentType)\r\n"
         head += "Content-Length: \(body.count)\r\n"
         head += "Cache-Control: no-store\r\n"
-        head += "Access-Control-Allow-Origin: *\r\n"
         head += "Connection: close\r\n\r\n"
         return Data(head.utf8) + body
     }
@@ -258,7 +305,7 @@ final class DebugMirrorServer: @unchecked Sendable {
       <div id="recording">
         <button onclick="cmd('action=startRecording')">● Record session</button>
         <button onclick="cmd('action=stopRecording')">■ Stop</button>
-        <a href="/sessions" style="color:#2FA36B">sessions</a>
+        <a id="sessionsLink" href="/sessions" style="color:#2FA36B">sessions</a>
         <span id="rec">recorder: waiting…</span>
       </div>
       <div id="balls"></div>
@@ -272,7 +319,9 @@ final class DebugMirrorServer: @unchecked Sendable {
       const pocketsDiv = document.getElementById('pockets');
       const buildDiv = document.getElementById('build');
       const recSpan = document.getElementById('rec');
-      function cmd(q) { fetch('/cmd?' + q); }
+      // `withToken` is a hoisted function declaration and TOK is
+      // initialised before any click can fire, so this is safe here.
+      function cmd(q) { fetch(withToken('/cmd?' + q)); }
       function renderRecording(r) {
         if (!r) { recSpan.textContent = 'recorder: not reported'; return; }
         if (r.active) {
@@ -322,10 +371,19 @@ final class DebugMirrorServer: @unchecked Sendable {
         buildDiv.textContent = '';
         buildDiv.append(el, field, button);
       }
-      setInterval(() => { img.src = '/frame.jpg?' + Date.now(); }, 700);
+      // The token rides in this page's own URL; attach it to everything
+      // we ask for. Empty in development builds, where nothing checks it.
+      const TOK = new URLSearchParams(location.search).get('t') || '';
+      function withToken(url) {
+        if (!TOK) { return url; }
+        return url + (url.includes('?') ? '&' : '?') + 't=' + encodeURIComponent(TOK);
+      }
+      const sessionsLink = document.getElementById('sessionsLink');
+      if (sessionsLink) { sessionsLink.href = withToken('/sessions'); }
+      setInterval(() => { img.src = withToken('/frame.jpg?' + Date.now()); }, 700);
       setInterval(async () => {
         try {
-          const r = await fetch('/state.json');
+          const r = await fetch(withToken('/state.json'));
           const s = await r.json();
           pre.textContent = JSON.stringify(s, null, 2);
           renderBuild(s.build);

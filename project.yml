@@ -64,6 +64,17 @@ targets:
       properties:
         CFBundleDisplayName: CueSync AR
         UILaunchScreen: {}
+        # Why there is no NSBonjourServices alongside this: the key is
+        # inert for a plain NWListener on a fixed port, which is what the
+        # debug mirror is. Advertising the service would make iOS raise the
+        # local-network prompt for real -- and a denial kills the listener
+        # and surfaces as a start failure, taking the only remote debugging
+        # channel with it. The string is here so that if the prompt ever
+        # does appear, it says something true.
+        NSLocalNetworkUsageDescription: >-
+          CueSync AR can mirror its screen and tracking data to a browser on
+          your own Wi-Fi, so you can watch the app while the device sits at
+          the table. Nothing leaves your network.
         NSCameraUsageDescription: >-
           CueSync AR uses the camera to see the billiards table and balls so
           it can draw live shot guidance on top of them.

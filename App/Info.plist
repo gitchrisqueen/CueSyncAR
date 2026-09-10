@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>CueSync AR uses the camera to see the billiards table and balls so it can draw live shot guidance on top of them.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>CueSync AR can mirror its screen and tracking data to a browser on your own Wi-Fi, so you can watch the app while the device sits at the table. Nothing leaves your network.</string>
 	<key>ROBOFLOW_API_KEY</key>
 	<string>$(ROBOFLOW_API_KEY)</string>
 	<key>UIFileSharingEnabled</key>

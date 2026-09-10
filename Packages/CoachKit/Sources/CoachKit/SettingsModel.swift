@@ -147,9 +147,16 @@ public struct SettingsModel: Sendable, Equatable {
         didSet { guideSpeed = Self.clamped(guideSpeed, to: Self.guideSpeedRange,
                                            fallback: Self.defaultGuideSpeed) }
     }
-    /// Whether the LAN debug mirror starts with the app. On by default —
-    /// the device usually sits at the table out of arm's reach.
-    public var debugMirrorEnabled = true
+    /// Whether the LAN debug mirror starts with the app.
+    ///
+    /// The default is INJECTED, not decided here: development builds want
+    /// it on (the device sits at the table out of arm's reach and the whole
+    /// remote loop depends on it), a shipping build wants it off (it is an
+    /// unauthenticated server on whatever Wi-Fi the player is standing in).
+    /// That is a build-configuration question, and this package is pure and
+    /// Linux-tested — a `#if DEBUG` here would change a tested default
+    /// under `swift test -c release`. So the app target passes it in.
+    public var debugMirrorEnabled: Bool
     /// The device is parked (tripod, propped on a rail) rather than held.
     ///
     /// It disables the device-pose aim source. That model aims from the cue
@@ -190,14 +197,19 @@ public struct SettingsModel: Sendable, Equatable {
     public var speechVerbosity: SpeechVerbosity = .off
 
     /// The defaults — what a fresh install runs on.
-    public init() {}
+    /// - Parameter debugMirrorEnabledByDefault: what the mirror preference
+    ///   should be when nothing is persisted yet. See the property.
+    public init(debugMirrorEnabledByDefault: Bool = true) {
+        debugMirrorEnabled = debugMirrorEnabledByDefault
+    }
 
     /// Load from persistence. Any key that is missing, of the wrong type,
     /// unparseable, or out of range falls back to that setting's default;
     /// a half-written store therefore yields a usable model, never a throw
     /// and never a wholesale reset of the settings that ARE valid.
-    public init(loading store: some SettingsStore) {
-        self.init()
+    public init(loading store: some SettingsStore,
+                debugMirrorEnabledByDefault: Bool = true) {
+        self.init(debugMirrorEnabledByDefault: debugMirrorEnabledByDefault)
         if let raw = store.string(forKey: SettingsKey.tableSize),
            let value = TableSizeSetting(storageValue: raw) {
             tableSize = value
