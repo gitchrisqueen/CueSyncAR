@@ -152,22 +152,60 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
     /// drag over feature-poor cloth never dead-zones once corners exist.
     public func raycastHorizontalPlane(screenPoint: CGPoint,
                                        fallbackPlaneHeight: Double? = nil) -> Vec3? {
-        let queries: [ARRaycastQuery.Target] = [.existingPlaneInfinite, .estimatedPlane]
+        // ORDER MATTERS, and getting it wrong put the calibration quad in
+        // the air above the cloth.
+        //
+        // This used to try `.existingPlaneInfinite` FIRST. That target takes
+        // any horizontal plane ARKit has found ANYWHERE and extends it to
+        // infinity, then returns the first intersection along the ray. In a
+        // room the size of a games room that is a lot of planes — the floor,
+        // the rail tops, a side table, a chair seat, the console under the
+        // TV — and a tap aimed at a cushion nose can land on the infinite
+        // extension of a surface metres away at the wrong height. It also
+        // meant the caller's `fallbackPlaneHeight` was effectively dead
+        // code, because an infinite plane almost always hits something.
+        //
+        // `.existingPlaneGeometry` only hits where a plane actually has
+        // detected extent, which is the honest question: is there a real
+        // surface under this pixel.
+        let queries: [ARRaycastQuery.Target] =
+            [.existingPlaneGeometry, .estimatedPlane, .existingPlaneInfinite]
+        var hit: Vec3?
         for target in queries {
-            if let hit = arView.raycast(from: screenPoint, allowing: target,
-                                        alignment: .horizontal).first {
-                let t = hit.worldTransform.columns.3
-                return Vec3(Double(t.x), Double(t.y), Double(t.z))
+            if let result = arView.raycast(from: screenPoint, allowing: target,
+                                           alignment: .horizontal).first {
+                let t = result.worldTransform.columns.3
+                hit = Vec3(Double(t.x), Double(t.y), Double(t.z))
+                break
             }
         }
-        guard let fallbackPlaneHeight,
-              let ray = arView.ray(through: screenPoint) else { return nil }
+        // A KNOWN cloth height outranks whatever ARKit found. It is measured
+        // from the balls actually resting on the actual cloth, so when a hit
+        // disagrees with it by more than a cushion's thickness, the hit is on
+        // something else — the rail, the floor, the furniture — and the cloth
+        // is the answer the caller wanted.
+        if let fallbackPlaneHeight {
+            if let hit, ClothHeightCheck.trusts(hitHeight: hit.y, clothHeight: fallbackPlaneHeight) {
+                return hit
+            }
+            if let onCloth = intersect(screenPoint: screenPoint,
+                                       planeHeight: fallbackPlaneHeight) {
+                return onCloth
+            }
+        }
+        return hit
+    }
+
+
+    /// Ray/horizontal-plane intersection at a known height.
+    private func intersect(screenPoint: CGPoint, planeHeight: Double) -> Vec3? {
+        guard let ray = arView.ray(through: screenPoint) else { return nil }
         let origin = Vec3(Double(ray.origin.x), Double(ray.origin.y),
                           Double(ray.origin.z))
         let direction = Vec3(Double(ray.direction.x), Double(ray.direction.y),
                              Double(ray.direction.z))
         guard abs(direction.y) > 1e-6 else { return nil }
-        let t = (fallbackPlaneHeight - origin.y) / direction.y
+        let t = (planeHeight - origin.y) / direction.y
         guard t > 0 else { return nil }
         return origin + direction * t
     }
