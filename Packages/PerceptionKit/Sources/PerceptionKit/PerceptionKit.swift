@@ -65,6 +65,14 @@ public struct PerceptionConfig: Sendable, Equatable {
     public var colourFrameInterval: Int
     /// How ball colour is sampled and classified.
     public var colour: BallAppearancePass.Config
+    /// Skip detection on frames whose picture has not changed. Applies to
+    /// the LIVE path only — the replay seam processes every frame, so
+    /// goldens stay deterministic.
+    public var frameChange: FrameChangeGate.Config
+    /// Whether that gate runs at all. Switchable from the debug mirror,
+    /// because it is a perception change and the first thing to try when
+    /// something looks stale is turning it off.
+    public var skipsUnchangedFrames: Bool
 
     public init(detectionRate: Double = 15,
                 appearanceFrames: Int = 3,
@@ -72,12 +80,16 @@ public struct PerceptionConfig: Sendable, Equatable {
                 confidenceFloor: Double = 0.35,
                 followsTableAnchor: Bool = true,
                 colourFrameInterval: Int = 6,
-                colour: BallAppearancePass.Config = .default) {
+                colour: BallAppearancePass.Config = .default,
+                frameChange: FrameChangeGate.Config = FrameChangeGate.Config(),
+                skipsUnchangedFrames: Bool = true) {
         self.detectionRate = detectionRate
         self.appearanceFrames = appearanceFrames
         self.disappearanceFrames = disappearanceFrames
         self.confidenceFloor = confidenceFloor
         self.followsTableAnchor = followsTableAnchor
+        self.frameChange = frameChange
+        self.skipsUnchangedFrames = skipsUnchangedFrames
         self.colourFrameInterval = colourFrameInterval
         self.colour = colour
     }
