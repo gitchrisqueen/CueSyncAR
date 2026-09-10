@@ -260,6 +260,28 @@ final class SessionModel {
 
     func resetFrameHealth() { health.reset() }
 
+    /// What the calibration in progress is resting on — the tap rays, the
+    /// frozen cloth height, and where that height came from. Its own type
+    /// (CalibrationPlacement.swift) because it is one concern and this file
+    /// hit the lint ceiling adding it, exactly as A0 predicted.
+    @ObservationIgnored let placement = CalibrationPlacement()
+
+    var workingClothHeight: Double? { placement.clothHeight }
+    var heightSource: CalibrationHeightSource { placement.heightSource }
+
+    func beginCornerPlacement(height: Double?, source: CalibrationHeightSource) {
+        placement.begin(height: height, source: source)
+        cornersWereAdjustedByHand = false
+    }
+
+    func recordCornerRay(_ ray: TapRay) { placement.recordRay(ray) }
+
+    /// Whether the user has dragged a corner. Once they have, their hand
+    /// outranks the stored tap ray and refinement stops.
+    private(set) var cornersWereAdjustedByHand = false
+
+    func noteCornerAdjustedByHand() { cornersWereAdjustedByHand = true }
+
     /// Pocket sighting (C2b): which pockets the user has tapped, and which
     /// one the next tap means. Stored here because `@Observable` only
     /// instruments the class body.

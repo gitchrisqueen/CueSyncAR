@@ -197,6 +197,21 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
     }
 
 
+    /// The world-space ray through a screen point.
+    ///
+    /// Exposed because a tap is a RAY, and keeping the ray is what lets a
+    /// corner be re-derived at a better plane height later. The resulting
+    /// POINT cannot be corrected after the fact — moving it vertically
+    /// would leave it at the wrong depth, and depth error is what makes a
+    /// quad slide across the table as the camera moves.
+    public func worldRay(through screenPoint: CGPoint) -> TapRay? {
+        guard let ray = arView.ray(through: screenPoint) else { return nil }
+        return TapRay(origin: Vec3(Double(ray.origin.x), Double(ray.origin.y),
+                                   Double(ray.origin.z)),
+                      direction: Vec3(Double(ray.direction.x), Double(ray.direction.y),
+                                      Double(ray.direction.z)))
+    }
+
     /// Ray/horizontal-plane intersection at a known height.
     private func intersect(screenPoint: CGPoint, planeHeight: Double) -> Vec3? {
         guard let ray = arView.ray(through: screenPoint) else { return nil }

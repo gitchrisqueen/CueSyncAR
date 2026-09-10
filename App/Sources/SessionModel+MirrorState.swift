@@ -38,6 +38,8 @@ extension SessionModel {
             "rootTapCount": rootTapCount,
             "tapCatcherMounted": tapCatcherMounted,
             "lastTapNote": lastTapNote ?? "",
+            // See SessionModel.lastProbe — the unprojection made readable.
+            "lastProbe": placement.lastProbe ?? "",
 
             "aimSource": String(describing: aimSource),
             "calledShotOnLine": calledShotOnLine,
@@ -45,6 +47,14 @@ extension SessionModel {
             // with no SwiftUI in it, so this is the only way to read the
             // HUD from a browser.
             "hudStatus": hudStatusLabel,
+            // Where the calibration's plane height came from. A calibration
+            // built on "unconstrained" is a guess and should not read the
+            // same as one built on thirty balls.
+            "calibrationHeightSource": heightSource.summary,
+            // The pocket-sighting flow, so a failure can be READ rather than
+            // guessed at. "Find my table does not work" is not something the
+            // mirror could answer before this.
+            "pocketSighting": pocketSightingMirrorState(),
             // MVP item 6's three numbers, none of which anything could read
             // before: ">= 30 FPS, overlay latency under ~100 ms, no crashes
             // across a 15-minute session". Battery and thermal state are the
@@ -381,5 +391,30 @@ extension SessionModel {
         case .critical: .critical
         @unknown default: .unknown
         }
+    }
+
+    /// What the pocket-sighting flow currently has, and what it still wants.
+    private func pocketSightingMirrorState() -> [String: Any] {
+        var state: [String: Any] = [
+            "active": pocketSightingActive,
+            "canSolve": pocketFlow.canSolve,
+            "prompt": pocketFlow.prompt,
+            "armed": armedPocket?.rawValue ?? "",
+            "sighted": pocketFlow.sightings.map {
+                ["pocket": $0.pocket.rawValue,
+                 "x": Int($0.screen.x), "y": Int($0.screen.y)]
+            },
+            "collinear": pocketFlow.sightingsAreCollinear
+        ]
+        if let towards = pocketFlow.towards {
+            state["towards"] = ["x": Int(towards.x), "y": Int(towards.y)]
+        }
+        switch pocketFlow.readiness {
+        case .needMorePockets(let have): state["needs"] = "morePockets(\(have))"
+        case .needRailHeading: state["needs"] = "railHeading"
+        case .needTowardsPoint: state["needs"] = "towardsPoint"
+        case .ready: state["needs"] = "nothing"
+        }
+        return state
     }
 }

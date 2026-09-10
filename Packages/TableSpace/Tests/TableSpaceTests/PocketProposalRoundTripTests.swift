@@ -41,18 +41,18 @@ struct PocketProposalRoundTripTests {
         }
     }
 
-    private func reference(size: TableSize, yaw: Double) throws -> TableCalibration {
+    private func reference(size: TableSize, yaw: Double) -> TableCalibration {
         let up = Vec3(0, 1, 0)
         let xAxis = Vec3(cos(yaw), 0, sin(yaw)).normalized
         let yAxis = up.cross(xAxis).normalized
-        return try TableCalibration(origin: Vec3(0.3, -0.65, -2.1),
+        return TableCalibration(origin: Vec3(0.3, -0.65, -2.1),
                                     xAxis: xAxis, yAxis: yAxis, size: size)
     }
 
     @Test("A pocket solve round-trips through the corners the lock re-derives",
           arguments: [TableSize.sevenFoot, TableSize.eightFoot, TableSize.nineFoot])
     func roundTripPerStandardSize(size: TableSize) throws {
-        let truth = try reference(size: size, yaw: 0.4)
+        let truth = reference(size: size, yaw: 0.4)
         let solution = try PocketCalibration.solve(
             sightings(of: truth, [.cornerTopLeft, .cornerBottomRight, .sideTop]),
             size: size, planeNormal: Vec3(0, 1, 0))
@@ -72,7 +72,7 @@ struct PocketProposalRoundTripTests {
     @Test("Passing the solved size as preferred is what keeps it",
           arguments: [0.0, 0.4, 1.1, -0.9] as [Double])
     func preferredSizeIsLoadBearing(yaw: Double) throws {
-        let truth = try reference(size: .eightFoot, yaw: yaw)
+        let truth = reference(size: .eightFoot, yaw: yaw)
         let solution = try PocketCalibration.solve(
             sightings(of: truth, [.cornerTopLeft, .cornerTopRight, .cornerBottomLeft]),
             size: .eightFoot, planeNormal: Vec3(0, 1, 0))
@@ -84,7 +84,7 @@ struct PocketProposalRoundTripTests {
 
     @Test("The one-pocket-plus-rail solve round-trips too")
     func onePocketPathRoundTrips() throws {
-        let truth = try reference(size: .eightFoot, yaw: 0.25)
+        let truth = reference(size: .eightFoot, yaw: 0.25)
         let table = Table(size: .eightFoot)
         let pocket = try #require(table.pockets.first { $0.id == .sideTop })
         let sighting = PocketCalibration.Sighting(
@@ -103,7 +103,7 @@ struct PocketProposalRoundTripTests {
 
     @Test("Two collinear pockets without a side are refused, not guessed")
     func collinearWithoutTowardsIsRefused() throws {
-        let truth = try reference(size: .eightFoot, yaw: 0.0)
+        let truth = reference(size: .eightFoot, yaw: 0.0)
         // Both on the same long rail, no `towards`: the fit is
         // mirror-ambiguous and the solver must say so rather than pick.
         let onOneRail = sightings(of: truth, [.cornerTopLeft, .cornerTopRight])
