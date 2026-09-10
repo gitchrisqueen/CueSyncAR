@@ -112,6 +112,25 @@ extension SessionModel {
     /// True when the hosted adapter can actually be used (key present).
     var canUseHostedDetection: Bool { hasRoboflowKey }
 
+    /// What the current session preset turns on. This is the first real
+    /// consumer `ModeConfiguration` has ever had: every `PracticeMode` sets
+    /// `showsShotGuides: true`, so until a preset could turn the guides OFF
+    /// there was nothing for the flag to change.
+    var modeConfiguration: ModeConfiguration { settings.sessionPreset.configuration }
+
+    /// Whether to draw aim lines, ghost ball and trajectory strips at all.
+    var showsShotGuides: Bool { modeConfiguration.showsShotGuides }
+
+    func selectSessionPreset(_ preset: SessionPreset) {
+        guard settings.sessionPreset != preset else { return }
+        updateSettings {
+            $0.sessionPreset = preset
+            $0.practiceMode = preset.practiceMode
+            $0.deviceParked = preset.deviceParked
+        }
+        showTapFeedback(preset.title)
+    }
+
     /// What live tracking is running on right now, in words.
     /// For `/state.json`: a stable machine key a script can match on.
     /// Deliberately the raw value, and deliberately not shown to anyone.

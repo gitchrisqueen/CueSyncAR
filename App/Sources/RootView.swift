@@ -550,7 +550,14 @@ struct ARCameraView: View {
             return
         }
         let layout: OverlayLayout
-        if let prediction = model.shotPrediction {
+        if !model.showsShotGuides {
+            // A game with friends: rings so the app is visibly awake and
+            // keeping score, but no aim line. This is the branch that gives
+            // `ModeConfiguration.showsShotGuides` its first consumer — every
+            // PracticeMode sets it true, so it has never read false before.
+            layout = OverlayLayout.ballsOnly(state: state, calibration: calibration,
+                                             target: nil)
+        } else if let prediction = model.shotPrediction {
             layout = OverlayLayout.compose(state: state, prediction: prediction,
                                            calibration: calibration,
                                            calledPocket: model.calledPocket,
