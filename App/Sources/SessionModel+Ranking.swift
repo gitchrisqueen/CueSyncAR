@@ -223,18 +223,18 @@ extension SessionModel {
         case "setSkill":
             guard let raw = params["skill"], let level = SkillLevel(rawValue: raw) else { return false }
             setSkillLevel(level)
-            showTapFeedback("Skill: \(level.title) (remote)")
+            showRemoteFeedback("Skill: \(level.title)")
         case "target":
             // Same generous radius as `designate`: the caller clicked a
             // listed ball's own coordinates, not a screen guess.
             guard let x = params["x"].flatMap(Double.init),
                   let y = params["y"].flatMap(Double.init) else { return false }
             if !selectTarget(near: Vec2(x, y), maxDistance: 0.4) {
-                showTapFeedback("No rankable ball near that point (remote)")
+                showRemoteFeedback("No rankable ball near that point")
             }
         case "clearTarget":
             clearTarget()
-            showTapFeedback("Back to the suggested shot (remote)")
+            showRemoteFeedback("Back to the suggested shot")
         case "correctBall":
             return correctBallIdentity(params)
         default:
@@ -256,13 +256,13 @@ extension SessionModel {
               let kindText = params["kind"] else { return false }
         let ballID = BallID(rawValue: id)
         guard tableState?.balls.contains(where: { $0.id == ballID }) == true else {
-            showTapFeedback("No ball #\(id) on the table (remote)")
+            showRemoteFeedback("No ball #\(id) on the table")
             return true
         }
         guard let kind = Self.ballKind(fromMirror: kindText) else { return false }
         applyBallCorrection(kind, to: ballID)
-        showTapFeedback(kind == nil ? "Ball #\(id) back to the classifier (remote)"
-                                    : "Ball #\(id) is \(kindText) (remote)")
+        showRemoteFeedback(kind == nil ? "Ball #\(id) back to the classifier"
+                                       : "Ball #\(id) is \(kindText)")
         return true
     }
 

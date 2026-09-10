@@ -47,7 +47,7 @@ extension SessionModel {
             return false
         }
         guard let height = planeHeight ?? estimateClothPlane()?.height else {
-            showTapFeedback("No cloth height: put a few balls on the table, or pass h (remote)")
+            showRemoteFeedback("No cloth height: put a few balls on the table, or pass h")
             return false
         }
         func unproject(_ p: CGPoint) -> Vec3? {
@@ -56,7 +56,7 @@ extension SessionModel {
         var placed: [PocketCalibration.Sighting] = []
         for (pocket, point) in sightings {
             guard let world = unproject(point) else {
-                showTapFeedback("Pocket \(pocket.rawValue) missed the cloth plane (remote)")
+                showRemoteFeedback("Pocket \(pocket.rawValue) missed the cloth plane")
                 return false
             }
             placed.append(PocketCalibration.Sighting(pocket: pocket, world: world))
@@ -74,11 +74,11 @@ extension SessionModel {
                 // here because only its direction is used, and the edge
                 // runs parallel to the nose line it hides.
                 guard let r0 = unproject(alongRail.0), let r1 = unproject(alongRail.1) else {
-                    showTapFeedback("A rail point missed the cloth plane (remote)")
+                    showRemoteFeedback("A rail point missed the cloth plane")
                     return false
                 }
                 guard let hint else {
-                    showTapFeedback("One pocket needs a towards point on the cloth (remote)")
+                    showRemoteFeedback("One pocket needs a towards point on the cloth")
                     return false
                 }
                 solution = try PocketCalibration.solve(pocket: only, alongRail: r1 - r0,
@@ -109,12 +109,12 @@ extension SessionModel {
                 : String(format: "Pockets: %d sighted, cloth y=%.3f, fit %.0f mm rms, worst %@ %.0f mm",
                          placed.count, height, solution.residual * 1000,
                          solution.worstPocket.rawValue, solution.worstError * 1000)
-            showTapFeedback(line + " (remote)")
+            showRemoteFeedback(line)
             Self.log.notice("\(line, privacy: .public)")
             notePocketFit(line)
             return true
         } catch {
-            showTapFeedback("Pocket calibration refused: \(error) (remote)")
+            showRemoteFeedback("Pocket calibration refused: \(error)")
             Self.log.error("pocket calibration refused: \(String(describing: error), privacy: .public)")
             return false
         }
@@ -137,7 +137,7 @@ extension SessionModel {
             guard parts.count == 3,
                   let pocket = PocketID(rawValue: String(parts[0])),
                   let x = Double(parts[1]), let y = Double(parts[2]) else {
-                showTapFeedback("Bad pocket \(entry) (remote)")
+                showRemoteFeedback("Bad pocket \(entry)")
                 return true
             }
             sightings.append((pocket, CGPoint(x: x, y: y)))
@@ -146,7 +146,7 @@ extension SessionModel {
         if let hint = params["towards"] {
             let parts = hint.split(separator: ":")
             guard parts.count == 2, let x = Double(parts[0]), let y = Double(parts[1]) else {
-                showTapFeedback("Bad towards point (remote)")
+                showRemoteFeedback("Bad towards point")
                 return true
             }
             towards = CGPoint(x: x, y: y)
@@ -161,7 +161,7 @@ extension SessionModel {
         if let raw = params["rail"] {
             let parts = raw.split(separator: ":").compactMap { Double($0) }
             guard parts.count == 4 else {
-                showTapFeedback("Bad rail (want x0:y0:x1:y1) (remote)")
+                showRemoteFeedback("Bad rail (want x0:y0:x1:y1)")
                 return true
             }
             rail = (CGPoint(x: parts[0], y: parts[1]), CGPoint(x: parts[2], y: parts[3]))

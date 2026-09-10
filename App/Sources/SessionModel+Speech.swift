@@ -116,14 +116,14 @@ extension SessionModel {
                 return false
             }
             setSpeechVerbosity(level)
-            showTapFeedback("Voice: \(level.title) (remote)")
+            showRemoteFeedback("Voice: \(level.title)")
         case "say":
             // The audibility check: does this device actually make a sound,
             // at this volume, over whatever is playing in the room.
             narrator.say(params["text"] ?? "CueSync AR can hear itself think.")
         case "speechStop":
             narrator.stop()
-            showTapFeedback("Voice stopped (remote)")
+            showRemoteFeedback("Voice stopped")
         default:
             return false
         }

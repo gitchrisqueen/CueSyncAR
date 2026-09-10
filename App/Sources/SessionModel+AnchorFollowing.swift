@@ -40,7 +40,7 @@ extension SessionModel {
         followsTableAnchor = on
         if isLiveTracking { resetBallTracking() }
         Self.log.notice("anchor following \(on ? "ON" : "OFF", privacy: .public) (remote)")
-        showTapFeedback(on ? "Following table anchor (remote)"
-                           : "Calibration frozen at lock (remote)")
+        showRemoteFeedback(on ? "Following table anchor"
+                              : "Calibration frozen at lock")
     }
 }

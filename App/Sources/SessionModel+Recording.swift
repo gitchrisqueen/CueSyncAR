@@ -51,7 +51,7 @@ extension SessionModel {
         if let free = SessionRecorder.freeMegabytes() {
             summary += String(format: " Free space now: %.1f GB.", free / 1000)
         }
-        summary += " Saved on this device under Sessions; pull it with Scripts/pull-session.sh."
+        summary += " Saved on this device under Sessions."
         return summary
     }
 
@@ -59,7 +59,7 @@ extension SessionModel {
     /// when everything is in place.
     var recordingBlocker: String? {
         if isRecording { return "Already recording" }
-        if !calibration.isLocked { return "Calibrate the table first (rectangle button)" }
+        if !calibration.isLocked { return "Set up the table first" }
         if !isLiveTracking { return "Live tracking has not started — point at the table" }
         if usingFrontCamera { return "Recording needs the back (AR) camera" }
         if let free = SessionRecorder.freeMegabytes(), free < SessionRecorder.requiredFreeMegabytes {
@@ -156,7 +156,7 @@ extension SessionModel {
             let dropped = summary.videoDropped > 0 ? ", \(summary.videoDropped) video frames dropped" : ""
             let prefix = reason == .cap ? "Stopped at the \(recordingCapMinutes)-min cap. " : "Saved. "
             showTapFeedback(prefix + "\(summary.frames) frames, \(String(format: "%.0f", summary.seconds)) s, "
-                            + "\(summary.bytesOnDisk / 1_000_000) MB\(dropped) → pull-session.sh")
+                            + "\(summary.bytesOnDisk / 1_000_000) MB\(dropped)")
         } catch {
             recordingStatus = nil
             Self.log.error("stopRecording: finish failed: \(String(describing: error), privacy: .public)")

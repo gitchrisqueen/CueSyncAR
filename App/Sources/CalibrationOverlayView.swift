@@ -90,7 +90,7 @@ struct CalibrationOverlayView: View {
                 // for a second".
                 guard case .planeFound = model.calibration.state else {
                     if model.calibration.isLocked {
-                        model.showTapFeedback("Table already set — tap the rectangle button to redo it")
+                        model.showTapFeedback("Table already set — tap Set up table to redo it")
                     } else {
                         model.showTapFeedback("Looking for the table — point at the cloth and hold still")
                     }

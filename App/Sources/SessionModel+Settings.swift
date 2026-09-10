@@ -101,7 +101,7 @@ extension SessionModel {
         }
         // What the session actually resolved to, which can differ from the
         // request: the hosted adapter needs a key AND a selected model.
-        payload["effectiveDetection"] = effectiveDetectionProviderTitle
+        payload["effectiveDetection"] = effectiveDetectionProviderKey
         payload["hostedDetectionAvailable"] = hasRoboflowKey
         // Kept as a positive assertion rather than deleted: the mirror
         // said `false` for long enough that a reader should see it flip.
@@ -113,10 +113,22 @@ extension SessionModel {
     var canUseHostedDetection: Bool { hasRoboflowKey }
 
     /// What live tracking is running on right now, in words.
-    var effectiveDetectionProviderTitle: String {
+    /// For `/state.json`: a stable machine key a script can match on.
+    /// Deliberately the raw value, and deliberately not shown to anyone.
+    var effectiveDetectionProviderKey: String {
         guard isLiveTracking else { return "idle" }
         return usingOnDeviceDetection
             ? DetectionProviderSetting.onDevice.rawValue
             : DetectionProviderSetting.hosted.rawValue
+    }
+
+    /// For the Settings sheet. One value used to serve both jobs, so the
+    /// row read "Running on: onDevice" — a raw enum case, two rows under
+    /// the same enum rendered correctly as "On-device (bundled)".
+    var effectiveDetectionProviderTitle: String {
+        guard isLiveTracking else { return "Not running" }
+        return usingOnDeviceDetection
+            ? DetectionProviderSetting.onDevice.title
+            : DetectionProviderSetting.hosted.title
     }
 }
