@@ -35,7 +35,22 @@ struct CalibrationOverlayView: View {
 
     /// Height (world y) of the plane the corners live on — lets raycasts
     /// fall back to pure geometry when ARKit's plane queries miss.
+    /// The height the corner taps should land on.
+    ///
+    /// The BALLS decide this, not the corners. It used to be the average Y
+    /// of the corners already placed — which is nil for the first tap, so
+    /// that one had no reference at all, and every later tap inherited
+    /// whatever height the first one happened to land on. One bad first tap
+    /// put the whole quad in the air, which is exactly the symptom reported:
+    /// the rectangle floating above the cloth, at a fixed world height, from
+    /// every camera angle.
+    ///
+    /// `estimateClothPlane` is derived from balls resting on the actual
+    /// cloth and survives `stopLiveTracking`, so it is available throughout
+    /// the calibration flow. The corner average stays as a last resort for
+    /// a table with no balls on it yet.
     private var cornerPlaneHeight: Double? {
+        if let cloth = model.estimateClothPlane()?.height { return cloth }
         let corners = displayCorners
         guard !corners.isEmpty else { return nil }
         return corners.reduce(0) { $0 + $1.y } / Double(corners.count)
