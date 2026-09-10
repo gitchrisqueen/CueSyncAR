@@ -1,0 +1,109 @@
+{
+  "" : {
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/CoachKit-primary.dia",
+    "emit-module-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/CoachKit-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/CoachKit-primary-emit-module.dia",
+    "pch" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/CoachKit-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/CoachKit-primary.swiftdeps"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/BallGroup.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/BallGroup.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/BallGroup.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/BallGroup.dia",
+    "index-unit-output-path" : "/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/BallGroup.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/BallGroup.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/BallGroup.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/BallGroup.swiftdeps",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/BallGroup~partial.swiftmodule"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/CoachKit.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/CoachKit.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/CoachKit.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/CoachKit.dia",
+    "index-unit-output-path" : "/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/CoachKit.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/CoachKit.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/CoachKit.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/CoachKit.swiftdeps",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/CoachKit~partial.swiftmodule"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/MirrorAccessPolicy.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/MirrorAccessPolicy.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/MirrorAccessPolicy.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/MirrorAccessPolicy.dia",
+    "index-unit-output-path" : "/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/MirrorAccessPolicy.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/MirrorAccessPolicy.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/MirrorAccessPolicy.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/MirrorAccessPolicy.swiftdeps",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/MirrorAccessPolicy~partial.swiftmodule"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/PracticeMode.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/PracticeMode.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/PracticeMode.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/PracticeMode.dia",
+    "index-unit-output-path" : "/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/PracticeMode.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/PracticeMode.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/PracticeMode.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/PracticeMode.swiftdeps",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/PracticeMode~partial.swiftmodule"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/SettingsModel.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsModel.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsModel.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsModel.dia",
+    "index-unit-output-path" : "/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsModel.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsModel.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsModel.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsModel.swiftdeps",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsModel~partial.swiftmodule"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/SettingsStore.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsStore.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsStore.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsStore.dia",
+    "index-unit-output-path" : "/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsStore.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsStore.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsStore.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsStore.swiftdeps",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SettingsStore~partial.swiftmodule"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/ShotGuide.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotGuide.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotGuide.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotGuide.dia",
+    "index-unit-output-path" : "/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotGuide.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotGuide.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotGuide.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotGuide.swiftdeps",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotGuide~partial.swiftmodule"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/ShotRanking.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotRanking.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotRanking.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotRanking.dia",
+    "index-unit-output-path" : "/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotRanking.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotRanking.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotRanking.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotRanking.swiftdeps",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotRanking~partial.swiftmodule"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/ShotSelection.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotSelection.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotSelection.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotSelection.dia",
+    "index-unit-output-path" : "/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotSelection.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotSelection.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotSelection.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotSelection.swiftdeps",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/ShotSelection~partial.swiftmodule"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/SpokenGuidance.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SpokenGuidance.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SpokenGuidance.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SpokenGuidance.dia",
+    "index-unit-output-path" : "/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SpokenGuidance.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SpokenGuidance.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SpokenGuidance.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SpokenGuidance.swiftdeps",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CoachKit.build/Debug-iphonesimulator/CoachKit.build/Objects-normal/x86_64/SpokenGuidance~partial.swiftmodule"
+  }
+}

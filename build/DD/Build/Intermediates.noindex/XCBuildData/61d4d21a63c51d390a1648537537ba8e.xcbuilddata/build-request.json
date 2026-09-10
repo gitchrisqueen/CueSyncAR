@@ -1,0 +1,72 @@
+{
+  "buildCommand" : {
+    "command" : "build",
+    "skipDependencies" : false,
+    "style" : "buildOnly"
+  },
+  "configuredTargets" : [
+    {
+      "guid" : "5b5c3b6bb36f642b15170ca9b5b34127e6111d1d32f38364ac2ad8c1517cb7ac"
+    }
+  ],
+  "containerPath" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/CueSyncAR.xcodeproj",
+  "continueBuildingAfterErrors" : false,
+  "dependencyScope" : "workspace",
+  "enableIndexBuildArena" : false,
+  "hideShellScriptEnvironment" : false,
+  "parameters" : {
+    "action" : "build",
+    "activeArchitecture" : "x86_64",
+    "activeRunDestination" : {
+      "disableOnlyActiveArch" : false,
+      "platform" : "iphonesimulator",
+      "sdk" : "iphonesimulator26.2",
+      "sdkVariant" : "iphonesimulator",
+      "supportedArchitectures" : [
+        "x86_64"
+      ],
+      "targetArchitecture" : "x86_64"
+    },
+    "arenaInfo" : {
+      "buildIntermediatesPath" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex",
+      "buildProductsPath" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Products",
+      "derivedDataPath" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD",
+      "indexDataStoreFolderPath" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Index.noindex/DataStore",
+      "indexEnableDataStore" : true,
+      "indexPCHPath" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Index.noindex/PrecompiledHeaders",
+      "pchPath" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/PrecompiledHeaders"
+    },
+    "configurationName" : "Debug",
+    "overrides" : {
+      "commandLine" : {
+        "table" : {
+          "CODE_SIGNING_ALLOWED" : "NO"
+        }
+      },
+      "synthesized" : {
+        "table" : {
+          "ACTION" : "build",
+          "ASSETCATALOG_FILTER_FOR_DEVICE_MODEL" : "iPhone18,1",
+          "ASSETCATALOG_FILTER_FOR_DEVICE_OS_VERSION" : "26.3.1",
+          "ASSETCATALOG_FILTER_FOR_THINNING_DEVICE_CONFIGURATION" : "iPhone18,1",
+          "BUILD_ACTIVE_RESOURCES_ONLY" : "YES",
+          "CLANG_COVERAGE_MAPPING" : "YES",
+          "CLANG_PROFILE_DATA_DIRECTORY" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/ProfileData",
+          "ENABLE_PREVIEWS" : "NO",
+          "ENABLE_XOJIT_PREVIEWS" : "YES",
+          "TARGET_DEVICE_IDENTIFIER" : "39F1DD42-1E88-4BEE-A5A3-A5178590DD2C",
+          "TARGET_DEVICE_MODEL" : "iPhone18,1",
+          "TARGET_DEVICE_OS_VERSION" : "26.3.1",
+          "TARGET_DEVICE_PLATFORM_NAME" : "iphonesimulator",
+          "TOOLCHAINS" : "com.apple.dt.toolchain.Metal.32023.864 $(inherited)"
+        }
+      }
+    }
+  },
+  "schemeCommand" : "launch",
+  "showNonLoggedProgress" : true,
+  "useDryRun" : false,
+  "useImplicitDependencies" : true,
+  "useLegacyBuildLocations" : false,
+  "useParallelTargets" : true
+}

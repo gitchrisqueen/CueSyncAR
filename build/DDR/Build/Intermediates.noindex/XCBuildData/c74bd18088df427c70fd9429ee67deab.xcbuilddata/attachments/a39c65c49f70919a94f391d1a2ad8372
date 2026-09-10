@@ -1,0 +1,101 @@
+{
+  "" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PerceptionKit-primary.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PerceptionKit-primary.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PerceptionKit-primary.dia",
+    "emit-module-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PerceptionKit-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PerceptionKit-primary-emit-module.dia",
+    "pch" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PerceptionKit-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PerceptionKit-primary.swiftdeps"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/AimStabilizer.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/AimStabilizer.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/AimStabilizer.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/AimStabilizer.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/AnchorFollowing.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/AnchorFollowing.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/AnchorFollowing.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/AnchorFollowing.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/BallAppearance.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallAppearance.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallAppearance.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallAppearance.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/BallAppearancePass.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallAppearancePass.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallAppearancePass.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallAppearancePass.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/BallIdentity.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallIdentity.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallIdentity.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallIdentity.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/BallPatchSampler.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallPatchSampler.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallPatchSampler.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallPatchSampler.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/BallTracker.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallTracker.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallTracker.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/BallTracker.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/ClothPlaneEstimator.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/ClothPlaneEstimator.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/ClothPlaneEstimator.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/ClothPlaneEstimator.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/CoreMLDetectionProvider.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/CoreMLDetectionProvider.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/CoreMLDetectionProvider.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/CoreMLDetectionProvider.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/DetectorComputeProbe.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/DetectorComputeProbe.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/DetectorComputeProbe.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/DetectorComputeProbe.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/IngestThrottle.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/IngestThrottle.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/IngestThrottle.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/IngestThrottle.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/MotionGate.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/MotionGate.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/MotionGate.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/MotionGate.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/PerceptionKit.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PerceptionKit.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PerceptionKit.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PerceptionKit.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/PerceptionPipeline.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PerceptionPipeline.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PerceptionPipeline.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PerceptionPipeline.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/PixelBufferSampling.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PixelBufferSampling.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PixelBufferSampling.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PixelBufferSampling.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/PlaneGeometryRaycaster.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PlaneGeometryRaycaster.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PlaneGeometryRaycaster.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PlaneGeometryRaycaster.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/PlayingSurfaceGate.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PlayingSurfaceGate.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PlayingSurfaceGate.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/PlayingSurfaceGate.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/PerceptionKit/Sources/PerceptionKit/StickAim.swift" : {
+    "index-unit-output-path" : "/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/StickAim.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/StickAim.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/PerceptionKit.build/Release-iphonesimulator/PerceptionKit.build/Objects-normal/arm64/StickAim.o"
+  }
+}

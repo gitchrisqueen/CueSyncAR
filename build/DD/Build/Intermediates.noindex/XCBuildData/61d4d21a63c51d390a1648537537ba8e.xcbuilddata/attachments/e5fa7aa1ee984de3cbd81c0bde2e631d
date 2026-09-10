@@ -1,0 +1,4 @@
+module CueSyncCore {
+header "CueSyncCore-Swift.h"
+export *
+}

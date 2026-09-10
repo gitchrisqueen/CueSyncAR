@@ -1,0 +1,4 @@
+module CoachKit {
+header "CoachKit-Swift.h"
+export *
+}

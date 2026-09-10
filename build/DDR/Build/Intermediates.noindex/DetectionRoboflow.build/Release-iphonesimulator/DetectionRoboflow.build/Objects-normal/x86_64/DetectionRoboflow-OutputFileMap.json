@@ -1,0 +1,16 @@
+{
+  "" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DetectionRoboflow.build/Release-iphonesimulator/DetectionRoboflow.build/Objects-normal/x86_64/DetectionRoboflow-primary.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DetectionRoboflow.build/Release-iphonesimulator/DetectionRoboflow.build/Objects-normal/x86_64/DetectionRoboflow-primary.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DetectionRoboflow.build/Release-iphonesimulator/DetectionRoboflow.build/Objects-normal/x86_64/DetectionRoboflow-primary.dia",
+    "emit-module-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DetectionRoboflow.build/Release-iphonesimulator/DetectionRoboflow.build/Objects-normal/x86_64/DetectionRoboflow-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DetectionRoboflow.build/Release-iphonesimulator/DetectionRoboflow.build/Objects-normal/x86_64/DetectionRoboflow-primary-emit-module.dia",
+    "pch" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DetectionRoboflow.build/Release-iphonesimulator/DetectionRoboflow.build/Objects-normal/x86_64/DetectionRoboflow-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DetectionRoboflow.build/Release-iphonesimulator/DetectionRoboflow.build/Objects-normal/x86_64/DetectionRoboflow-primary.swiftdeps"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/DetectionRoboflow/Sources/DetectionRoboflow/RoboflowRemoteProvider.swift" : {
+    "index-unit-output-path" : "/DetectionRoboflow.build/Release-iphonesimulator/DetectionRoboflow.build/Objects-normal/x86_64/RoboflowRemoteProvider.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DetectionRoboflow.build/Release-iphonesimulator/DetectionRoboflow.build/Objects-normal/x86_64/RoboflowRemoteProvider.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DetectionRoboflow.build/Release-iphonesimulator/DetectionRoboflow.build/Objects-normal/x86_64/RoboflowRemoteProvider.o"
+  }
+}

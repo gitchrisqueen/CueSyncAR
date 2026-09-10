@@ -1,0 +1,4 @@
+module SessionReplay {
+header "SessionReplay-Swift.h"
+export *
+}

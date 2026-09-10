@@ -1,0 +1,4 @@
+module BilliardsPhysics {
+header "BilliardsPhysics-Swift.h"
+export *
+}

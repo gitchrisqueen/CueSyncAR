@@ -1,0 +1,41 @@
+{
+  "" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/TableSpace-primary.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/TableSpace-primary.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/TableSpace-primary.dia",
+    "emit-module-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/TableSpace-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/TableSpace-primary-emit-module.dia",
+    "pch" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/TableSpace-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/TableSpace-primary.swiftdeps"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/TableSpace/Sources/TableSpace/AffineTransform2D.swift" : {
+    "index-unit-output-path" : "/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/AffineTransform2D.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/AffineTransform2D.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/AffineTransform2D.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/TableSpace/Sources/TableSpace/AnchoredCalibration.swift" : {
+    "index-unit-output-path" : "/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/AnchoredCalibration.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/AnchoredCalibration.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/AnchoredCalibration.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/TableSpace/Sources/TableSpace/CornerOrdering.swift" : {
+    "index-unit-output-path" : "/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/CornerOrdering.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/CornerOrdering.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/CornerOrdering.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/TableSpace/Sources/TableSpace/PocketCalibration.swift" : {
+    "index-unit-output-path" : "/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/PocketCalibration.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/PocketCalibration.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/PocketCalibration.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/TableSpace/Sources/TableSpace/StandardSizeComparison.swift" : {
+    "index-unit-output-path" : "/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/StandardSizeComparison.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/StandardSizeComparison.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/StandardSizeComparison.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/TableSpace/Sources/TableSpace/TableCalibration.swift" : {
+    "index-unit-output-path" : "/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/TableCalibration.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/TableCalibration.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/x86_64/TableCalibration.o"
+  }
+}

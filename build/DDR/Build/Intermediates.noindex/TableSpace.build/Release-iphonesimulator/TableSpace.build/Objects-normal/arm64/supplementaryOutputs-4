@@ -1,0 +1,12 @@
+{
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/TableSpace/Sources/TableSpace/AffineTransform2D.swift" : {
+    "abi-baseline-json" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/arm64/TableSpace.abi.json",
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/arm64/TableSpace-primary.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/arm64/TableSpace-primary.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/arm64/TableSpace-primary.dia",
+    "objc-header" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/arm64/TableSpace-Swift.h",
+    "swiftdoc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/arm64/TableSpace.swiftdoc",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/arm64/TableSpace.swiftmodule",
+    "swiftsourceinfo" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/TableSpace.build/Release-iphonesimulator/TableSpace.build/Objects-normal/arm64/TableSpace.swiftsourceinfo"
+  }
+}

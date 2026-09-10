@@ -1,0 +1,4 @@
+module DetectionRoboflow {
+header "DetectionRoboflow-Swift.h"
+export *
+}

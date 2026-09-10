@@ -1,0 +1,19 @@
+{
+  "" : {
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/BilliardsPhysics.build/Debug-iphonesimulator/BilliardsPhysics.build/Objects-normal/x86_64/BilliardsPhysics-primary.dia",
+    "emit-module-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/BilliardsPhysics.build/Debug-iphonesimulator/BilliardsPhysics.build/Objects-normal/x86_64/BilliardsPhysics-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/BilliardsPhysics.build/Debug-iphonesimulator/BilliardsPhysics.build/Objects-normal/x86_64/BilliardsPhysics-primary-emit-module.dia",
+    "pch" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/BilliardsPhysics.build/Debug-iphonesimulator/BilliardsPhysics.build/Objects-normal/x86_64/BilliardsPhysics-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/BilliardsPhysics.build/Debug-iphonesimulator/BilliardsPhysics.build/Objects-normal/x86_64/BilliardsPhysics-primary.swiftdeps"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/BilliardsPhysics/Sources/BilliardsPhysics/AnalyticSolver.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/BilliardsPhysics.build/Debug-iphonesimulator/BilliardsPhysics.build/Objects-normal/x86_64/AnalyticSolver.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/BilliardsPhysics.build/Debug-iphonesimulator/BilliardsPhysics.build/Objects-normal/x86_64/AnalyticSolver.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/BilliardsPhysics.build/Debug-iphonesimulator/BilliardsPhysics.build/Objects-normal/x86_64/AnalyticSolver.dia",
+    "index-unit-output-path" : "/BilliardsPhysics.build/Debug-iphonesimulator/BilliardsPhysics.build/Objects-normal/x86_64/AnalyticSolver.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/BilliardsPhysics.build/Debug-iphonesimulator/BilliardsPhysics.build/Objects-normal/x86_64/AnalyticSolver.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/BilliardsPhysics.build/Debug-iphonesimulator/BilliardsPhysics.build/Objects-normal/x86_64/AnalyticSolver.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/BilliardsPhysics.build/Debug-iphonesimulator/BilliardsPhysics.build/Objects-normal/x86_64/AnalyticSolver.swiftdeps",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/BilliardsPhysics.build/Debug-iphonesimulator/BilliardsPhysics.build/Objects-normal/x86_64/AnalyticSolver~partial.swiftmodule"
+  }
+}

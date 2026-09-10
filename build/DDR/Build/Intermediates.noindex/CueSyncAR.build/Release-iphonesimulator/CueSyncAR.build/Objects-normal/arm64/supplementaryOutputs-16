@@ -1,0 +1,12 @@
+{
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/App/Sources/AppBuild.swift" : {
+    "abi-baseline-json" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncAR.build/Release-iphonesimulator/CueSyncAR.build/Objects-normal/arm64/CueSyncAR.abi.json",
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncAR.build/Release-iphonesimulator/CueSyncAR.build/Objects-normal/arm64/CueSyncAR-primary.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncAR.build/Release-iphonesimulator/CueSyncAR.build/Objects-normal/arm64/CueSyncAR-primary.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncAR.build/Release-iphonesimulator/CueSyncAR.build/Objects-normal/arm64/CueSyncAR-primary.dia",
+    "objc-header" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncAR.build/Release-iphonesimulator/CueSyncAR.build/Objects-normal/arm64/CueSyncAR-Swift.h",
+    "swiftdoc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncAR.build/Release-iphonesimulator/CueSyncAR.build/Objects-normal/arm64/CueSyncAR.swiftdoc",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncAR.build/Release-iphonesimulator/CueSyncAR.build/Objects-normal/arm64/CueSyncAR.swiftmodule",
+    "swiftsourceinfo" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncAR.build/Release-iphonesimulator/CueSyncAR.build/Objects-normal/arm64/CueSyncAR.swiftsourceinfo"
+  }
+}

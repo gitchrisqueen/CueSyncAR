@@ -1,0 +1,61 @@
+{
+  "" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit-primary.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit-primary.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit-primary.dia",
+    "emit-module-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit-primary-emit-module.dia",
+    "pch" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit-primary.swiftdeps"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/BallGroup.swift" : {
+    "index-unit-output-path" : "/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/BallGroup.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/BallGroup.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/BallGroup.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/CoachKit.swift" : {
+    "index-unit-output-path" : "/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/MirrorAccessPolicy.swift" : {
+    "index-unit-output-path" : "/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/MirrorAccessPolicy.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/MirrorAccessPolicy.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/MirrorAccessPolicy.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/PracticeMode.swift" : {
+    "index-unit-output-path" : "/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/PracticeMode.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/PracticeMode.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/PracticeMode.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/SettingsModel.swift" : {
+    "index-unit-output-path" : "/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/SettingsModel.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/SettingsModel.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/SettingsModel.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/SettingsStore.swift" : {
+    "index-unit-output-path" : "/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/SettingsStore.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/SettingsStore.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/SettingsStore.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/ShotGuide.swift" : {
+    "index-unit-output-path" : "/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/ShotGuide.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/ShotGuide.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/ShotGuide.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/ShotRanking.swift" : {
+    "index-unit-output-path" : "/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/ShotRanking.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/ShotRanking.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/ShotRanking.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/ShotSelection.swift" : {
+    "index-unit-output-path" : "/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/ShotSelection.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/ShotSelection.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/ShotSelection.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/SpokenGuidance.swift" : {
+    "index-unit-output-path" : "/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/SpokenGuidance.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/SpokenGuidance.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/SpokenGuidance.o"
+  }
+}

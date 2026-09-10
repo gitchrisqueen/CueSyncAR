@@ -1,0 +1,12 @@
+{
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CoachKit/Sources/CoachKit/BallGroup.swift" : {
+    "abi-baseline-json" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit.abi.json",
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit-primary.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit-primary.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit-primary.dia",
+    "objc-header" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit-Swift.h",
+    "swiftdoc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit.swiftdoc",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit.swiftmodule",
+    "swiftsourceinfo" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CoachKit.build/Release-iphonesimulator/CoachKit.build/Objects-normal/arm64/CoachKit.swiftsourceinfo"
+  }
+}

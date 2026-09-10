@@ -1,0 +1,12 @@
+{
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/ARExperience/Sources/ARExperience/ARSessionCoordinator.swift" : {
+    "abi-baseline-json" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/ARExperience.build/Release-iphonesimulator/ARExperience.build/Objects-normal/x86_64/ARExperience.abi.json",
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/ARExperience.build/Release-iphonesimulator/ARExperience.build/Objects-normal/x86_64/ARExperience-primary.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/ARExperience.build/Release-iphonesimulator/ARExperience.build/Objects-normal/x86_64/ARExperience-primary.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/ARExperience.build/Release-iphonesimulator/ARExperience.build/Objects-normal/x86_64/ARExperience-primary.dia",
+    "objc-header" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/ARExperience.build/Release-iphonesimulator/ARExperience.build/Objects-normal/x86_64/ARExperience-Swift.h",
+    "swiftdoc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/ARExperience.build/Release-iphonesimulator/ARExperience.build/Objects-normal/x86_64/ARExperience.swiftdoc",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/ARExperience.build/Release-iphonesimulator/ARExperience.build/Objects-normal/x86_64/ARExperience.swiftmodule",
+    "swiftsourceinfo" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/ARExperience.build/Release-iphonesimulator/ARExperience.build/Objects-normal/x86_64/ARExperience.swiftsourceinfo"
+  }
+}

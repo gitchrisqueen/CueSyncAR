@@ -1,0 +1,23 @@
+{
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/App/Sources/AppBuild.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/AppBuild.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/AppBuild.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/AppBuild.dia",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/AppBuild.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/AppBuild.swiftdeps"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/App/Sources/AppSecrets.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/AppSecrets.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/AppSecrets.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/AppSecrets.dia",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/AppSecrets.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/AppSecrets.swiftdeps"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/App/Sources/CalibrationInvite.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationInvite.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationInvite.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationInvite.dia",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationInvite.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationInvite.swiftdeps"
+  }
+}

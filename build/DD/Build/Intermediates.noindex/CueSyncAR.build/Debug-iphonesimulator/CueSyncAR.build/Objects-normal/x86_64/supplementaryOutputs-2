@@ -1,0 +1,23 @@
+{
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/App/Sources/CalibrationOverlayView.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationOverlayView.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationOverlayView.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationOverlayView.dia",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationOverlayView.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationOverlayView.swiftdeps"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/App/Sources/CalibrationStore.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationStore.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationStore.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationStore.dia",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationStore.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CalibrationStore.swiftdeps"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/App/Sources/CueSyncApp.swift" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CueSyncApp.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CueSyncApp.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CueSyncApp.dia",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CueSyncApp.o",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DD/Build/Intermediates.noindex/CueSyncAR.build/Debug-iphonesimulator/CueSyncAR.build/Objects-normal/x86_64/CueSyncApp.swiftdeps"
+  }
+}

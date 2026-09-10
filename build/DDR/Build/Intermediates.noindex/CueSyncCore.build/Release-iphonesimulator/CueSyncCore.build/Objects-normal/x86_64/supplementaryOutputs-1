@@ -1,0 +1,12 @@
+{
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/CueSyncCore/Sources/CueSyncCore/Ball.swift" : {
+    "abi-baseline-json" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncCore.build/Release-iphonesimulator/CueSyncCore.build/Objects-normal/x86_64/CueSyncCore.abi.json",
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncCore.build/Release-iphonesimulator/CueSyncCore.build/Objects-normal/x86_64/CueSyncCore-primary.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncCore.build/Release-iphonesimulator/CueSyncCore.build/Objects-normal/x86_64/CueSyncCore-primary.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncCore.build/Release-iphonesimulator/CueSyncCore.build/Objects-normal/x86_64/CueSyncCore-primary.dia",
+    "objc-header" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncCore.build/Release-iphonesimulator/CueSyncCore.build/Objects-normal/x86_64/CueSyncCore-Swift.h",
+    "swiftdoc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncCore.build/Release-iphonesimulator/CueSyncCore.build/Objects-normal/x86_64/CueSyncCore.swiftdoc",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncCore.build/Release-iphonesimulator/CueSyncCore.build/Objects-normal/x86_64/CueSyncCore.swiftmodule",
+    "swiftsourceinfo" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/CueSyncCore.build/Release-iphonesimulator/CueSyncCore.build/Objects-normal/x86_64/CueSyncCore.swiftsourceinfo"
+  }
+}

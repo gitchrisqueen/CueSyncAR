@@ -1,0 +1,4 @@
+module CueSyncUI {
+header "CueSyncUI-Swift.h"
+export *
+}

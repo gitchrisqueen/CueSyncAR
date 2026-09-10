@@ -1,0 +1,12 @@
+{
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/SessionReplay/Sources/SessionReplay/AccuracyReport.swift" : {
+    "abi-baseline-json" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/SessionReplay.build/Release-iphonesimulator/SessionReplay.build/Objects-normal/x86_64/SessionReplay.abi.json",
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/SessionReplay.build/Release-iphonesimulator/SessionReplay.build/Objects-normal/x86_64/SessionReplay-primary.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/SessionReplay.build/Release-iphonesimulator/SessionReplay.build/Objects-normal/x86_64/SessionReplay-primary.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/SessionReplay.build/Release-iphonesimulator/SessionReplay.build/Objects-normal/x86_64/SessionReplay-primary.dia",
+    "objc-header" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/SessionReplay.build/Release-iphonesimulator/SessionReplay.build/Objects-normal/x86_64/SessionReplay-Swift.h",
+    "swiftdoc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/SessionReplay.build/Release-iphonesimulator/SessionReplay.build/Objects-normal/x86_64/SessionReplay.swiftdoc",
+    "swiftmodule" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/SessionReplay.build/Release-iphonesimulator/SessionReplay.build/Objects-normal/x86_64/SessionReplay.swiftmodule",
+    "swiftsourceinfo" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/SessionReplay.build/Release-iphonesimulator/SessionReplay.build/Objects-normal/x86_64/SessionReplay.swiftsourceinfo"
+  }
+}

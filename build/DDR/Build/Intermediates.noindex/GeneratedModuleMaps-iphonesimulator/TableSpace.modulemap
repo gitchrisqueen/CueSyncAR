@@ -1,0 +1,4 @@
+module TableSpace {
+header "TableSpace-Swift.h"
+export *
+}

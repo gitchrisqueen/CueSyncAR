@@ -1,0 +1,21 @@
+{
+  "" : {
+    "const-values" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DisplayKit.build/Release-iphonesimulator/DisplayKit.build/Objects-normal/arm64/DisplayKit-primary.swiftconstvalues",
+    "dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DisplayKit.build/Release-iphonesimulator/DisplayKit.build/Objects-normal/arm64/DisplayKit-primary.d",
+    "diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DisplayKit.build/Release-iphonesimulator/DisplayKit.build/Objects-normal/arm64/DisplayKit-primary.dia",
+    "emit-module-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DisplayKit.build/Release-iphonesimulator/DisplayKit.build/Objects-normal/arm64/DisplayKit-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DisplayKit.build/Release-iphonesimulator/DisplayKit.build/Objects-normal/arm64/DisplayKit-primary-emit-module.dia",
+    "pch" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DisplayKit.build/Release-iphonesimulator/DisplayKit.build/Objects-normal/arm64/DisplayKit-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DisplayKit.build/Release-iphonesimulator/DisplayKit.build/Objects-normal/arm64/DisplayKit-primary.swiftdeps"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/DisplayKit/Sources/DisplayKit/ExternalDisplayRouter.swift" : {
+    "index-unit-output-path" : "/DisplayKit.build/Release-iphonesimulator/DisplayKit.build/Objects-normal/arm64/ExternalDisplayRouter.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DisplayKit.build/Release-iphonesimulator/DisplayKit.build/Objects-normal/arm64/ExternalDisplayRouter.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DisplayKit.build/Release-iphonesimulator/DisplayKit.build/Objects-normal/arm64/ExternalDisplayRouter.o"
+  },
+  "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/Packages/DisplayKit/Sources/DisplayKit/ExternalTableView.swift" : {
+    "index-unit-output-path" : "/DisplayKit.build/Release-iphonesimulator/DisplayKit.build/Objects-normal/arm64/ExternalTableView.o",
+    "llvm-bc" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DisplayKit.build/Release-iphonesimulator/DisplayKit.build/Objects-normal/arm64/ExternalTableView.bc",
+    "object" : "/Users/christopherqueen/workspace/CueSyncAR/.claude/worktrees/cqc-boss-vault-review-fa147f/build/DDR/Build/Intermediates.noindex/DisplayKit.build/Release-iphonesimulator/DisplayKit.build/Objects-normal/arm64/ExternalTableView.o"
+  }
+}
