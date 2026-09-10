@@ -219,7 +219,7 @@ extension SessionModel {
         CalibrationStore.saveTableSpec(updated.size)
         restartPipelineForCalibrationChange()
         let line = String(format: "Table re-measured %.3f × %.3f m", field.width, field.height)
-        showTapFeedback(line + " (remote)")
+        showRemoteFeedback(line)
         Self.log.notice("calibration resized: \(line, privacy: .public)")
         return true
     }
@@ -254,7 +254,7 @@ extension SessionModel {
         }
         restartPipelineForCalibrationChange()
         let field = updated.size.playField
-        showTapFeedback(String(format: "Corner %d nudged — field %.3f × %.3f m (remote)",
+        showRemoteFeedback(String(format: "Corner %d nudged — field %.3f × %.3f m",
                                index, field.width, field.height))
         return true
     }
@@ -275,7 +275,7 @@ extension SessionModel {
         }
         restartPipelineForCalibrationChange()
         startLiveTrackingIfReady()
-        showTapFeedback(String(format: "Table moved %+.3f, %+.3f m (remote)", delta.x, delta.y))
+        showRemoteFeedback(String(format: "Table moved %+.3f, %+.3f m", delta.x, delta.y))
         Self.log.notice("calibration translated \(delta.x, privacy: .public), \(delta.y, privacy: .public)")
         return true
     }
@@ -324,7 +324,7 @@ extension SessionModel {
             return false
         }
         guard !calibration.isLocked else {
-            showTapFeedback("Already calibrated — cancel first (remote)")
+            showRemoteFeedback("Already calibrated — cancel first")
             return false
         }
         // A successful raycast IS a found plane.
@@ -339,12 +339,12 @@ extension SessionModel {
         // and the "hold still" advice is right for them.
         guard let world = coordinator.raycastHorizontalPlane(
             screenPoint: point, fallbackPlaneHeight: planeHeight) else {
-            showTapFeedback("Corner missed the table plane at \(Int(point.x)), \(Int(point.y)) (remote)")
+            showRemoteFeedback("Corner missed the table plane at \(Int(point.x)), \(Int(point.y))")
             return false
         }
         if case .searchingPlane = calibration.state { calibrationPlaneDetected() }
         guard case .planeFound = calibration.state else {
-            showTapFeedback("Not ready for corners — start calibration first (remote)")
+            showRemoteFeedback("Not ready for corners — start calibration first")
             return false
         }
         if pendingCorners.isEmpty {
@@ -387,13 +387,13 @@ extension SessionModel {
         let (h0, h1) = (-1.0, -2.0)
         guard let a0 = unproject(a, h0), let b0 = unproject(b, h0),
               let a1 = unproject(a, h1), let b1 = unproject(b, h1) else {
-            showTapFeedback("Could not see the table plane from those points (remote)")
+            showRemoteFeedback("Could not see the table plane from those points")
             return false
         }
         let (l0, l1) = (a0.distance(to: b0), a1.distance(to: b1))
         let target = size.playField.height
         guard abs(l1 - l0) > 1e-6 else {
-            showTapFeedback("Rail length did not respond to height — degenerate view (remote)")
+            showRemoteFeedback("Rail length did not respond to height — degenerate view")
             return false
         }
         // length(h) = l0 + (l1 - l0) * (h - h0)/(h1 - h0); solve for target.
@@ -412,7 +412,7 @@ extension SessionModel {
         }
         guard let av = unproject(a, height), let bv = unproject(b, height),
               let tv = unproject(towards, height) else {
-            showTapFeedback("Lost the plane at the solved height (remote)")
+            showRemoteFeedback("Lost the plane at the solved height")
             return false
         }
         do {
@@ -428,11 +428,11 @@ extension SessionModel {
             let field = built.size.playField
             let line = String(format: "Calibrated from one rail: %.3f × %.3f m, cloth at y=%.3f",
                               field.width, field.height, height)
-            showTapFeedback(line + " (remote)")
+            showRemoteFeedback(line)
             Self.log.notice("\(line, privacy: .public)")
             return true
         } catch {
-            showTapFeedback("End-rail calibration refused: \(error) (remote)")
+            showRemoteFeedback("End-rail calibration refused: \(error)")
             return false
         }
     }
@@ -446,7 +446,7 @@ extension SessionModel {
         switch params["action"] {
         case "beginCalibration":
             beginCalibration()
-            showTapFeedback("Calibration started — place four corners (remote)")
+            showRemoteFeedback("Calibration started — place four corners")
         case "placeCorner":
             guard let x = params["x"].flatMap(Double.init),
                   let y = params["y"].flatMap(Double.init) else { return false }
@@ -455,11 +455,11 @@ extension SessionModel {
         case "lockCalibration":
             if !requestCalibrationLock() {
                 let reason = calibration.lastError.map(String.init(describing:)) ?? "not ready"
-                showTapFeedback("Lock refused: \(reason) (remote)")
+                showRemoteFeedback("Lock refused: \(reason)")
             }
         case "cancelCalibration":
             cancelCalibration()
-            showTapFeedback("Calibration cancelled (remote)")
+            showRemoteFeedback("Calibration cancelled")
         case "calibrateEndRail":
             // ax,ay bx,by = the visible short rail; tx,ty = any point on
             // the cloth further down the table; v = table size.
@@ -527,8 +527,8 @@ extension SessionModel {
                             size: TableSize) -> Bool {
         guard let plane = estimateClothPlane() else {
             let seen = clothPlaneSamples.reduce(0) { $0 + $1.detections.count }
-            showTapFeedback("Not enough balls to find the cloth (\(seen) detections) — "
-                            + "put a few on the table (remote)")
+            showRemoteFeedback("Not enough balls to find the cloth "
+                               + "(\(seen) detections) — put a few on the table")
             return false
         }
         let summary = String(format: "cloth y=%.3f from %d balls, spread %.0f mm, range %.2f-%.2f m",
@@ -537,7 +537,7 @@ extension SessionModel {
         Self.log.notice("\(summary, privacy: .public)")
         let ok = calibrateFromEndRail(a: a, b: b, towards: towards,
                                       size: size, planeHeight: plane.height)
-        if ok { showTapFeedback(summary + " (remote)") }
+        if ok { showRemoteFeedback(summary) }
         return ok
     }
 }
@@ -565,7 +565,7 @@ extension SessionModel {
             return false
         }
         guard let height = planeHeight ?? estimateClothPlane()?.height else {
-            showTapFeedback("No cloth height: put a few balls on the table, or pass h (remote)")
+            showRemoteFeedback("No cloth height: put a few balls on the table, or pass h")
             return false
         }
         func unproject(_ p: CGPoint) -> Vec3? {
@@ -574,7 +574,7 @@ extension SessionModel {
         guard let n0 = unproject(near.0), let n1 = unproject(near.1),
               let f0 = unproject(far.0), let f1 = unproject(far.1),
               let e = unproject(end) else {
-            showTapFeedback("A rail point missed the cloth plane (remote)")
+            showRemoteFeedback("A rail point missed the cloth plane")
             return false
         }
         // The rails' own separation is not used to build the table, so it
@@ -595,11 +595,11 @@ extension SessionModel {
             startLiveTrackingIfReady()
             let line = String(format: "Rails: cloth y=%.3f, measured %.3f m apart vs %.3f expected (%+.0f mm)",
                               height, separation, expected, (separation - expected) * 1000)
-            showTapFeedback(line + " (remote)")
+            showRemoteFeedback(line)
             Self.log.notice("\(line, privacy: .public)")
             return true
         } catch {
-            showTapFeedback("Rail calibration refused: \(error) (remote)")
+            showRemoteFeedback("Rail calibration refused: \(error)")
             return false
         }
     }

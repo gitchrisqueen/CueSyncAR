@@ -69,7 +69,7 @@ struct MoreSheet: View {
             Text("""
                 The mirror serves the live screen and tracking state to any \
                 browser on this Wi-Fi. The recorder writes a replayable \
-                session bundle — pull it with Scripts/pull-session.sh.
+                session bundle — pull it from the Files app, or over the debug mirror.
                 """)
         }
     }

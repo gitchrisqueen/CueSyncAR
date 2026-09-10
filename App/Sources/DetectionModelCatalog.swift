@@ -14,7 +14,8 @@ enum DetectionModelCatalog {
     static let candidates: [RoboflowModelRef] = [
         // This one VVV working
         RoboflowModelRef(slug: "pool-ball-agzev", version: 1,
-                         label: "xhujustin — Pool Ball"),
+                         // Universe: xhujustin
+                         label: "Pool Ball (bundled model's source)"),
         // leonardo's "pool-ball-detecion" is removed: the Universe project
         // (leonardo-wijaya-bdcih) has 3 dataset versions but NO deployed
         // trained model at any of them — the hosted API can never serve it.
@@ -22,10 +23,12 @@ enum DetectionModelCatalog {
         // Replacement candidate, verified deployed on Universe: 81.2%
         // mAP@50, classifies each ball 0–15 individually (identity!).
         RoboflowModelRef(slug: "pool-balls-detection-srlqi", version: 8,
-                         label: "mark — Pool Balls (numbered)"),
+                         // Universe: mark
+                         label: "Pool Balls, numbered 0–15"),
         // This one VVV working
         RoboflowModelRef(slug: "pool-ball-detection-v8huq", version: 1,
-                         label: "kwinten — Ball Detection"),
+                         // Universe: kwinten
+                         label: "Ball Detection (alternate)"),
         // Table detection: not needed for MVP calibration (ARKit plane +
         // corners does that) — included to observe whether it could later
         // auto-propose rail corners (M3-02 enhancement).

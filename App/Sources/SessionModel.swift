@@ -308,6 +308,25 @@ final class SessionModel {
         Self.log.info("raw tap \(self.lastTapNote ?? "?", privacy: .public)")
     }
 
+    /// Feedback for something a MIRROR COMMAND did, rather than a finger.
+    ///
+    /// The " (remote)" marker is real information for whoever is driving
+    /// from a browser — it separates "the app did this because I asked"
+    /// from "the app did this on its own". It is noise on a player's
+    /// screen, and it was leaking into ~40 toasts, several of which also
+    /// carried raw `/cmd` syntax.
+    ///
+    /// So the marker becomes presentation, not text: development builds
+    /// keep it, a shipping build does not. The messages themselves are now
+    /// written for a person either way.
+    func showRemoteFeedback(_ message: String) {
+        #if DEBUG
+        showTapFeedback("\(message) (remote)")
+        #else
+        showTapFeedback(message)
+        #endif
+    }
+
     func showTapFeedback(_ message: String) {
         lastTapNote = "#\(rawTapCount) → \(message)"
         tapFeedback = message
@@ -786,26 +805,26 @@ extension SessionModel {
                 noteRecordingEvent(.designateCueBall, x: ball.position.x, y: ball.position.y)
             }
             cueIdentity.clearDesignation()
-            showTapFeedback("Cue-ball mark cleared (remote)")
+            showRemoteFeedback("Cue-ball mark cleared")
         case "callPocket":
             guard let id = params["id"],
                   let pocket = tableState?.table.pockets
                     .first(where: { String(describing: $0.id) == id }) else { return }
             togglePocketCall(pocket.id)
-            showTapFeedback("Pocket \(id) toggled (remote)")
+            showRemoteFeedback("Pocket \(id) toggled")
         case "clearPocket":
             if let calledPocket { noteRecordingEvent(.callPocket, pocket: calledPocket) }
             calledPocket = nil
             calledShotOnLine = false
-            showTapFeedback("Pocket call cleared (remote)")
+            showRemoteFeedback("Pocket call cleared")
         case "guideSpeed":
             guard let v = params["v"].flatMap(Double.init) else { return }
             updateSettings { $0.guideSpeed = v } // clamped by SettingsModel
-            showTapFeedback(String(format: "Guide speed %.1f m/s (remote)", guideSpeed))
+            showRemoteFeedback(String(format: "Guide speed %.1f m/s", guideSpeed))
         case "missGrace":
             guard let v = params["v"].flatMap(Double.init) else { return }
             updateSettings { $0.visibleMissGrace = v }
-            showTapFeedback(String(format: "Miss grace %.2f s (remote)", settings.visibleMissGrace))
+            showRemoteFeedback(String(format: "Miss grace %.2f s", settings.visibleMissGrace))
         case "setMode":
             guard let raw = params["mode"], let mode = PracticeMode(rawValue: raw)
             else { return }
@@ -813,9 +832,9 @@ extension SessionModel {
         case "parked":
             guard let v = params["v"].flatMap(Int.init) else { return }
             updateSettings { $0.deviceParked = v != 0 }
-            showTapFeedback(settings.deviceParked
-                            ? "Parked: aiming from the cue only (remote)"
-                            : "Hand-held: device-pose aiming on (remote)")
+            showRemoteFeedback(settings.deviceParked
+                               ? "Parked: aiming from the cue only"
+                               : "Hand-held: device-pose aiming on")
         case "followAnchor":
             guard let v = params["v"].flatMap(Int.init) else { return }
             setFollowsTableAnchor(v != 0)
