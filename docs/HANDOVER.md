@@ -233,7 +233,7 @@ it alone; `needs-table` means it cannot be done without standing at one;
 
 | phase | issues | state |
 |---|---|---|
-| **B** — gates that assert something | [#63](https://github.com/gitchrisqueen/CueSyncAR/issues/63), [#64](https://github.com/gitchrisqueen/CueSyncAR/issues/64), [#65](https://github.com/gitchrisqueen/CueSyncAR/issues/65) | #64 closed with the merge of PR #117; its CI half is item 1 above |
+| **B** — gates that assert something | [#63](https://github.com/gitchrisqueen/CueSyncAR/issues/63), [#64](https://github.com/gitchrisqueen/CueSyncAR/issues/64), [#65](https://github.com/gitchrisqueen/CueSyncAR/issues/65) | #64's test half merged with PR #117; it stays open for the CI half, item 1 above |
 | **C** — product shell | [#72](https://github.com/gitchrisqueen/CueSyncAR/issues/72), [#74](https://github.com/gitchrisqueen/CueSyncAR/issues/74)–[#77](https://github.com/gitchrisqueen/CueSyncAR/issues/77) | #73 and #78 are done |
 | **D** — automatic table detection | [#91](https://github.com/gitchrisqueen/CueSyncAR/issues/91)–[#93](https://github.com/gitchrisqueen/CueSyncAR/issues/93) | not started |
 | **E** — TV output | [#94](https://github.com/gitchrisqueen/CueSyncAR/issues/94)–[#99](https://github.com/gitchrisqueen/CueSyncAR/issues/99) | not started |
