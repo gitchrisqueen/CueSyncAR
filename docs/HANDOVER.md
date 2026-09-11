@@ -161,22 +161,30 @@ Ranked by value per hour, not by phase order.
 
 ### 1. Fix the replay-smoke workflow (5 minutes, owner)
 
-**[PR #117](https://github.com/gitchrisqueen/CueSyncAR/pull/117) is
-finished and blocked on two lines.** It adds the app target's first UI
-tests. Adding them flips `verify-sim.yml` into a branch that has never
-executed and does not work:
+**[PR #117](https://github.com/gitchrisqueen/CueSyncAR/pull/117) merged
+(`fc8efdc`) without its workflow fix.** It added the app target's first
+UI tests, and their presence flips `verify-sim.yml` into a branch that
+had never executed and does not work:
 
 ```
 xcodebuild: error: invalid option '-ReplayBundle'
 ```
 
 The workflow hands the app's launch arguments to `xcodebuild`, which
-exits 64 before a test runs. The fix is in the PR body verbatim. The test
-half is already merged into that branch and verified 4/4 across four
-local runs.
+exits 64 before a test runs. `main` itself stays green, because
+`verify-sim` runs only on pull requests and manual dispatch — but **every
+PR opened from now on fails *Replay smoke (Simulator)*** until the fix
+lands.
+
+The two-line fix is in the PR #117 body verbatim: pass the fixture as
+`TEST_RUNNER_REPLAY_BUNDLE` in the environment instead of as an
+`xcodebuild` argument, and write `-only-testing:CueSyncARUITests`. The
+test half already reads that variable, and was verified 4/4 across four
+local runs with the fix applied.
 
 `.github/**` is owner-only per `CLAUDE.md`, which is why this is here and
-not done.
+not done. Land it as its own PR; *Replay smoke* passing on that PR, with
+tests actually executed, is the proof.
 
 ### 2. Take the table trip ("Session Zero")
 
@@ -225,7 +233,7 @@ it alone; `needs-table` means it cannot be done without standing at one;
 
 | phase | issues | state |
 |---|---|---|
-| **B** — gates that assert something | [#63](https://github.com/gitchrisqueen/CueSyncAR/issues/63), [#64](https://github.com/gitchrisqueen/CueSyncAR/issues/64), [#65](https://github.com/gitchrisqueen/CueSyncAR/issues/65) | #64 is PR #117, blocked above |
+| **B** — gates that assert something | [#63](https://github.com/gitchrisqueen/CueSyncAR/issues/63), [#64](https://github.com/gitchrisqueen/CueSyncAR/issues/64), [#65](https://github.com/gitchrisqueen/CueSyncAR/issues/65) | #64 closed with the merge of PR #117; its CI half is item 1 above |
 | **C** — product shell | [#72](https://github.com/gitchrisqueen/CueSyncAR/issues/72), [#74](https://github.com/gitchrisqueen/CueSyncAR/issues/74)–[#77](https://github.com/gitchrisqueen/CueSyncAR/issues/77) | #73 and #78 are done |
 | **D** — automatic table detection | [#91](https://github.com/gitchrisqueen/CueSyncAR/issues/91)–[#93](https://github.com/gitchrisqueen/CueSyncAR/issues/93) | not started |
 | **E** — TV output | [#94](https://github.com/gitchrisqueen/CueSyncAR/issues/94)–[#99](https://github.com/gitchrisqueen/CueSyncAR/issues/99) | not started |
