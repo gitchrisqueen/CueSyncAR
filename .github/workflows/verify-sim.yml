@@ -50,10 +50,11 @@ jobs:
           set -euo pipefail
           mkdir -p sim-replay/screenshots
           if xcodebuild -project CueSyncAR.xcodeproj -list 2>/dev/null | grep -q CueSyncARUITests; then
+            TEST_RUNNER_REPLAY_BUNDLE="$FIXTURE" \
             xcodebuild test-without-building -project CueSyncAR.xcodeproj -scheme CueSyncAR \
               -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build/DerivedData \
-              -only-testing CueSyncARUITests -resultBundlePath sim-replay/result.xcresult \
-              -testLanguage en "-ReplayBundle" "$FIXTURE" | tee sim-replay/xcodebuild.log | tail -50
+              -only-testing:CueSyncARUITests -resultBundlePath sim-replay/result.xcresult \
+              -testLanguage en | tee sim-replay/xcodebuild.log | tail -50
           else
             app=$(find build/DerivedData -name 'CueSyncAR.app' -path '*iphonesimulator*' | head -1)
             xcrun simctl install "${{ steps.sim.outputs.udid }}" "$app"
