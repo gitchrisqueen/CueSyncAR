@@ -2,7 +2,8 @@
 
 **Written 2026-09-10, at `main` @ the merge of #129. This is the state the
 project was left in, what is actually true about it, and what the next
-person should do first.**
+person should do first.** Item 1 under *What to do first* and the Phase B
+row were updated on 2026-10-08, after #134 merged.
 
 Read this before `docs/roadmap/`. The roadmap describes a plan; this
 describes reality.
@@ -159,24 +160,27 @@ through without one.
 
 Ranked by value per hour, not by phase order.
 
-### 1. Fix the replay-smoke workflow (5 minutes, owner)
+### 1. Fix the replay-smoke workflow — done
 
-**[PR #117](https://github.com/gitchrisqueen/CueSyncAR/pull/117) is
-finished and blocked on two lines.** It adds the app target's first UI
-tests. Adding them flips `verify-sim.yml` into a branch that has never
-executed and does not work:
+**Done.** [PR #117](https://github.com/gitchrisqueen/CueSyncAR/pull/117)
+merged as `fc8efdc` with the app target's first UI tests but **without**
+its workflow half. Adding the tests flipped `verify-sim.yml` into a branch
+that had never executed, which handed the app's launch arguments to
+`xcodebuild` and exited 64 before a test ran:
 
 ```
 xcodebuild: error: invalid option '-ReplayBundle'
 ```
 
-The workflow hands the app's launch arguments to `xcodebuild`, which
-exits 64 before a test runs. The fix is in the PR body verbatim. The test
-half is already merged into that branch and verified 4/4 across four
-local runs.
+[PR #134](https://github.com/gitchrisqueen/CueSyncAR/pull/134) (merge
+`9bff356`) landed that half: the fixture reaches the test runner as
+`TEST_RUNNER_REPLAY_BUNDLE`, and the step runs
+`-only-testing:CueSyncARUITests`. Its *Replay smoke (Simulator)* check
+[passed](https://github.com/gitchrisqueen/CueSyncAR/actions/runs/37734693209).
 
-`.github/**` is owner-only per `CLAUDE.md`, which is why this is here and
-not done.
+[#64](https://github.com/gitchrisqueen/CueSyncAR/issues/64) is still open,
+because #134 only references it. Both halves are on `main`, so it can be
+closed by hand.
 
 ### 2. Take the table trip ("Session Zero")
 
@@ -225,7 +229,7 @@ it alone; `needs-table` means it cannot be done without standing at one;
 
 | phase | issues | state |
 |---|---|---|
-| **B** — gates that assert something | [#63](https://github.com/gitchrisqueen/CueSyncAR/issues/63), [#64](https://github.com/gitchrisqueen/CueSyncAR/issues/64), [#65](https://github.com/gitchrisqueen/CueSyncAR/issues/65) | #64 is PR #117, blocked above |
+| **B** — gates that assert something | [#63](https://github.com/gitchrisqueen/CueSyncAR/issues/63), [#64](https://github.com/gitchrisqueen/CueSyncAR/issues/64), [#65](https://github.com/gitchrisqueen/CueSyncAR/issues/65) | #64's test half came in with #117 and its CI half with #134; close it by hand (item 1) |
 | **C** — product shell | [#72](https://github.com/gitchrisqueen/CueSyncAR/issues/72), [#74](https://github.com/gitchrisqueen/CueSyncAR/issues/74)–[#77](https://github.com/gitchrisqueen/CueSyncAR/issues/77) | #73 and #78 are done |
 | **D** — automatic table detection | [#91](https://github.com/gitchrisqueen/CueSyncAR/issues/91)–[#93](https://github.com/gitchrisqueen/CueSyncAR/issues/93) | not started |
 | **E** — TV output | [#94](https://github.com/gitchrisqueen/CueSyncAR/issues/94)–[#99](https://github.com/gitchrisqueen/CueSyncAR/issues/99) | not started |
