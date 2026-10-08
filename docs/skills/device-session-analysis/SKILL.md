@@ -29,8 +29,8 @@ Background: `CLAUDE.md` ("Session recorder", "Table-free iteration"),
 
 1. **Pull (10 min).** With the app in the foreground, the Debug mirror on
    and the recording stopped: `Scripts/pull-session.sh <device-ip>
-   [session-id | latest]`. Verify: it ends with `done: Sessions/<id> (N
-   frames, all files verified)`. On `BAD`, `MISSING` or a dropped
+   [session-id | latest]`. Verify: it prints `done: Sessions/<id> (N
+   frames, all files verified)` (a replay hint follows it). On `BAD`, `MISSING` or a dropped
    connection, re-run the same command; it resumes. Never use a bundle
    whose verification failed.
 
@@ -40,8 +40,10 @@ Background: `CLAUDE.md` ("Session recorder", "Table-free iteration"),
    Packages/SessionReplay --filter "DeviceBundleReplay|RealBundleStability"`.
    The first run writes `outputs.jsonl` into the bundle; a second run
    byte-compares against it. Verify: both suites pass and the
-   `StabilityReport [<id>]` line is printed. Copy that line; it is the
-   baseline.
+   `StabilityReport [<id>]` block is printed. Copy the
+   `StabilityReport [<id>]` line and the two lines under it (frames,
+   seconds and dropped count; then the stability summary); together they
+   are the baseline.
 
 3. **Find the window (15 min).** Read `Sessions/<id>/manifest.json`
    (`recording`: app commit and dirty flag, detector, model hash,
@@ -61,8 +63,9 @@ Background: `CLAUDE.md` ("Session recorder", "Table-free iteration"),
 5. **Replay the slice (5 min).** Step 2's command with
    `CUESYNC_REPLAY_BUNDLE=<abs>/Sessions/slices/<slug>`, run twice.
    Verify: both suites pass on both runs, and the second run reports no
-   golden write. Quote the slice's `StabilityReport` line when reporting
-   findings; that is the analysis deliverable if nothing is committed.
+   golden write. Quote the slice's `StabilityReport [<slug>]` line and
+   the two lines under it when reporting findings; that block is the
+   analysis deliverable if nothing is committed.
 
 6. **Promote to a golden, only if it should gate future changes (20
    min).** Slice again into
@@ -84,6 +87,7 @@ Background: `CLAUDE.md` ("Session recorder", "Table-free iteration"),
    the test file. Linux byte-equality is proved by `ci-core` on the PR.
 
 8. **Report (5 min).** In the PR or the note: session id, app commit,
-   window, the before and after `StabilityReport` lines, and what is still
+   window, the before and after `StabilityReport` blocks (each the
+   `StabilityReport [...]` line and the two lines under it), and what is still
    `needs-device-run`. New logic needs new tests in the same PR (hard
    rule 3).
