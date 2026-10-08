@@ -2,7 +2,7 @@
 name: device-session-analysis
 description: Turn a session recorded on the device into evidence - pull the bundle with Scripts/pull-session.sh, replay it through the real pipeline with the DeviceBundleReplay and RealBundleStability suites, slice the behaviour under study with Scripts/make-replay-fixture.py, and, when it should gate future changes, commit the slice as a golden with measured stability bars.
 when_to_use: Use after the owner records a session at the table ("pull the latest session", "analyse last night's recording", "make a replay fixture from this clip", "turn this bug into a golden"), or when a perception, tracking or physics change needs numbers from a real table. Not for recording itself (the owner follows docs/recording-a-session.md) and not for regenerating existing goldens.
-allowed-tools: Read, Edit, Bash(Scripts/pull-session.sh *), Bash(python3 Scripts/make-replay-fixture.py *), Bash(python3 -c *), Bash(CUESYNC_REPLAY_BUNDLE=* swift test --package-path Packages/SessionReplay *), Bash(swift test --package-path Packages/SessionReplay *), Bash(du -sh *), Bash(git status:*)
+allowed-tools: Read, Edit, Bash(Scripts/pull-session.sh *), Bash(python3 Scripts/make-replay-fixture.py *), Bash(CUESYNC_REPLAY_BUNDLE=* swift test --package-path Packages/SessionReplay *), Bash(swift test --package-path Packages/SessionReplay *), Bash(du -sh *), Bash(git status:*)
 ---
 
 # Device session analysis
@@ -50,7 +50,9 @@ Background: `CLAUDE.md` ("Session recorder", "Table-free iteration"),
    duration). List taps and resets with
    `python3 -c "import json,sys; [print(json.loads(l)) for l in open(sys.argv[1]) if l.strip()]" Sessions/<id>/events.jsonl`,
    and use the same one-liner on `snapshots.jsonl` to see when the guide
-   moved. Pick a frame window `<lo>`..`<hi>` around the behaviour,
+   moved. The one-liner prompts for approval: a skill's `allowed-tools`
+   cannot match it exactly, and a `python3 -c` prefix would approve any
+   Python. Pick a frame window `<lo>`..`<hi>` around the behaviour,
    about 300 frames like the existing device fixtures. Verify: you can say
    in one sentence what the window shows, and its frame range.
 
