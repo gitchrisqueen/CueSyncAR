@@ -294,7 +294,7 @@ in flight. Everything below is `needs-device-run` unless stated otherwise.
   by inspecting the built bundle (`assetutil --info Assets.car`), never by
   a green build alone.
 - **#3 agent runner** — merged, but installed PAUSED and inert until the
-  GitHub App, host setup and an explicit go (CS-01/02/04). An adversarial
+  GitHub App, host setup and an explicit go. An adversarial
   review found five blocking issues (write token reachable from the model's
   shell, public review threads dispatched as work, a 100-file path check,
   host FQDN in commit authors, and three defects that stopped it completing
@@ -562,12 +562,11 @@ Retrained weights + all export variants persist outside the repo
 - [x] Push the T1 device-verification work (2026-09-07, redacted squash
   `b9f03b2` → merged as #6).
 - [ ] **Table run on the current build** — the four questions in step 1.
-  Tracked as ClickUp CS-07 (https://app.clickup.com/t/86e35y0h5); the iPad
-  was loaded with `e3e2581` on 2026-09-08, so nothing blocks it.
+  The iPad was loaded with `e3e2581` on 2026-09-08, so nothing blocks it.
 - [ ] **Record one session** — the recorder shipped (#18); walkthrough in
   `docs/recording-a-session.md`. Same trip as the row above.
 - [ ] One-time review of the M1-03 golden fixtures (then tick M1-03's
   "human-reviewed" exit criterion in 06-MILESTONES.md).
-- [ ] Agent-runner go/no-go: GitHub App + `/opt/cuesync-agent` + secrets
-  (CS-01), rulesets (CS-02), probe read (CS-04), seeded issues (CS-05).
+- [ ] Agent-runner go/no-go: GitHub App + `$AGENT_BASE` + secrets,
+  rulesets, probe read, seeded issues.
 - [ ] Delete `_to_delete/` at the repo root whenever convenient.
