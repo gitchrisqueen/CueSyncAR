@@ -110,7 +110,7 @@ work with a Decision Comment.
 # one-time on the host, as root: the model uid, in the runner's group, with one sudo rule
 useradd -r -M -s /usr/sbin/nologin -G <runner-group> cuesync-model
 printf '%s ALL=(cuesync-model) NOPASSWD: /usr/bin/env\n' <runner-user> > /etc/sudoers.d/cuesync-agent; chmod 0440 /etc/sudoers.d/cuesync-agent
-install -d -o <runner-user> -g <runner-group> -m 0750 "$AGENT_BASE"
+install -d -o <runner-user> -g <runner-group> -m 0750 "${AGENT_BASE:-/opt/cuesync-agent}"   # same default as Scripts/agent-runner/install.sh
 # `claude` must be on PATH for cuesync-model (system-wide install, not under the runner's HOME)
 
 # install / update (as the runner user)

@@ -294,7 +294,7 @@ in flight. Everything below is `needs-device-run` unless stated otherwise.
   by inspecting the built bundle (`assetutil --info Assets.car`), never by
   a green build alone.
 - **#3 agent runner** — merged, but installed PAUSED and inert until the
-  GitHub App, host setup and an explicit go (CS-01/02/04). An adversarial
+  GitHub App, host setup and an explicit go. An adversarial
   review found five blocking issues (write token reachable from the model's
   shell, public review threads dispatched as work, a 100-file path check,
   host FQDN in commit authors, and three defects that stopped it completing
@@ -567,6 +567,6 @@ Retrained weights + all export variants persist outside the repo
   `docs/recording-a-session.md`. Same trip as the row above.
 - [ ] One-time review of the M1-03 golden fixtures (then tick M1-03's
   "human-reviewed" exit criterion in 06-MILESTONES.md).
-- [ ] Agent-runner go/no-go: GitHub App + `$AGENT_BASE` + secrets
-  (CS-01), rulesets (CS-02), probe read (CS-04), seeded issues (CS-05).
+- [ ] Agent-runner go/no-go: GitHub App + `$AGENT_BASE` + secrets,
+  rulesets, probe read, seeded issues.
 - [ ] Delete `_to_delete/` at the repo root whenever convenient.
