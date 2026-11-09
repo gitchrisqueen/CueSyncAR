@@ -16,6 +16,8 @@
 //    GET /state.json  tracking/calibration/guide state + live settings
 //    GET /cmd?action= remote commands (incl. startRecording/stopRecording)
 //    GET /sessions    recorded session bundles (DebugMirrorServer+Sessions)
+//    GET /logs        recent os.Logger lines as text (MirrorLogReader);
+//                     ?n=&since=&category=&level=
 //
 
 import CoachKit
@@ -215,6 +217,14 @@ final class DebugMirrorServer: @unchecked Sendable {
             lock.lock(); let json = latestStateJSON; lock.unlock()
             return Self.httpResponse(body: json ?? Data("{}".utf8),
                                      contentType: "application/json")
+        case "/logs":
+            let query = Self.queryParameters(from: rawPath)
+            let text = MirrorLogReader.read(
+                limit: query["n"].flatMap(Int.init) ?? 300,
+                sinceSeconds: query["since"].flatMap(Double.init) ?? 900,
+                category: query["category"], minimumLevel: query["level"])
+            return Self.httpResponse(body: Data(text.utf8),
+                                     contentType: "text/plain; charset=utf-8")
         case "/":
             return Self.httpResponse(body: Data(Self.viewerHTML.utf8),
                                      contentType: "text/html; charset=utf-8")
