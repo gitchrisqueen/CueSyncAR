@@ -396,9 +396,18 @@ final class SessionModel {
             advisor.cycle()
         case "advisor":
             showTapFeedback(advisor.toggle())
+        #if DEBUG && targetEnvironment(simulator)
+        case "seed":
+            seedSyntheticTable(named: params["layout"] ?? "open")
+        #endif
         default:
             Self.log.info("mirror command ignored: \(String(describing: params), privacy: .public)")
         }
+        #if DEBUG && targetEnvironment(simulator)
+        // No AR loop in the Simulator to publish state, so do it here:
+        // a scripted client can read state.json right after a command.
+        publishMirrorFrame(nil)
+        #endif
     }
 
     /// Publish the newest rendered frame + a state snapshot (~1 Hz).
@@ -573,7 +582,31 @@ final class SessionModel {
     @ObservationIgnored private let solver: any TrajectorySolving = AnalyticSolver()
     @ObservationIgnored private var lastTrackingIngestAt: Date = .distantPast
 
-    var isLiveTracking: Bool { pipeline != nil }
+    var isLiveTracking: Bool {
+        #if DEBUG && targetEnvironment(simulator)
+        if debugSeeded { return true }
+        #endif
+        return pipeline != nil
+    }
+
+    #if DEBUG && targetEnvironment(simulator)
+    /// True once a synthetic table was seeded (DebugSeed.swift): the HUD
+    /// then renders as in live tracking, with no camera or pipeline.
+    @ObservationIgnored private var debugSeeded = false
+
+    /// Locks a calibration matching `state` and publishes it as the live
+    /// layout, then plans shots. Simulator-only; see DebugSeed.swift.
+    func installDebugTable(_ state: TableState) {
+        restoreCalibration(TableCalibration(origin: .zero, xAxis: Vec3(1, 0, 0),
+                                            yAxis: Vec3(0, 0, 1), size: state.table.size))
+        debugSeeded = true
+        tableState = state
+        shotPrediction = nil
+        shotGuide = nil
+        advisor.clear()
+        advisor.refresh(for: state)
+    }
+    #endif
 
     /// Build the perception pipeline once a calibration is locked and a
     /// detection provider is selected. Balls detected from then on are
