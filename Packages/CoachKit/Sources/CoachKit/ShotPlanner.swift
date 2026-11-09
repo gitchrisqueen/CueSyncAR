@@ -4,7 +4,8 @@
 //
 //  "What should I shoot?" — enumerates every (object ball, pocket) pair on
 //  the table, builds the ghost-ball aim for each, throws out the ones that
-//  cannot work (blocked lane, impossible cut, ball can't enter the jaws) and
+//  cannot work (blocked lane, lane through a pocket mouth, impossible cut,
+//  ball can't enter the jaws) and
 //  ranks the rest easiest-first. Pure geometry over CueSyncCore types: no
 //  solver dependency, fully testable on Linux. The app feeds the winning
 //  `ShotOption.aim` to the trajectory solver to draw the full prediction.
@@ -12,6 +13,24 @@
 //  Honesty note: `difficulty` is a RANKING heuristic (cut angle, distance,
 //  jaw margin), not a calibrated make-probability. The jaw acceptance cones
 //  are approximations of real pocket geometry; tune them from device data.
+//
+//  Jaw cone cross-check (JawConeSweepTests, 9-ft table, firm 4 m/s roll):
+//  a single ball is rolled at the pocket mouth center from 0.3, 0.6 and
+//  1.0 m, at 0...80 degrees off the pocket's inward axis (both signs, 1 degree
+//  steps), through the real AnalyticSolver. Widest angle that still drops:
+//
+//      pocket   0.3 m   0.6 m   1.0 m   ended by
+//      corner    39      42      43      table reach (every legal start drops)
+//      side      79      79      79      solver (first miss at 80)
+//
+//  Corner: the solver never rejects a reachable approach; the number falls at
+//  short range only because a ball center cannot sit within one radius of a
+//  rail. 42 is within 2 degrees of that bound, so the constant is kept.
+//  Side: the solver accepts 79 degrees, but the 29 default is kept ON PURPOSE.
+//  The solver models a pocket as an idealized capture circle (centre inside
+//  `Pocket.captureRadius` pockets the ball, cushions rebound), so it is far
+//  more forgiving than real jaws; real jaw geometry still needs device data.
+//  Both defaults are asserted to stay inside the solver's cone.
 //
 
 import CueSyncCore
@@ -189,6 +208,20 @@ public enum ShotPlanner {
             let objectLane = distance(from: other.position,
                                       toSegment: target.position, pocket.position)
             if objectLane < target.radius + other.radius - epsilon { return nil }
+        }
+
+        // Neither lane may run through a pocket mouth. The cue ball would
+        // scratch on the way in; the object ball would drop in the wrong
+        // pocket. (The intended pocket is the end of the object lane, so it
+        // is exempt there.) Found by the solver cross-check property test.
+        for other in state.table.pockets {
+            let cueScratch = distance(from: other.position, toSegment: cue.position, ghost)
+            if cueScratch < other.captureRadius { return nil }
+            if other.id != pocket.id {
+                let wrongPocket = distance(from: other.position,
+                                           toSegment: target.position, pocket.position)
+                if wrongPocket < other.captureRadius { return nil }
+            }
         }
 
         let difficulty = score(cut: cut, cueDistance: cueDistance,
