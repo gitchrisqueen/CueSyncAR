@@ -16,7 +16,7 @@ app=$(find "${derived}/Build/Products" -maxdepth 3 -name 'CueSyncAR.app' | head 
 bundle="CQC.CueSync-AR"
 
 xcrun simctl bootstatus "${udid}" -b >/dev/null
-xcrun simctl install "${udid}" "${app}"
+[ "${SKIP_INSTALL:-0}" = 1 ] || xcrun simctl install "${udid}" "${app}"
 xcrun simctl terminate "${udid}" "${bundle}" 2>/dev/null || true
 xcrun simctl launch "${udid}" "${bundle}" -seedTable "${layout}" "$@" >/dev/null
 sleep "${SETTLE:-4}"

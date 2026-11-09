@@ -84,6 +84,11 @@ public struct StatusCapsule: View {
     public var body: some View {
         Label(status.label, systemImage: status.systemImage)
             .font(.callout.weight(.medium))
+            // Large Dynamic Type must wrap or shrink, never truncate the
+            // status the player needs ("Tracking 5 b…").
+            .lineLimit(2)
+            .minimumScaleFactor(0.7)
+            .multilineTextAlignment(.center)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .background(.ultraThinMaterial, in: Capsule())

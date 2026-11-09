@@ -20,6 +20,8 @@ import UIKit
 
 struct RootView: View {
     @Environment(SessionModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.horizontalSizeClass) private var sizeClass
     /// Manual trim ON TOP of the orientation-derived rotation, for devices
     /// whose sensor mounting differs. Cycled by the rotate button.
     @AppStorage("previewBoxRotationTrim") private var rotationTrimRaw = NormalizedRotation.none.rawValue
@@ -101,6 +103,8 @@ struct RootView: View {
                 if let mirrorURL = model.debugMirrorURL {
                     Text("Mirror: \(mirrorURL)")
                         .font(.caption.monospaced())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(.ultraThinMaterial, in: Capsule())
@@ -147,7 +151,8 @@ struct RootView: View {
                             TableSceneView(state: state,
                                            prediction: model.shotPrediction,
                                            advice: model.advisor.advised?.tableAdvice)
-                                .frame(width: 176, height: 100)
+                                .frame(width: sizeClass == .regular ? 264 : 176,
+                                       height: sizeClass == .regular ? 150 : 100)
                                 .background(.black.opacity(0.4),
                                             in: RoundedRectangle(cornerRadius: 12))
                                 .accessibilityIdentifier("table-minimap")
@@ -161,6 +166,9 @@ struct RootView: View {
             }
             .padding(.top, 8)
             .padding(.bottom, 12)
+            // The HUD floats over a camera feed: past accessibility1 its
+            // cards would cover the table. Text still scales up to there.
+            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         }
         .onAppear {
             UIDevice.current.beginGeneratingDeviceOrientationNotifications()
@@ -320,6 +328,8 @@ struct RootView: View {
             if let size = model.tableCalibration?.size {
                 Text(Self.sizeBadge(for: size))
                     .font(.footnote.weight(.semibold))
+                    .lineLimit(1)
+                    .fixedSize()
             } else {
                 Label("Calibrate", systemImage: "rectangle.dashed")
                     .labelStyle(.iconOnly)
@@ -357,10 +367,18 @@ struct RootView: View {
                 }
             }
         } label: {
-            Label(model.selectedModel?.label ?? "Model", systemImage: "brain")
-                .font(.footnote.weight(.semibold))
-                .lineLimit(1)
+            // Accessibility type sizes: icon only, or the word clips in the
+            // bar ("M…") and pushes the other buttons off screen.
+            if typeSize.isAccessibilitySize {
+                Label("Detection model", systemImage: "brain")
+                    .labelStyle(.iconOnly)
+            } else {
+                Label(model.selectedModel?.label ?? "Model", systemImage: "brain")
+                    .font(.footnote.weight(.semibold))
+                    .lineLimit(1)
+            }
         }
+        .accessibilityLabel("Detection model: \(model.selectedModel?.label ?? "none")")
         .accessibilityIdentifier("model-picker")
         .disabled(!model.hasRoboflowKey && model.selectedModel == nil)
     }

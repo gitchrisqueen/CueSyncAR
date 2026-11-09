@@ -773,6 +773,9 @@ final class SessionModel {
         await registry.register(AnalyticSolver() as any TrajectorySolving)
         await registry.register(AppSecrets() as any SecretsProviding)
         startDebugMirrorIfEnabled()
+        #if DEBUG && targetEnvironment(simulator)
+        applyLaunchSeedIfRequested() // before the slow detector load below
+        #endif
         if let saved = UserDefaults.standard.string(forKey: Self.practiceModeKey),
            let mode = PracticeMode(rawValue: saved) {
             practiceMode = mode
