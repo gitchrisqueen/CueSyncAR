@@ -4,6 +4,16 @@
 (or human) can resume without a prior chat session. Update this file whenever
 a work session ends or a major finding lands.
 
+> **STALE BASE (2026-11-09, added after the run below).** This branch was cut 79
+> commits before `origin/main` and duplicates a recommender that main already has
+> (`ShotRanking`, `ShotSelection`, `ShotCard`, ball groups, pocket calibration).
+> Do NOT install it on a device and do NOT merge it into main. Main is the source
+> of truth. The non-duplicate parts are being ported onto main as
+> `claude/sim-tooling-on-main`; device tooling is on `claude/device-dryrun`
+> (`docs/device-dry-run.md` there). The results below are still valid for this
+> branch's own code (package tests, simulator HUD, offscreen overlay, video
+> replay), not for main.
+
 **2026-11-09 — Simulation-first validation of the shot advisor (brief:
 `12-GOAL-SIM-FIRST.md`). Integration branch `claude/shot-advisor`. Simulation
 only: nothing here is device-verified.** What landed, each re-run on the Mac:
