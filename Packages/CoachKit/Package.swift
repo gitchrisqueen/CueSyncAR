@@ -10,11 +10,13 @@ let package = Package(
     dependencies: [
         .package(path: "../CueSyncCore"),
         // Test-only: the planner is cross-checked against the real solver.
-        .package(path: "../BilliardsPhysics")
+        .package(path: "../BilliardsPhysics"),
+        // Test-only: canonical fixtures (full eight-ball rack) for the speed budget.
+        .package(path: "../CueSyncTestSupport")
     ],
     targets: [
         .target(name: "CoachKit", dependencies: ["CueSyncCore"]),
         .testTarget(name: "CoachKitTests",
-                    dependencies: ["CoachKit", "BilliardsPhysics"])
+                    dependencies: ["CoachKit", "BilliardsPhysics", "CueSyncTestSupport"])
     ]
 )
