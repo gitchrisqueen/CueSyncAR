@@ -111,6 +111,12 @@ struct RootView: View {
             }
             .padding(.top, 8)
             .padding(.bottom, 12)
+            // The HUD is a fixed-size overlay on a camera feed: at
+            // accessibility sizes the capsule, card and bar grew until they
+            // covered the table and clipped their own labels. Cap the HUD
+            // here; the sheets are presented outside this stack and still
+            // scale fully, and VoiceOver is unaffected.
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         }
         // Non-consuming on purpose (simultaneousGesture): it observes
         // every tap that reaches the root WITHOUT stealing it from the HUD
@@ -285,8 +291,12 @@ struct DetectionPreviewOverlay: View {
     }
 }
 
-/// Shown on the Simulator, where ARKit cannot run.
+/// Shown on the Simulator, where ARKit cannot run. With a seeded table
+/// (DebugSeed.swift) it draws that table, so the card above it has a table
+/// to be about; otherwise it says why there is nothing to see.
 struct SimulatorPlaceholderView: View {
+    @Environment(SessionModel.self) private var model
+
     var body: some View {
         ZStack {
             Color(red: Theme.feltGreen.red,
@@ -294,14 +304,22 @@ struct SimulatorPlaceholderView: View {
                   blue: Theme.feltGreen.blue)
                 .opacity(0.25)
                 .ignoresSafeArea()
-            VStack(spacing: 12) {
-                Image(systemName: "arkit")
-                    .font(.system(size: 44))
-                Text("AR requires a physical device")
-                    .font(.headline)
-                Text("Run on an iPhone to see the table.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            if let state = model.tableState {
+                TableSceneView(state: state)
+                    .aspectRatio(state.table.size.playField.width / state.table.size.playField.height,
+                                 contentMode: .fit)
+                    .padding(.horizontal, 12)
+                    .accessibilityIdentifier("table-scene")
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "arkit")
+                        .font(.system(size: 44))
+                    Text("AR requires a physical device")
+                        .font(.headline)
+                    Text("Run on an iPhone to see the table.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }

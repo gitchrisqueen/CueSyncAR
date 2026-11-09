@@ -59,7 +59,9 @@ struct BallGroupButton: View {
         } label: {
             Text(model.ballGroup.label)
                 .font(.footnote.weight(.semibold))
+                .lineLimit(1)
         }
         .accessibilityLabel("Shooting \(model.ballGroup.label). Tap to change group.")
+        .accessibilityIdentifier("ball-group-button")
     }
 }
