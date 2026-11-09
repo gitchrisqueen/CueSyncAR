@@ -86,5 +86,20 @@ targets:
       Debug: App/Config/App.xcconfig
       Release: App/Config/App.xcconfig
     scheme:
-      testTargets: []
+      testTargets:
+        - CueSyncARUITests
       gatherCoverageData: true
+  CueSyncARUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - App/UITests
+    dependencies:
+      - target: CueSyncAR
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: CQC.CueSync-AR.UITests
+        DEVELOPMENT_TEAM: 8VQNRK6J32
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: YES
