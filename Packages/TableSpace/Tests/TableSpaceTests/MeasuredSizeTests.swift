@@ -29,8 +29,9 @@ import Testing
     @Test func preT12CalibrationJSONStillDecodes() throws {
         let calibration = TableCalibration(origin: .zero, xAxis: Vec3(1, 0, 0),
                                            yAxis: Vec3(0, 0, 1), size: .nineFoot)
-        var object = try JSONSerialization.jsonObject(
-            with: JSONEncoder().encode(calibration)) as! [String: Any]
+        let json = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(calibration))
+        var object = try #require(json as? [String: Any])
         // Simulate a pre-T1.2 payload: the measured fields never existed.
         object.removeValue(forKey: "measuredWidth")
         object.removeValue(forKey: "measuredHeight")
@@ -61,8 +62,9 @@ import Testing
             calibration: TableCalibration(origin: .zero, xAxis: Vec3(1, 0, 0),
                                           yAxis: Vec3(0, 0, 1), size: .eightFoot),
             anchorTransform: .identity)
-        var object = try JSONSerialization.jsonObject(
-            with: JSONEncoder().encode(anchored)) as! [String: Any]
+        let json = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(anchored))
+        var object = try #require(json as? [String: Any])
         object.removeValue(forKey: "measuredWidth")
         object.removeValue(forKey: "measuredHeight")
         let decoded = try JSONDecoder().decode(
