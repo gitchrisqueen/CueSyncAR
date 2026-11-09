@@ -8,10 +8,12 @@ let package = Package(
         .library(name: "CoachKit", targets: ["CoachKit"])
     ],
     dependencies: [
-        .package(path: "../CueSyncCore")
+        .package(path: "../CueSyncCore"),
+        // Test-only: the ranking is cross-checked against the real solver.
+        .package(path: "../BilliardsPhysics")
     ],
     targets: [
         .target(name: "CoachKit", dependencies: ["CueSyncCore"]),
-        .testTarget(name: "CoachKitTests", dependencies: ["CoachKit"])
+        .testTarget(name: "CoachKitTests", dependencies: ["CoachKit", "BilliardsPhysics"])
     ]
 )

@@ -86,7 +86,16 @@ extension SessionModel {
             let server = try DebugMirrorServer()
             server.setCommandHandler { [weak self] params in
                 Task { @MainActor in
+                    #if DEBUG && targetEnvironment(simulator)
+                    // Seed command (DebugSeed.swift), and a publish after
+                    // every command: no AR loop runs here to do it.
+                    if self?.handleDebugSeedCommand(params) != true {
+                        self?.handleMirrorCommand(params)
+                    }
+                    self?.publishMirrorFrame(nil)
+                    #else
                     self?.handleMirrorCommand(params)
+                    #endif
                 }
             }
             // Who may talk to it. DEBUG is open, because the whole

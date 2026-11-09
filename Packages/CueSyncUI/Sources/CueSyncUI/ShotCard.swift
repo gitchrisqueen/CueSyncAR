@@ -141,6 +141,7 @@ public struct ShotCard: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
+        .accessibilityIdentifier("shot-card")
     }
 
     var accessibilityText: String {

@@ -991,5 +991,10 @@ extension SessionModel {
             tableState = cueIdentity.apply(to: state)
         }
     }
-
 }
+
+#if DEBUG && targetEnvironment(simulator)
+extension SessionModel {  // DebugSeed.swift's way into the private(set) AR-loop state
+    func installDebugState(_ state: TableState) { tableState = state; isLiveTracking = true }
+}
+#endif

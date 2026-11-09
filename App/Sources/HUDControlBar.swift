@@ -81,9 +81,13 @@ struct HUDControlBar: View {
             if let size = model.tableCalibration?.size {
                 Label(RootView.sizeBadge(for: size), systemImage: "checkmark.rectangle")
                     .font(.footnote.weight(.semibold))
+                    .lineLimit(1)
+                    .fixedSize()
             } else {
                 Label("Set up table", systemImage: "rectangle.dashed")
                     .font(.footnote.weight(.semibold))
+                    .lineLimit(1)
+                    .fixedSize()
             }
         }
         .accessibilityLabel(model.tableCalibration == nil

@@ -113,6 +113,8 @@ extension ShotRating {
         case .objectPath: "Blocked — a ball is between it and the pocket"
         case .cutTooThin: "No angle — that cut is past 90°"
         case .pocketFacingAway: "No angle — it would cross the pocket mouth"
+        case .cueScratch: "Blocked — the cue ball would drop in a pocket"
+        case .pocketInTheWay: "Blocked — it would drop in another pocket"
         case nil: "\(percentage)% into the \(pocket.spokenName)"
         }
     }
