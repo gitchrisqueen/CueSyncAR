@@ -85,15 +85,19 @@ class Mirror:
             query["t"] = self.token
         return self.base + path + ("?" + urllib.parse.urlencode(query) if query else "")
 
-    def get(self, path: str, **params: object) -> bytes:
-        with urllib.request.urlopen(self.url(path, **params), timeout=self.timeout) as r:
+    def get(self, path: str, timeout: float | None = None, **params: object) -> bytes:
+        with urllib.request.urlopen(self.url(path, **params),
+                                    timeout=timeout or self.timeout) as r:
             return r.read()
 
     def state(self) -> dict:
         return json.loads(self.get("/state.json"))
 
     def logs(self, n: int, since: int, **extra: object) -> str:
-        return self.get("/logs", n=n, since=since, **extra).decode("utf-8", "replace")
+        # OSLogStore reads take about 4 s on a device and longer while the app is
+        # busy (cold launch), so /logs gets its own, longer timeout.
+        return self.get("/logs", timeout=45, n=n, since=since,
+                        **extra).decode("utf-8", "replace")
 
     def command(self, query: str) -> None:
         pairs = urllib.parse.parse_qsl(query, keep_blank_values=True)
@@ -302,11 +306,11 @@ def main() -> int:
         except (urllib.error.URLError, OSError, ValueError):
             pass
         if time.time() >= next_log:
-            next_log = time.time() + 10
+            next_log = time.time() + 30
             try:
                 for ln in mirror.logs(n=2000, since=int(time.time() - t0) + 60).splitlines():
                     log_seen.setdefault(ln)
-            except (urllib.error.URLError, OSError):
+            except (urllib.error.URLError, OSError, TimeoutError):
                 pass
     state_file.close()
 
@@ -315,7 +319,7 @@ def main() -> int:
     if first:
         try:
             logs = mirror.logs(n=5000, since=3600)
-        except (urllib.error.URLError, OSError) as exc:
+        except (urllib.error.URLError, OSError, TimeoutError) as exc:
             logs = ""
             print(f"logs unavailable: {exc}")
         merged = list(log_seen) + [ln for ln in logs.splitlines() if ln not in log_seen]
