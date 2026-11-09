@@ -57,6 +57,13 @@ public struct ShotRating: Sendable, Equatable {
         /// The object ball would have to arrive across the pocket mouth
         /// rather than into it.
         case pocketFacingAway
+        /// The cue ball's path to the ghost ball runs through this pocket's
+        /// mouth, so the cue ball would drop before it reached the object
+        /// ball.
+        case cueScratch(PocketID)
+        /// The object ball's path to its pocket runs through another
+        /// pocket's mouth, so it would drop there instead.
+        case pocketInTheWay(PocketID)
     }
 
     public var ball: BallID
@@ -273,6 +280,35 @@ public enum ShotRanking {
             aimTolerance = min(aimTolerance, (hit.clearance - contact) / max(hit.distance, 1e-6))
         }
 
+        // A pocket in either lane is an obstruction too: the solver, like a
+        // real table, captures any ball whose centre passes within a
+        // pocket's capture radius. A scratch and a pot in the wrong pocket
+        // were both rated "makeable" by the corridor checks above, which
+        // only look at balls. Found by the solver-replay property test
+        // (ShotRankingPropertyTests): 39 of 698 shots rated 45 % or better
+        // dropped the cue ball.
+        //
+        // Capture is on ENTERING the circle, so a lane that starts inside
+        // one (a ball resting on a pocket lip) is not captured by it.
+        // A lane that starts off the cloth is not a shot at all (unit tests
+        // place the cue ball off the table to get a long, thin cut), so it
+        // has no pocket to cross.
+        func crosses(_ other: Pocket, from start: Vec2, to end: Vec2) -> Bool {
+            state.table.contains(start)
+                && start.distance(to: other.position) >= other.captureRadius
+                && Self.distance(from: other.position, toSegment: start, end) < other.captureRadius
+        }
+        if let other = state.table.pockets.first(where: {
+            crosses($0, from: cueBall.position, to: ghost)
+        }) {
+            return blockedRating(.cueScratch(other.id))
+        }
+        if let other = state.table.pockets.first(where: {
+            $0.id != pocket.id && crosses($0, from: ball.position, to: pocket.position)
+        }) {
+            return blockedRating(.pocketInTheWay(other.id))
+        }
+
         // A ball frozen to a cushion cannot be struck on its full face.
         if isNearRail(ball.position, table: state.table, within: config.railProximity) {
             aimTolerance *= config.railTolerancePenalty
@@ -314,6 +350,15 @@ public enum ShotRanking {
         return abs(abs(p.x) - he.x) < within || abs(abs(p.y) - he.y) < within
     }
 
+    /// Distance from `p` to the segment `a`...`b`.
+    private static func distance(from p: Vec2, toSegment a: Vec2, _ b: Vec2) -> Double {
+        let along = b - a
+        let lengthSquared = along.dot(along)
+        guard lengthSquared > 1e-18 else { return p.distance(to: a) }
+        let t = max(0, min(1, (p - a).dot(along) / lengthSquared))
+        return p.distance(to: a + along * t)
+    }
+
     private struct Interference {
         var id: BallID
         /// Centre-to-line distance of the tightest ball, metres.
@@ -335,11 +380,15 @@ public enum ShotRanking {
         for other in state.balls where !excluding.contains(other.id) {
             let rel = other.position - a
             let t = rel.dot(dir)
-            guard t > 0, t < length else { continue }          // beside, not between
-            let clearance = abs(rel.cross(dir))
+            guard t > 0 else { continue }                       // behind, not between
+            // Past the far end the corridor is capped by the end point: a
+            // ball within a diameter of the ghost-ball position is touched
+            // by the cue ball at the moment of impact (a cluster), or
+            // earlier, even though it is not "between" the two ends.
+            let clearance = t < length ? abs(rel.cross(dir)) : (other.position - b).length
             guard clearance < searchWidth else { continue }
             if clearance < (tightest?.clearance ?? .infinity) {
-                tightest = Interference(id: other.id, clearance: clearance, distance: t)
+                tightest = Interference(id: other.id, clearance: clearance, distance: min(t, length))
             }
         }
         return tightest

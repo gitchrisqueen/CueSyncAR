@@ -461,6 +461,8 @@ public struct SpokenGuidance: Sendable, Equatable {
         case .objectPath: "objectPath"
         case .cutTooThin: "cutTooThin"
         case .pocketFacingAway: "pocketFacingAway"
+        case .cueScratch: "cueScratch"
+        case .pocketInTheWay: "pocketInTheWay"
         }
     }
 }
@@ -492,6 +494,10 @@ extension ShotRating {
             return "No angle there. That cut is past ninety degrees."
         case .pocketFacingAway:
             return "No angle there. It would cross the pocket mouth."
+        case .cueScratch:
+            return "That one is blocked. The cue ball would drop in a pocket."
+        case .pocketInTheWay:
+            return "That one is blocked. It would drop in another pocket."
         case nil:
             let lead = chosenByPlayer ? "Your ball" : "Best shot"
             return "\(lead), \(percentage) percent into the \(pocket.spokenName)."
