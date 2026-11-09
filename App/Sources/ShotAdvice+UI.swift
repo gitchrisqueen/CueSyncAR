@@ -35,13 +35,12 @@ extension OverlayLayout {
     func advising(_ shot: ShotOption?, cueID: BallID?,
                   calibration: TableCalibration) -> OverlayLayout {
         guard let shot, let cueID else { return self }
-        return withSuggestion(cue: shot.aim.origin, ghost: shot.ghostBall,
-                              target: shot.targetPosition,
-                              pocket: shot.pocketPosition,
-                              pocketRadius: shot.pocketCaptureRadius,
-                              ballRadius: Ball.standardRadius,
-                              color: Theme.adviceLine.rgb,
-                              cueID: cueID, targetID: shot.target,
-                              calibration: calibration)
+        let advised = AdvisedShot(cue: shot.aim.origin, ghost: shot.ghostBall,
+                                  target: shot.targetPosition,
+                                  pocket: shot.pocketPosition,
+                                  pocketRadius: shot.pocketCaptureRadius,
+                                  color: Theme.adviceLine.rgb,
+                                  cueID: cueID, targetID: shot.target)
+        return withSuggestion(advised, calibration: calibration)
     }
 }

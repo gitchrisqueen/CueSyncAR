@@ -70,14 +70,39 @@ public struct OverlayLayout: Sendable, Equatable {
     /// The advised shot, if the advisor has one (see `withSuggestion`).
     public var suggestion: Suggestion?
 
-    /// A copy of this layout carrying the advised shot, given in TABLE
-    /// space (the app converts CoachKit's `ShotOption` to these primitives;
-    /// ARExperience does not depend on CoachKit).
-    public func withSuggestion(cue: Vec2, ghost: Vec2, target: Vec2,
-                               pocket: Vec2, pocketRadius: Double,
-                               ballRadius: Double, color: UInt32,
-                               cueID: BallID, targetID: BallID,
+    /// An advised shot in TABLE space, as primitives (the app converts
+    /// CoachKit's `ShotOption` to this; ARExperience does not depend on
+    /// CoachKit). Ghost and target markers use the standard ball radius.
+    public struct AdvisedShot: Equatable, Sendable {
+        public var cue: Vec2
+        public var ghost: Vec2
+        public var target: Vec2
+        public var pocket: Vec2
+        public var pocketRadius: Double
+        public var color: UInt32
+        public var cueID: BallID
+        public var targetID: BallID
+
+        public init(cue: Vec2, ghost: Vec2, target: Vec2, pocket: Vec2,
+                    pocketRadius: Double, color: UInt32,
+                    cueID: BallID, targetID: BallID) {
+            self.cue = cue
+            self.ghost = ghost
+            self.target = target
+            self.pocket = pocket
+            self.pocketRadius = pocketRadius
+            self.color = color
+            self.cueID = cueID
+            self.targetID = targetID
+        }
+    }
+
+    /// A copy of this layout carrying the advised shot.
+    public func withSuggestion(_ shot: AdvisedShot,
                                calibration: TableCalibration) -> OverlayLayout {
+        let (cue, ghost, target, pocket) = (shot.cue, shot.ghost, shot.target, shot.pocket)
+        let (color, ballRadius) = (shot.color, Ball.standardRadius)
+        let (cueID, targetID, pocketRadius) = (shot.cueID, shot.targetID, shot.pocketRadius)
         func strip(_ ballID: BallID, from a: Vec2, to b: Vec2,
                    dashed: Bool) -> Strip {
             let vector = b - a

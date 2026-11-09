@@ -20,12 +20,12 @@ struct OverlaySuggestionTests {
 
     private func layout() -> OverlayLayout {
         OverlayLayout.ballsOnly(state: state, calibration: calibration)
-            .withSuggestion(cue: Vec2(0.5, -0.135), ghost: Vec2(0.9596, 0.3246),
-                            target: Vec2(1.0, 0.365), pocket: Vec2(1.27, 0.635),
-                            pocketRadius: Table.cornerCaptureRadius,
-                            ballRadius: Ball.standardRadius, color: 0x35E08A,
-                            cueID: BallID(0), targetID: BallID(5),
-                            calibration: calibration)
+            .withSuggestion(
+                .init(cue: Vec2(0.5, -0.135), ghost: Vec2(0.9596, 0.3246),
+                      target: Vec2(1.0, 0.365), pocket: Vec2(1.27, 0.635),
+                      pocketRadius: Table.cornerCaptureRadius, color: 0x35E08A,
+                      cueID: BallID(0), targetID: BallID(5)),
+                calibration: calibration)
     }
 
     @Test func plainLayoutsCarryNoSuggestion() {

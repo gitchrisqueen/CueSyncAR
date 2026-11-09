@@ -118,12 +118,20 @@ reviewed and the accessibility identifiers `shot-advisor-card` and
 sphere and rings are visible without a device. If it works, commit it as a
 tool. If not, record why and move the pure geometry into `OverlayLayout` tests.
 
+**G. Lint baseline (QuinVPS, small).** `swiftlint lint` (the `ci-core` lint job)
+exits 2 on pre-existing errors that this work did not add: two `force_cast`
+errors in `Packages/TableSpace/Tests/TableSpaceTests/MeasuredSizeTests.swift`
+(lines 33, 65), and in `App/Sources/SessionModel.swift` one 284-character line
+(line 238) and a class body over 600 lines. Fix the TableSpace ones on
+QuinVPS. Splitting `SessionModel` is Mac work and optional. Accept when
+`swiftlint lint --quiet` shows no new errors.
+
 **F. Handoff.** Update `09-SESSION-STATE.md`. Write
 `docs/validation/device-checklist-shot-advisor.md` for the final phase.
 
 ## 5. Stop condition
 
-A, B, C and D accepted, E either working or documented, F written, all
+A, B, C and D accepted, E either working or documented, F written, G done, all
 package tests green (`Scripts/test-all.sh`), the device-SDK build green
 (`xcodebuild ... -sdk iphoneos build`), and the integration branch pushed.
 Then stop and report. Do not start the device phase.

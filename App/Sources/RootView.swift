@@ -117,15 +117,15 @@ struct RootView: View {
                         .foregroundStyle(.yellow)
                 }
                 if model.isLiveTracking, !model.calibrationVisible,
-                   let shot = model.advisedShot {
+                   let shot = model.advisor.advised {
                     ShotAdvisorCard(
                         title: shot.title, detail: shot.detail, color: shot.color,
-                        position: (model.shotOptions.firstIndex { $0.id == shot.id } ?? 0) + 1,
-                        total: model.shotOptions.count,
-                        onNext: { model.cycleAdvisedShot() })
+                        position: (model.advisor.options.firstIndex { $0.id == shot.id } ?? 0) + 1,
+                        total: model.advisor.options.count,
+                        onNext: { model.advisor.cycle() })
                         .padding(.horizontal, 16)
                         .transition(.opacity)
-                } else if model.isLiveTracking, model.shotAdvisorEnabled,
+                } else if model.isLiveTracking, model.advisor.isEnabled,
                           model.tableState?.cueBall != nil {
                     Text("No clean shot — every pocket is blocked or too tight. Try a safety.")
                         .font(.caption)
@@ -146,7 +146,7 @@ struct RootView: View {
                         if let state = model.tableState {
                             TableSceneView(state: state,
                                            prediction: model.shotPrediction,
-                                           advice: model.advisedShot?.tableAdvice)
+                                           advice: model.advisor.advised?.tableAdvice)
                                 .frame(width: 176, height: 100)
                                 .background(.black.opacity(0.4),
                                             in: RoundedRectangle(cornerRadius: 12))
@@ -258,14 +258,14 @@ struct RootView: View {
     /// line (live aim guides are unaffected).
     private var advisorButton: some View {
         Button {
-            model.toggleShotAdvisor()
+            model.showTapFeedback(model.advisor.toggle())
         } label: {
             Label("Shot advisor",
-                  systemImage: model.shotAdvisorEnabled ? "lightbulb.fill" : "lightbulb")
+                  systemImage: model.advisor.isEnabled ? "lightbulb.fill" : "lightbulb")
                 .labelStyle(.iconOnly)
-                .foregroundStyle(model.shotAdvisorEnabled ? Color.yellow : Color.primary)
+                .foregroundStyle(model.advisor.isEnabled ? Color.yellow : Color.primary)
         }
-        .accessibilityLabel(model.shotAdvisorEnabled ? "Turn shot advisor off"
+        .accessibilityLabel(model.advisor.isEnabled ? "Turn shot advisor off"
                                                      : "Turn shot advisor on")
         .accessibilityIdentifier("shot-advisor-button")
     }
@@ -582,7 +582,7 @@ struct ARCameraView: View {
                                 state: state, calibration: calibration)
                         }
                         // Advisor layer: the recommended shot's neon line.
-                        let layout = base.advising(model.advisedShot,
+                        let layout = base.advising(model.advisor.advised,
                                                    cueID: state.cueBall?.id,
                                                    calibration: calibration)
                         if layout != lastRenderedLayout {
