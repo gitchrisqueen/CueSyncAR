@@ -16,7 +16,12 @@ struct CueSyncApp: App {
         WindowGroup {
             RootView()
                 .environment(model)
-                .task { await model.bootstrap() }
+                .task {
+                    await model.bootstrap()
+                    #if DEBUG && targetEnvironment(simulator)
+                    model.applyLaunchSeedIfRequested() // DebugSeed.swift
+                    #endif
+                }
         }
     }
 }
