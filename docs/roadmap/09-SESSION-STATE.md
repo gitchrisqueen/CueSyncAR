@@ -4,6 +4,89 @@
 (or human) can resume without a prior chat session. Update this file whenever
 a work session ends or a major finding lands.
 
+**2026-11-09 — Simulation-first validation of the shot advisor (brief:
+`12-GOAL-SIM-FIRST.md`). Integration branch `claude/shot-advisor`. Simulation
+only: nothing here is device-verified.** What landed, each re-run on the Mac:
+
+- **A, synthetic table in the Simulator.** `App/Sources/DebugSeed.swift`
+  (compiled only for `DEBUG && targetEnvironment(simulator)`; the Release
+  iphoneos binary has no seed symbols): launch arg `-seedTable open|blocked|rack`
+  or `GET /cmd?action=seed&layout=...` on the mirror (port 8787 is reachable from
+  the host). `GET /cmd?action=nextShot` then changes `advisedShot` in
+  `/state.json` and the card (3-ball → top-right corner, 7° cut, became 5-ball →
+  bottom-right corner, 22° cut). `Scripts/sim-hud.sh` launches and screenshots.
+- **D, display quality.** Captured on iPhone 17 Pro, iPhone SE (3rd gen) and
+  iPad Pro 13" (simulators `CueSync-iPhone17Pro`, `CueSync-iPhoneSE`,
+  `CueSync-iPad`, all iOS 26.3), light/dark, normal and accessibility XXXL type
+  (`Scripts/sim-matrix.sh`; evidence in `docs/validation/sim-hud/`). Fixed:
+  truncated status capsule, wrapping mirror capsule, bottom bar clipping at
+  large type (HUD capped at accessibility1, icon-only model picker), tiny
+  mini-map on iPad, and the seed racing the slow detector load on iPad.
+  `App/UITests/ShotAdvisorHUDUITests.swift` (XCUITest) asserts
+  `shot-advisor-card` and `next-shot-button` are reachable, cycling changes the
+  card, and the blocked layout shows "No clean shot". Run:
+  `xcodebuild test -project CueSyncAR.xcodeproj -scheme CueSyncAR -destination id=<udid> -only-testing:CueSyncARUITests`.
+  The T3 `agent-device snapshot` runner failed to start on this Mac
+  ("Runner did not accept connection (xcodebuild exited early)", then daemon
+  timeout), so accessibility was verified with XCUITest instead.
+- **C, planner hardening** (`Packages/CoachKit`). Seeded property tests replay
+  every planned shot through `AnalyticSolver` (4 m/s): 96.2% of 1,804 options
+  pot; the rest are explained (43 underpowered, 24 cue ball rests in the object
+  lane, 1 target already inside the capture circle, 0 unexplained). This found a
+  real bug, now fixed: lanes through a pocket mouth (scratch or wrong pocket).
+  Lane clearance, ordering/determinism/permutation and hysteresis properties
+  pass. Speed budget: ~0.03 ms per 16-ball plan in release (budget 5 ms).
+  **Jaw cones kept at 42° corner and 29° side on purpose.** The solver sweep
+  gives corner ≥ 43° and side 79°, but the solver models a pocket as an ideal
+  capture circle, so 79° would offer side shots real jaws reject. Table data
+  decides (device checklist item 4). Known gap: a shot that sits 0.4 mm
+  outside a lane flickers in and out under 2 mm jitter; needs viability
+  hysteresis in the planner (not built).
+- **E, offscreen overlay.** Works: `Tools/OverlayRender` renders the real
+  RealityKit entities with `RealityRenderer` on macOS and composites them over a
+  background (`overlay-render --out x.png --layout open|blocked
+  [--background y.png]`). Entity building moved to
+  `ARExperience/OverlayEntityBuilder.swift`; `OverlayRenderer` calls it
+  (the iOS path is unchanged by construction, not seen on a device). 28 new
+  geometry cases in `OverlaySuggestionGeometryTests`. Mac quirk: on this Intel +
+  AMD Mac the render target read back all zeros until blitted private→managed.
+- **G, lint.** The two TableSpace `force_cast` errors are fixed. `SessionModel`
+  lost its `file_length` and `line_length` errors (mirror JSON moved to
+  `SessionModel+Mirror.swift`). Still open: `type_body_length` on
+  `SessionModel` (class body over 600 lines); splitting it is optional Mac work
+  (branch `origin/claude/sessionmodel-split` exists).
+- **B, video replay.** `Tools/VideoReplay` (macOS; `swift test --package-path
+  Tools/VideoReplay` = 16 tests) replays frame folders through the real
+  `CoreMLDetectionProvider`, `BallTracker` and `ShotPlanner`, mapping balls to the
+  table by a homography from 4 hand-marked cushion corners (video has no ARKit
+  intrinsics). Three YouTube Shorts (fixed cameras; URLs and licence note in
+  `Tools/VideoReplay/clips/clips.md`; footage stays in `~/CueSyncClips/`, never
+  committed). Full list with frame numbers:
+  `docs/validation/2026-11-09-video-replay-findings.md`. Headline: the detector's
+  cue-ball class is the weak link on this footage. Frames with exactly one cue
+  ball: pub 15.0%, speedpool 16.7%, home 0.0% (60 frames each, 2 fps), and the
+  planner only runs with one. The cue ball is boxed `color-ball` or missed;
+  speedpool frames 55 and 58 draw a shot from a yellow ball boxed `white-ball`;
+  the `cue` (stick) class is mostly rail/wall false positives; scoreboard and
+  title boxes on speedpool and people/furniture on home are only kept out by the
+  on-table gate. Planner labels "top"/"bottom" follow table space and can look
+  mirrored on screen. Caveats: no ground-truth labels (frame claims are by
+  eye); clips are vertical Shorts from fixed cameras, not a handheld phone, so
+  domain shift is part of the result; 7 ft sizes for two clips are estimates.
+  Takeaway for the advisor: it depends on a correct cue ball, so tap-to-designate
+  (CLAUDE.md) is load-bearing; the device checklist item 5 retests this.
+- **Access and process notes.** QuinVPS now has Swift 6.4.2 and swiftlint
+  0.65.1, can push, and its git identity must be set per agent (clone default is
+  `tester`). `delegate_task` rejects `isolation: "worktree"` for linked
+  environments, so QuinVPS agents shared one checkout and ran one at a time.
+  `playwright_chrome` MCP still fails to connect (not needed).
+- **Gates at this point:** `Scripts/test-all.sh` exit 0 (10 packages);
+  `xcodebuild -sdk iphoneos` Debug and Release `BUILD SUCCEEDED`.
+- **Still `needs-device-run`:** RealityKit overlay on a real table and
+  relocalization, `.cpuAndNeuralEngine` behind a crash-safe probe, BallTracker
+  phantom-track fix, real-shot accuracy and jaw tuning. Checklist:
+  `docs/validation/device-checklist-shot-advisor.md`.
+
 **2026-11-07 — Shot advisor (sandbox session, NOT device-verified).** New
 `CoachKit.ShotPlanner` ranks every (object ball × pocket) shot by ghost-ball
 geometry, lane-blocking, pocket-jaw cone and a difficulty heuristic;
