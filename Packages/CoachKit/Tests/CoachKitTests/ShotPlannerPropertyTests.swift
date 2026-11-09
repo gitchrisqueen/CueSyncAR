@@ -45,12 +45,12 @@ struct SplitMix64: RandomNumberGenerator {
 enum LayoutGenerator {
     static let table = Table(size: .nineFoot)
 
-    /// A random LEGAL layout: 2-16 balls including one cue ball (id 0), every
+    /// A random LEGAL layout: 2-16 balls (or exactly `count`) including one cue ball (id 0), every
     /// center at least one radius inside the play field, no two balls closer
     /// than a diameter + 0.1 mm.
-    static func layout(seed: UInt64) -> TableState {
+    static func layout(seed: UInt64, count fixedCount: Int? = nil) -> TableState {
         var rng = SplitMix64(seed: seed)
-        let count = rng.int(2...16)
+        let count = fixedCount ?? rng.int(2...16)
         let radius = Ball.standardRadius
         let half = table.halfExtents
         var balls: [Ball] = []
