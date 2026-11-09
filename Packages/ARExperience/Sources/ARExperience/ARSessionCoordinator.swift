@@ -616,6 +616,10 @@ public final class OverlayRenderer {
             place(entity, at: worldPoint(pocket.position, lift: Self.stripLift))
         }
 
+        if let suggestion = layout.suggestion {
+            renderSuggestion(suggestion, planeNormalUp: planeNormalUp)
+        }
+
         // Called pocket (M6-02): amber ring while aiming, felt green when
         // the prediction is on line into it.
         if let called = layout.calledPocket {
@@ -628,6 +632,58 @@ public final class OverlayRenderer {
             let entity = ModelEntity(mesh: mesh, materials: [material])
             place(entity, at: worldPoint(called.position, lift: Self.stripLift * 2))
         }
+    }
+
+    /// Arcade-style advised shot: each line is a wide faint "glow" strip
+    /// under a thin bright core, so it reads as neon over the cloth; the
+    /// ghost ball, target ring and pocket disc share the difficulty colour.
+    private func renderSuggestion(_ suggestion: OverlayLayout.Suggestion,
+                                  planeNormalUp: Bool) {
+        let color = uiColor(from: suggestion.color)
+
+        func addStrip(_ strip: OverlayLayout.Strip, width: Double,
+                      opacity: Double, lift: Double) {
+            let mesh = MeshResource.generateBox(width: Float(strip.length),
+                                                height: Float(Self.stripWidth / 2),
+                                                depth: Float(width))
+            var material = UnlitMaterial(color: color)
+            material.blending = .transparent(opacity: .init(floatLiteral: Float(opacity)))
+            let entity = ModelEntity(mesh: mesh, materials: [material])
+            place(entity, at: worldPoint(strip.midpoint, lift: lift))
+            // Same anchor-local heading rule as the prediction strips.
+            entity.orientation = simd_quatf(angle: Float(strip.angle),
+                                            axis: SIMD3<Float>(0, planeNormalUp ? 1 : -1, 0))
+        }
+
+        let lift = Self.stripLift * 3
+        addStrip(suggestion.aimStrip, width: Self.stripWidth * 4,
+                 opacity: 0.14, lift: lift)
+        addStrip(suggestion.aimStrip, width: Self.stripWidth * 2.2,
+                 opacity: 0.25, lift: lift * 1.1)
+        addStrip(suggestion.aimStrip, width: Self.stripWidth,
+                 opacity: 0.95, lift: lift * 1.2)
+        addStrip(suggestion.objectStrip, width: Self.stripWidth * 3,
+                 opacity: 0.14, lift: lift)
+        addStrip(suggestion.objectStrip, width: Self.stripWidth * 0.9,
+                 opacity: 0.75, lift: lift * 1.2)
+
+        func addDisc(_ marker: OverlayLayout.Marker, opacity: Double, lift: Double) {
+            let mesh = MeshResource.generateCylinder(height: Float(Self.stripWidth / 2),
+                                                     radius: Float(marker.radius))
+            var material = UnlitMaterial(color: color)
+            material.blending = .transparent(opacity: .init(floatLiteral: Float(opacity)))
+            let entity = ModelEntity(mesh: mesh, materials: [material])
+            place(entity, at: worldPoint(marker.position, lift: lift))
+        }
+        addDisc(suggestion.target, opacity: 0.35, lift: lift)
+        addDisc(suggestion.pocket, opacity: 0.55, lift: lift)
+
+        let ghostMesh = MeshResource.generateSphere(radius: Float(suggestion.ghost.radius))
+        var ghostMaterial = UnlitMaterial(color: color)
+        ghostMaterial.blending = .transparent(opacity: 0.4)
+        let ghost = ModelEntity(mesh: ghostMesh, materials: [ghostMaterial])
+        place(ghost, at: worldPoint(suggestion.ghost.position,
+                                    lift: suggestion.ghost.radius))
     }
 
     public func clear() {

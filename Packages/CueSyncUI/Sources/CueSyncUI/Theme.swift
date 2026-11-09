@@ -28,6 +28,16 @@ public enum Theme {
     public static let chalkBlue = ColorToken(0x4A90D9)
     /// Errors and predicted scratches.
     public static let warnCoral = ColorToken(0xE8604C)
+
+    /// The advised shot's lines/rings: neon magenta, a hue none of the
+    /// live-prediction colors above use, so "where you should aim" can never
+    /// be confused with "where you are aiming". Difficulty is NOT encoded
+    /// here — it lives on the card via the tokens below.
+    public static let adviceLine = ColorToken(0xFF4FD8)
+    /// Difficulty tokens (card stripe/label), one per rating.
+    public static let adviceEasy = ColorToken(0x35E08A)
+    public static let adviceMedium = ColorToken(0xFFC845)
+    public static let adviceHard = ColorToken(0xFF5C5C)
 }
 
 #if canImport(SwiftUI)

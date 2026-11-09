@@ -14,19 +14,23 @@ import SwiftUI
 public struct TableSceneView: View {
     public let state: TableState
     public let prediction: ShotPrediction?
+    public let advice: TableScene.Advice?
 
     private let feltColor = ColorToken(0x1E6B45)
     private let railColor = ColorToken(0x4A2C1A)
 
-    public init(state: TableState, prediction: ShotPrediction? = nil) {
+    public init(state: TableState, prediction: ShotPrediction? = nil,
+                advice: TableScene.Advice? = nil) {
         self.state = state
         self.prediction = prediction
+        self.advice = advice
     }
 
     public var body: some View {
         Canvas { context, size in
             let scene = TableScene.compose(state: state,
                                            prediction: prediction,
+                                           advice: advice,
                                            viewportWidth: size.width,
                                            viewportHeight: size.height)
             draw(scene, in: &context)
@@ -82,9 +86,65 @@ public struct TableSceneView: View {
                                               dash: [4, 3]))
         }
 
+        if let advice = scene.advice {
+            drawAdvice(advice, scale: scene.scale, in: &context)
+        }
+
         for ball in scene.balls {
             drawBall(ball, in: &context)
         }
+    }
+
+    /// Arcade-style advised shot: a glowing aim line to the ghost ball, the
+    /// object ball's dashed route to a pulsing pocket ring, and a ring on
+    /// the ball to hit. Colour encodes difficulty (green/amber/red).
+    private func drawAdvice(_ advice: TableScene.AdviceMark, scale: Double,
+                            in context: inout GraphicsContext) {
+        let color = advice.color.color
+        let core = max(2.5, scale * 0.014)
+
+        func line(_ points: [Vec2]) -> Path {
+            var path = Path()
+            guard let first = points.first else { return path }
+            path.move(to: CGPoint(x: first.x, y: first.y))
+            for point in points.dropFirst() {
+                path.addLine(to: CGPoint(x: point.x, y: point.y))
+            }
+            return path
+        }
+
+        let aim = line(advice.aimLine)
+        let object = line(advice.objectLine)
+        // Soft glow: wide translucent strokes under a bright core.
+        for (multiplier, opacity) in [(5.0, 0.10), (3.0, 0.18)] {
+            let glow = StrokeStyle(lineWidth: core * multiplier, lineCap: .round)
+            context.stroke(aim, with: .color(color.opacity(opacity)), style: glow)
+            context.stroke(object, with: .color(color.opacity(opacity)), style: glow)
+        }
+        context.stroke(aim, with: .color(color),
+                       style: StrokeStyle(lineWidth: core, lineCap: .round))
+        context.stroke(object, with: .color(color.opacity(0.9)),
+                       style: StrokeStyle(lineWidth: core, lineCap: .round,
+                                          dash: [core * 2.5, core * 2]))
+
+        let pocketRing = circleRect(center: advice.pocketCenter,
+                                    radius: advice.pocketRadius)
+        context.stroke(Path(ellipseIn: pocketRing.insetBy(dx: -core, dy: -core)),
+                       with: .color(color.opacity(0.25)),
+                       lineWidth: core * 2)
+        context.stroke(Path(ellipseIn: pocketRing), with: .color(color),
+                       lineWidth: core)
+
+        context.stroke(Path(ellipseIn: circleRect(center: advice.targetRingCenter,
+                                                  radius: advice.targetRingRadius)),
+                       with: .color(color), lineWidth: core)
+
+        let ghost = circleRect(center: advice.ghost.center,
+                               radius: advice.ghost.radius)
+        context.fill(Path(ellipseIn: ghost), with: .color(color.opacity(0.18)))
+        context.stroke(Path(ellipseIn: ghost), with: .color(color),
+                       style: StrokeStyle(lineWidth: core * 0.8,
+                                          dash: [core * 1.5, core]))
     }
 
     private func drawBall(_ ball: TableScene.Mark, in context: inout GraphicsContext) {

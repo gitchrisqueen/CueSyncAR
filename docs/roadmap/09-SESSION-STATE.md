@@ -4,6 +4,21 @@
 (or human) can resume without a prior chat session. Update this file whenever
 a work session ends or a major finding lands.
 
+**2026-11-07 — Shot advisor (sandbox session, NOT device-verified).** New
+`CoachKit.ShotPlanner` ranks every (object ball × pocket) shot by ghost-ball
+geometry, lane-blocking, pocket-jaw cone and a difficulty heuristic;
+cross-checked in tests against `AnalyticSolver` (planned shots pot). Surfaced
+as: neon-magenta AR layer (`OverlayLayout.suggestion` + `OverlayRenderer`),
+`ShotAdvisorCard` (tap to cycle options), a 2D mini-map, a bulb toggle in the
+HUD bar, and mirror state `advisedShot` / commands `nextShot`, `advisor`.
+Verified: all package tests green, app compiles for the iphoneos AND
+iphonesimulator SDKs, visuals reviewed via `Tools/SceneSnapshot` (macOS
+render of the real views). NOT verified: RealityKit rendering on device
+(`needs-device-run`), jaw-acceptance constants (42° corner / 29° side are
+approximations — tune from table data), and the iOS Simulator (no runtime
+installed; Mac data volume has ~12 GB free, runtime is ~10 GB). Public
+version: none yet (portfolio candidate: SceneSnapshot + planner, synthetic data).
+
 **Last update: 2026-07-23 (post-loop, shot session), branch
 `claude/T1-tier1-verification`.** Chris shot 4 balls through the mirror →
 two findings (docs/validation): (1) the on-device detector is BLIND to a

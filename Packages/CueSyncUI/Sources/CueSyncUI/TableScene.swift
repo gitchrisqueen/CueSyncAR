@@ -58,6 +58,46 @@ public struct TableScene: Sendable, Equatable {
         public var dashed: Bool { style == .cueAfterContact || style == .scratch }
     }
 
+    /// Shot-advisor input in TABLE space (meters). Primitive on purpose:
+    /// CueSyncUI does not depend on CoachKit; the app converts its
+    /// recommended shot into this.
+    public struct Advice: Sendable, Equatable {
+        public var cue: Vec2
+        public var ghost: Vec2
+        public var target: Vec2
+        public var pocket: Vec2
+        public var pocketRadius: Double
+        public var ballRadius: Double
+        public var color: ColorToken
+
+        public init(cue: Vec2, ghost: Vec2, target: Vec2, pocket: Vec2,
+                    pocketRadius: Double,
+                    ballRadius: Double = Ball.standardRadius,
+                    color: ColorToken) {
+            self.cue = cue
+            self.ghost = ghost
+            self.target = target
+            self.pocket = pocket
+            self.pocketRadius = pocketRadius
+            self.ballRadius = ballRadius
+            self.color = color
+        }
+    }
+
+    /// Shot-advisor draw primitives in VIEW space.
+    public struct AdviceMark: Sendable, Equatable {
+        /// Cue ball → ghost ball: where to aim.
+        public var aimLine: [Vec2]
+        /// Target ball → pocket: where the object ball will go.
+        public var objectLine: [Vec2]
+        public var ghost: Mark
+        public var targetRingCenter: Vec2
+        public var targetRingRadius: Double
+        public var pocketCenter: Vec2
+        public var pocketRadius: Double
+        public var color: ColorToken
+    }
+
     /// Outer wood rail rectangle (x, y, width, height) in view points.
     public var railFrame: (x: Double, y: Double, width: Double, height: Double)
     /// Cloth rectangle in view points.
@@ -68,12 +108,14 @@ public struct TableScene: Sendable, Equatable {
     public var paths: [PathMark]
     /// Points-per-meter scale used for the mapping (exposed for labels).
     public var scale: Double
+    /// The advised shot, when the shot advisor has one.
+    public var advice: AdviceMark?
 
     public static func == (lhs: TableScene, rhs: TableScene) -> Bool {
         lhs.railFrame == rhs.railFrame && lhs.feltFrame == rhs.feltFrame
             && lhs.pockets == rhs.pockets && lhs.balls == rhs.balls
             && lhs.ghostBall == rhs.ghostBall && lhs.paths == rhs.paths
-            && lhs.scale == rhs.scale
+            && lhs.scale == rhs.scale && lhs.advice == rhs.advice
     }
 
     // MARK: - Composition
@@ -83,6 +125,7 @@ public struct TableScene: Sendable, Equatable {
 
     public static func compose(state: TableState,
                                prediction: ShotPrediction? = nil,
+                               advice: Advice? = nil,
                                viewportWidth: Double,
                                viewportHeight: Double,
                                padding: Double = 16) -> TableScene {
@@ -136,9 +179,24 @@ public struct TableScene: Sendable, Equatable {
             paths = composePaths(state: state, prediction: prediction, map: map)
         }
 
+        var adviceMark: AdviceMark?
+        if let advice {
+            adviceMark = AdviceMark(
+                aimLine: [map(advice.cue), map(advice.ghost)],
+                objectLine: [map(advice.target), map(advice.pocket)],
+                ghost: Mark(center: map(advice.ghost),
+                            radius: advice.ballRadius * scale,
+                            style: Theme.ballStyle(for: .cue), isGhost: true),
+                targetRingCenter: map(advice.target),
+                targetRingRadius: advice.ballRadius * scale * 1.5,
+                pocketCenter: map(advice.pocket),
+                pocketRadius: advice.pocketRadius * scale * 1.25,
+                color: advice.color)
+        }
+
         return TableScene(railFrame: railFrame, feltFrame: feltFrame,
                           pockets: pockets, balls: balls, ghostBall: ghost,
-                          paths: paths, scale: scale)
+                          paths: paths, scale: scale, advice: adviceMark)
     }
 
     /// Styling rules (05-UX-DESIGN): cue pre-contact = aim (amber); cue

@@ -116,13 +116,42 @@ struct RootView: View {
                         .background(.ultraThinMaterial, in: Capsule())
                         .foregroundStyle(.yellow)
                 }
+                if model.isLiveTracking, !model.calibrationVisible,
+                   let shot = model.advisedShot {
+                    ShotAdvisorCard(
+                        title: shot.title, detail: shot.detail, color: shot.color,
+                        position: (model.shotOptions.firstIndex { $0.id == shot.id } ?? 0) + 1,
+                        total: model.shotOptions.count,
+                        onNext: { model.cycleAdvisedShot() })
+                        .padding(.horizontal, 16)
+                        .transition(.opacity)
+                } else if model.isLiveTracking, model.shotAdvisorEnabled,
+                          model.tableState?.cueBall != nil {
+                    Text("No clean shot — every pocket is blocked or too tight. Try a safety.")
+                        .font(.caption)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
-                if model.isLiveTracking, let guide = model.shotGuide {
-                    HStack {
-                        CueBallGuideView(tipOffset: guide.tipOffset,
-                                         headline: guide.headline,
-                                         cutAngleDegrees: guide.cutAngleDegrees)
+                if model.isLiveTracking {
+                    HStack(alignment: .bottom) {
+                        if let guide = model.shotGuide {
+                            CueBallGuideView(tipOffset: guide.tipOffset,
+                                             headline: guide.headline,
+                                             cutAngleDegrees: guide.cutAngleDegrees)
+                        }
                         Spacer()
+                        if let state = model.tableState {
+                            TableSceneView(state: state,
+                                           prediction: model.shotPrediction,
+                                           advice: model.advisedShot?.tableAdvice)
+                                .frame(width: 176, height: 100)
+                                .background(.black.opacity(0.4),
+                                            in: RoundedRectangle(cornerRadius: 12))
+                                .accessibilityIdentifier("table-minimap")
+                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 4)
@@ -184,6 +213,7 @@ struct RootView: View {
                 calibrateButton
             }
             mirrorButton
+            advisorButton
             modeMenu
             modelPicker
             if model.selectedModel != nil {
@@ -222,6 +252,22 @@ struct RootView: View {
         }
         .accessibilityLabel("Practice mode: \(model.practiceMode.title)")
         .accessibilityIdentifier("practice-mode-menu")
+    }
+
+    /// Shot advisor on/off: the recommended-shot overlay, card and mini-map
+    /// line (live aim guides are unaffected).
+    private var advisorButton: some View {
+        Button {
+            model.toggleShotAdvisor()
+        } label: {
+            Label("Shot advisor",
+                  systemImage: model.shotAdvisorEnabled ? "lightbulb.fill" : "lightbulb")
+                .labelStyle(.iconOnly)
+                .foregroundStyle(model.shotAdvisorEnabled ? Color.yellow : Color.primary)
+        }
+        .accessibilityLabel(model.shotAdvisorEnabled ? "Turn shot advisor off"
+                                                     : "Turn shot advisor on")
+        .accessibilityIdentifier("shot-advisor-button")
     }
 
     /// Debug mirror toggle: serves the live screen + tracking state to any
@@ -521,9 +567,9 @@ struct ARCameraView: View {
                     }
                     if let state = model.tableState,
                        let calibration = model.tableCalibration {
-                        let layout: OverlayLayout
+                        let base: OverlayLayout
                         if let prediction = model.shotPrediction {
-                            layout = OverlayLayout.compose(
+                            base = OverlayLayout.compose(
                                 state: state, prediction: prediction,
                                 calibration: calibration,
                                 calledPocket: model.calledPocket)
@@ -532,9 +578,13 @@ struct ARCameraView: View {
                             // still render the tracked-ball rings so the
                             // user sees what the app sees and where to
                             // tap to designate the cue ball.
-                            layout = OverlayLayout.ballsOnly(
+                            base = OverlayLayout.ballsOnly(
                                 state: state, calibration: calibration)
                         }
+                        // Advisor layer: the recommended shot's neon line.
+                        let layout = base.advising(model.advisedShot,
+                                                   cueID: state.cueBall?.id,
+                                                   calibration: calibration)
                         if layout != lastRenderedLayout {
                             lastRenderedLayout = layout
                             overlayRenderer?.render(layout)

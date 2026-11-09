@@ -263,6 +263,67 @@ final class SessionModel {
         if calledPocket == nil { calledShotOnLine = false }
     }
 
+    // MARK: Shot advisor ("what should I shoot?")
+
+    private static let shotAdvisorKey = "shotAdvisorEnabled"
+    /// Master switch for the advisor overlay + card (persisted, default on).
+    private(set) var shotAdvisorEnabled: Bool =
+        UserDefaults.standard.object(forKey: "shotAdvisorEnabled") as? Bool ?? true
+    /// Viable shots for the current layout, easiest first (CoachKit).
+    private(set) var shotOptions: [ShotOption] = []
+    private(set) var selectedShotID: String?
+    /// True once the player cycled to a specific shot: that choice then
+    /// stays until it stops being viable, instead of snapping back to "best".
+    @ObservationIgnored private var shotPinnedByUser = false
+    @ObservationIgnored private var lastAdvisedState: TableState?
+
+    /// The shot currently being advised (nil: advisor off, no cue ball, or
+    /// no viable shot).
+    var advisedShot: ShotOption? {
+        guard shotAdvisorEnabled, let id = selectedShotID else { return nil }
+        return shotOptions.first { $0.id == id }
+    }
+
+    func toggleShotAdvisor() {
+        shotAdvisorEnabled.toggle()
+        UserDefaults.standard.set(shotAdvisorEnabled, forKey: Self.shotAdvisorKey)
+        lastAdvisedState = nil // force a re-plan when switched back on
+        if !shotAdvisorEnabled { clearAdvice() }
+        showTapFeedback(shotAdvisorEnabled ? "Shot advisor on" : "Shot advisor off")
+    }
+
+    /// Step to the next-best shot (wraps); pins the choice.
+    func cycleAdvisedShot() {
+        guard shotOptions.count > 1,
+              let current = shotOptions.firstIndex(where: { $0.id == selectedShotID })
+        else { return }
+        selectedShotID = shotOptions[(current + 1) % shotOptions.count].id
+        shotPinnedByUser = true
+    }
+
+    private func clearAdvice() {
+        shotOptions = []
+        selectedShotID = nil
+        shotPinnedByUser = false
+        lastAdvisedState = nil
+    }
+
+    /// Re-plan when the ball layout materially changes (planner is cheap:
+    /// balls × 6 pockets × balls lane checks).
+    private func refreshAdvice(for state: TableState) {
+        guard shotAdvisorEnabled else { return }
+        guard Self.layoutMoved(from: lastAdvisedState, to: state) else { return }
+        lastAdvisedState = state
+        shotOptions = ShotPlanner.plan(state: state)
+        if shotPinnedByUser, let id = selectedShotID,
+           shotOptions.contains(where: { $0.id == id }) {
+            return
+        }
+        shotPinnedByUser = false
+        selectedShotID = ShotPlanner.select(previous: selectedShotID,
+                                            among: shotOptions)?.id
+    }
+
     /// Manual cue-ball designation: the detector can miss non-plain cue
     /// balls (practice/measle balls with red dots read as color-ball).
     /// Tapping a tracked ball marks it as the cue ball by its stable track
@@ -389,6 +450,10 @@ final class SessionModel {
             guard let raw = params["mode"], let mode = PracticeMode(rawValue: raw)
             else { return }
             selectPracticeMode(mode)
+        case "nextShot":
+            cycleAdvisedShot()
+        case "advisor":
+            toggleShotAdvisor()
         default:
             Self.log.info("mirror command ignored: \(String(describing: params), privacy: .public)")
         }
@@ -445,6 +510,16 @@ final class SessionModel {
         }
         if let guide = shotGuide {
             state["shotGuide"] = guide.headline
+        }
+        state["shotAdvisorEnabled"] = shotAdvisorEnabled
+        if let shot = advisedShot {
+            state["advisedShot"] = [
+                "title": shot.title,
+                "detail": shot.detail,
+                "cutDegrees": (shot.cutAngleDegrees * 10).rounded() / 10,
+                "difficulty": (shot.difficulty * 100).rounded() / 100,
+                "optionCount": shotOptions.count
+            ] as [String: Any]
         }
         if !latestDetectionLabels.isEmpty {
             state["rawDetections"] = latestDetectionLabels
@@ -628,6 +703,7 @@ final class SessionModel {
         tableState = nil
         shotPrediction = nil
         shotGuide = nil
+        clearAdvice()
         stickQuad = nil
         aimSource = .devicePose
         calledPocket = nil
@@ -714,6 +790,7 @@ final class SessionModel {
               let cue = state.cueBall else {
             shotPrediction = nil
             shotGuide = nil
+            clearAdvice()
             // Throttled: explain WHY no guides render (the #1 question
             // when the screen shows nothing).
             if Date().timeIntervalSince(lastAimNilLogAt) > 5 {
@@ -725,6 +802,7 @@ final class SessionModel {
             }
             return
         }
+        refreshAdvice(for: state)
         // Aim source with hysteresis: a stick estimate wins; when the stick
         // momentarily drops out of detection, keep its last aim for a grace
         // window instead of snapping to the device-pose model and back

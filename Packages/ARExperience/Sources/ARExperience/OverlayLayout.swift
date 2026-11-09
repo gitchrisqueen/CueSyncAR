@@ -42,6 +42,21 @@ public struct OverlayLayout: Sendable, Equatable {
         public var isCue: Bool
     }
 
+    /// The shot advisor's recommended shot (arcade "do this" layer), kept
+    /// separate from the live-aim prediction so both can show at once: the
+    /// player lines their stick up with the advised line.
+    public struct Suggestion: Sendable, Equatable {
+        /// Cue ball → ghost ball.
+        public var aimStrip: Strip
+        /// Target ball → pocket.
+        public var objectStrip: Strip
+        public var ghost: Marker
+        /// Ring around the ball to hit.
+        public var target: Marker
+        public var pocket: Marker
+        public var color: UInt32
+    }
+
     public var strips: [Strip]
     public var ghostBall: Marker?
     public var highlightedPockets: [Marker]
@@ -52,6 +67,38 @@ public struct OverlayLayout: Sendable, Equatable {
     /// True when the current prediction sends an OBJECT ball (not the cue
     /// ball) into the called pocket — the "on line" state.
     public var calledPocketSatisfied: Bool = false
+    /// The advised shot, if the advisor has one (see `withSuggestion`).
+    public var suggestion: Suggestion?
+
+    /// A copy of this layout carrying the advised shot, given in TABLE
+    /// space (the app converts CoachKit's `ShotOption` to these primitives;
+    /// ARExperience does not depend on CoachKit).
+    public func withSuggestion(cue: Vec2, ghost: Vec2, target: Vec2,
+                               pocket: Vec2, pocketRadius: Double,
+                               ballRadius: Double, color: UInt32,
+                               cueID: BallID, targetID: BallID,
+                               calibration: TableCalibration) -> OverlayLayout {
+        func strip(_ ballID: BallID, from a: Vec2, to b: Vec2,
+                   dashed: Bool) -> Strip {
+            let vector = b - a
+            return Strip(ballID: ballID,
+                         midpoint: calibration.tableToWorld((a + b) * 0.5),
+                         length: vector.length,
+                         angle: atan2(vector.y, vector.x),
+                         dashed: dashed, color: color)
+        }
+        var copy = self
+        copy.suggestion = Suggestion(
+            aimStrip: strip(cueID, from: cue, to: ghost, dashed: false),
+            objectStrip: strip(targetID, from: target, to: pocket, dashed: true),
+            ghost: Marker(position: calibration.tableToWorld(ghost), radius: ballRadius),
+            target: Marker(position: calibration.tableToWorld(target),
+                           radius: ballRadius * 1.6),
+            pocket: Marker(position: calibration.tableToWorld(pocket),
+                           radius: pocketRadius * 1.25),
+            color: color)
+        return copy
+    }
 
     /// Colors mirror TableScene's path styling rules (05-UX-DESIGN).
     public static func compose(state: TableState,
