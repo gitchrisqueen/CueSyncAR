@@ -37,9 +37,26 @@ never been seen in the app or on a real table.
   `mcp:538d6634-d40a-44ab-b045-95863fe5eda2`) owns pure-package work
   (BilliardsPhysics, TableSpace, CoachKit, CueSyncTestSupport, non-UI
   PerceptionKit), tests, docs.
-- Step 0: on QuinVPS run `swift --version`. If it is missing, do not install
-  it. Do the Mac-only workstreams, tell the user what is missing, and say so in
-  `09-SESSION-STATE.md`.
+- Step 0, verify access before any other work, and report each result in one
+  line:
+  1. `device_list` works (T3 Agent device access for the Mac environment). It
+     must list `CueSync-iPhone17Pro`. If it errors, tell the user and continue
+     with `xcrun simctl` from Bash.
+  2. `t3_environment_links` shows QuinVPS (`db6c270c-...`) reachable.
+  3. Delegate a read-only check to QuinVPS: with
+     `eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"`, `swift --version`
+     (needs 6.1+), `swiftlint --version`, and
+     `swift test --package-path Packages/CoachKit` on branch
+     `claude/shot-advisor`. If Swift is missing, do not install it; do the
+     Mac-only workstreams, tell the user, and say so in `09-SESSION-STATE.md`.
+  4. `xcrun simctl list runtimes` shows iOS 26.3.
+  5. `ffmpeg`, `yt-dlp`, `gh` are on the Mac PATH; WebSearch or WebFetch works
+     for finding clips.
+  6. The `playwright_chrome` MCP connected (known failing on 2026-11-09; not
+     required, report only).
+  Only then start the workstreams. Each QuinVPS sub-agent must set the real
+  git identity (`user.name`, `user.email`) in its worktree before committing;
+  the clone's default is the placeholder `tester`.
 - Delegate with `delegate_task`: `target.environmentId` = the QuinVPS id,
   `isolation: "worktree"` for parallel writers, `claude-sonnet-5-5` for code
   and `claude-haiku-5-5` for mechanical checks. Call

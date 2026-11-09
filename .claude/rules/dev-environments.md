@@ -38,11 +38,13 @@ All other code development goes to sub-agents here, started with
 Setup status (2026-11-09): the repo is cloned at `/home/quin/repos/CueSyncAR`
 and registered as T3 project `mcp:538d6634-d40a-44ab-b045-95863fe5eda2` on
 QuinVPS. The clone tracks `origin/main`, so it lacks unpushed Mac work.
-**Blocked:** `swift` is not installed on QuinVPS (`swift: command not found`).
-No package test can run there until someone installs a Swift 6.1+ Linux
-toolchain. Until then, sub-agents there can only do docs and non-build work;
-re-check with `swift --version` before delegating code tasks, and update this
-paragraph once it works.
+At the first probe `swift` was not installed (`swift: command not found`).
+The owner then reported running `brew install swift swiftlint` (see below), but
+a second check the same day still found neither `swift` nor `swiftlint` on
+`/home/quin` (not in the brew bin dir or Cellar). The install may have gone to
+another host or not finished. Re-check with `swift --version` before delegating
+code tasks, and update this paragraph with the result. `git fetch` and
+`git checkout claude/shot-advisor` do work in the clone.
 
 Probe results (2026-11-09): Ubuntu 24.04 x86_64, 164 GB free. Homebrew 7.0.9 is
 at `/home/linuxbrew/.linuxbrew/bin/brew` and offers bottled `swift` 6.4.2 and
