@@ -89,7 +89,9 @@ while IFS='|' read -r NAME UDID STATE MODEL; do
     done
     [ "${hit}" = 1 ] || continue
   fi
-  if [ "${STATE}" != connected ]; then
+  # `disconnected` is an idle CoreDevice tunnel that devicectl wakes on demand;
+  # only `unavailable` means the device cannot be found at all.
+  if [ "${STATE}" = unavailable ]; then
     printf '%-28s %-12s %s\n' "${NAME}" "${STATE}" \
       "SKIPPED: not reachable. Same Wi-Fi as this Mac (or USB), screen unlocked, then re-run."
     RC=1; continue
