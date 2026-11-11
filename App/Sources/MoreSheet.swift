@@ -19,6 +19,10 @@ import SwiftUI
 struct MoreSheet: View {
     @Environment(SessionModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    /// The mirror switch, its address and the build string are developer
+    /// tooling: a player does not see them. The mirror itself keeps
+    /// running in debug builds either way; only the controls are gated.
+    @State private var developerMode = DeveloperMode.shared
     /// Hands presentation back to RootView: two sheets cannot be up at
     /// once, so this one closes and RootView opens Settings.
     let onOpenSettings: () -> Void
@@ -28,7 +32,7 @@ struct MoreSheet: View {
             List {
                 atTheTableSection
                 settingsSection
-                buildSection
+                if developerMode.isUnlocked { buildSection }
             }
             .navigationTitle("More")
             #if os(iOS)
@@ -54,23 +58,27 @@ struct MoreSheet: View {
                 Text(model.isRecording ? "Stop recording" : "Record session")
             }
             .accessibilityIdentifier("more-record")
-            Toggle("Debug mirror", isOn: Binding(
-                get: { model.settings.debugMirrorEnabled },
-                set: { on in model.updateSettings { $0.debugMirrorEnabled = on } }))
-                .accessibilityIdentifier("more-debug-mirror")
-            if let url = model.debugMirrorURL {
-                LabeledContent("Address", value: url)
-                    .font(.footnote.monospaced())
-                    .textSelection(.enabled)
+            if developerMode.isUnlocked {
+                Toggle("Debug mirror", isOn: Binding(
+                    get: { model.settings.debugMirrorEnabled },
+                    set: { on in model.updateSettings { $0.debugMirrorEnabled = on } }))
+                    .accessibilityIdentifier("more-debug-mirror")
+                if let url = model.debugMirrorURL {
+                    LabeledContent("Address", value: url)
+                        .font(.footnote.monospaced())
+                        .textSelection(.enabled)
+                }
             }
         } header: {
             Text("At the table")
         } footer: {
-            Text("""
-                The mirror serves the live screen and tracking state to any \
-                browser on this Wi-Fi. The recorder writes a replayable \
-                session bundle — pull it from the Files app, or over the debug mirror.
-                """)
+            Text(developerMode.isUnlocked
+                 ? """
+                   The mirror serves the live screen and tracking state to any \
+                   browser on this Wi-Fi. The recorder writes a replayable \
+                   session bundle — pull it from the Files app, or over the debug mirror.
+                   """
+                 : "The recorder saves a session you can replay later.")
         }
     }
 
@@ -84,12 +92,7 @@ struct MoreSheet: View {
             }
             .accessibilityIdentifier("more-settings")
         } footer: {
-            Text("""
-                Table size, guides, tracking and practice mode — plus the \
-                Developer section, which is where the detector picker, the \
-                front-camera preview, the latency readout and the box-rotation \
-                trim moved to.
-                """)
+            Text("Table size, guides and practice mode.")
         }
     }
 

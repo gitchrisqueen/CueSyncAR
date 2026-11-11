@@ -144,7 +144,7 @@ struct HUDControlBar: View {
                 .labelStyle(.iconOnly)
                 .font(.body.weight(.semibold))
         }
-        .accessibilityLabel("More — settings and developer tools")
+        .accessibilityLabel("More — record and settings")
         .accessibilityIdentifier("more-button")
     }
 }

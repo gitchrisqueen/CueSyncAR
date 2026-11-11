@@ -67,4 +67,16 @@ struct DeveloperUnlockTests {
         let eighth = unlock.tap(at: 1.6)
         #expect(!eighth)
     }
+
+    @Test("Launch state: a stored answer wins, otherwise the build kind decides")
+    func initialStateFollowsStoredAnswerThenBuildKind() {
+        // Nothing stored: a development build is a developer build, a
+        // release build is a player's.
+        #expect(DeveloperUnlock.initialState(stored: nil, isDebugBuild: true))
+        #expect(!DeveloperUnlock.initialState(stored: nil, isDebugBuild: false))
+        // An explicit answer wins in both kinds of build: a debug build can
+        // be viewed as a player sees it, and an unlocked release stays so.
+        #expect(!DeveloperUnlock.initialState(stored: false, isDebugBuild: true))
+        #expect(DeveloperUnlock.initialState(stored: true, isDebugBuild: false))
+    }
 }

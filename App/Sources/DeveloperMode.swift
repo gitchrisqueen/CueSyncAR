@@ -43,15 +43,22 @@ final class DeveloperMode {
 
     init(store: UserDefaults = .standard) {
         self.store = store
+        // A development build IS a developer build: with no stored answer
+        // it starts unlocked, because gating it would only mean tapping
+        // seven times before every debugging session, and the remote table
+        // loop would lose the build badge it identifies builds by. An
+        // explicit answer wins in either kind of build, so a debug build
+        // can be launched with `-developerModeUnlocked NO` to see exactly
+        // what a player sees. The debug mirror itself is not gated by
+        // this: it keeps running in Debug builds whatever is shown.
         #if DEBUG
-        // A development build IS a developer build. Gating it would only
-        // mean tapping seven times before every debugging session, and the
-        // remote table loop would lose the build badge it identifies
-        // builds by.
-        isUnlocked = true
+        let isDebugBuild = true
         #else
-        isUnlocked = store.bool(forKey: Self.storageKey)
+        let isDebugBuild = false
         #endif
+        let stored: Bool? = store.object(forKey: Self.storageKey) == nil
+            ? nil : store.bool(forKey: Self.storageKey)
+        isUnlocked = DeveloperUnlock.initialState(stored: stored, isDebugBuild: isDebugBuild)
     }
 
     /// Called when the version row is tapped.

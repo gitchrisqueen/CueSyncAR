@@ -48,8 +48,13 @@ struct SettingsView: View {
             Form {
                 tableSection
                 savedTablesSection
-                detectionSection
-                computeSection
+                // Detector choice, the API-key note and the Neural Engine
+                // probe are instruments, not settings: a player never sees
+                // a build-config file name or a vendor key.
+                if developerMode.isUnlocked {
+                    detectionSection
+                    computeSection
+                }
                 guidesSection
                 trackingSection
                 practiceSection

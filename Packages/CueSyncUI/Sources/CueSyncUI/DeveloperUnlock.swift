@@ -26,6 +26,23 @@ public struct DeveloperUnlock: Sendable, Equatable {
 
     public init() {}
 
+    /// Whether the developer surfaces are showing at launch.
+    ///
+    /// A development build is a developer build, so with nothing stored it
+    /// starts unlocked: the remote table loop identifies builds by the
+    /// badge. An explicit stored answer always wins, in either kind of
+    /// build, which is what lets a debug build be viewed the way a player
+    /// sees it (`-developerModeUnlocked NO` on the launch line, or
+    /// "Hide developer options" in Settings). A release build starts
+    /// locked unless the owner unlocked it before.
+    ///
+    /// - Parameters:
+    ///   - stored: the persisted answer, nil when none has been stored.
+    ///   - isDebugBuild: true for a development build.
+    public static func initialState(stored: Bool?, isDebugBuild: Bool) -> Bool {
+        stored ?? isDebugBuild
+    }
+
     /// Taps still needed, once the current run is taken into account.
     /// Zero means the next tap unlocks; nil means it just did.
     public private(set) var remaining: Int?
