@@ -19,8 +19,14 @@ public struct CueBallGuideView: View {
     public let tipOffset: Vec2
     public let headline: String
     public let cutAngleDegrees: Double?
+    /// Just the face, no words: for the one-line layout, where there is no
+    /// room for the label. The dot still shows where to strike, and the
+    /// accessibility label still carries the headline.
+    public let compact: Bool
 
-    public init(tipOffset: Vec2, headline: String, cutAngleDegrees: Double?) {
+    public init(tipOffset: Vec2, headline: String, cutAngleDegrees: Double?,
+                compact: Bool = false) {
+        self.compact = compact
         self.tipOffset = tipOffset
         self.headline = headline
         self.cutAngleDegrees = cutAngleDegrees
@@ -33,12 +39,15 @@ public struct CueBallGuideView: View {
         abs(tipOffset.x) < 0.05 && abs(tipOffset.y) < 0.05
     }
 
-    private var faceDiameter: CGFloat { isCentreHit ? 52 : 74 }
+    /// The small, label-free form.
+    private var isSmall: Bool { isCentreHit || compact }
+
+    private var faceDiameter: CGFloat { isSmall ? 52 : 74 }
 
     public var body: some View {
         VStack(spacing: 6) {
             face
-            if !isCentreHit {
+            if !isSmall {
                 Text(headline)
                     .hudFont(.caption, weight: .semibold)
                     .multilineTextAlignment(.center)
@@ -51,8 +60,8 @@ public struct CueBallGuideView: View {
                 }
             }
         }
-        .padding(isCentreHit ? 6 : 10)
-        .frame(width: isCentreHit ? nil : 130)
+        .padding(isSmall ? 6 : 10)
+        .frame(width: isSmall ? nil : 130)
         .hudPlate(RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Cue ball strike guide: \(headline)")

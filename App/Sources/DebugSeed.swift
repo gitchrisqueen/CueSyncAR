@@ -112,7 +112,7 @@ extension SessionModel {
         // drawing's own frame (table x right, y up the screen): "near" is
         // the bottom rail, exactly as TableSceneView draws it.
         presentation.setView(names: PocketViewNaming.names(for: state.table, frame: .identity),
-                             side: .leading)
+                             footprint: presentation.footprint)
         recomputeRanking()
         showTapFeedback("Seeded table: \(name)")
         publishMirrorFrame(nil)

@@ -80,11 +80,9 @@ struct HUDControlBar: View {
         } label: {
             if let size = model.tableCalibration?.size {
                 Label(RootView.sizeBadge(for: size), systemImage: "checkmark.rectangle")
-                    .lineLimit(1)
                     .fixedSize()
             } else {
                 Label("Set up table", systemImage: "rectangle.dashed")
-                    .lineLimit(1)
                     .fixedSize()
             }
         }
@@ -127,8 +125,9 @@ struct HUDControlBar: View {
                 }
             }
         } label: {
+            // No line limit: the bar wraps to a second row before it
+            // shortens a label (HUDBarRows).
             Label(model.practiceMode.title, systemImage: "figure.billiards")
-                .lineLimit(1)
         }
         .accessibilityLabel("Practice mode: \(model.practiceMode.title)")
         .accessibilityIdentifier("practice-mode-menu")

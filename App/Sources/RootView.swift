@@ -79,6 +79,12 @@ struct RootView: View {
                     .allowsHitTesting(false)
             }
 
+            // Under the VStack below, so the bar is always on top of it. It
+            // places itself off the table (HUDPlacement.clusterPlan), and
+            // takes the same Dynamic Type cap as the rest of the HUD.
+            ShotAdviceCluster()
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+
             VStack {
                 // Exactly three slots, in this order, forever: the status
                 // capsule never moves, an active recording is always
@@ -96,9 +102,11 @@ struct RootView: View {
                     HUDToast(message: message)
                 }
                 Spacer()
-                ShotAdviceCluster()
                 VStack {
                     HUDControlBar { sheet = .more }
+                        // Edge gutter: when the bar wraps it uses all the
+                        // width it is given.
+                        .padding(.horizontal, 8)
                     // Bottom-most, under the control bar: always answers
                     // "which build is this?" without a cable, and sits below
                     // the table in frame so it never occludes the cloth
@@ -313,6 +321,14 @@ struct SimulatorPlaceholderView: View {
                                  contentMode: .fit)
                     .padding(.horizontal, 12)
                     .accessibilityIdentifier("table-scene")
+                    // What the AR view's projection does on a device: tell
+                    // the HUD where the table is on the screen, so the
+                    // Simulator exercises the same placement.
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { rect in
+                        let quad = [Vec2(rect.minX, rect.minY), Vec2(rect.maxX, rect.minY),
+                                    Vec2(rect.maxX, rect.maxY), Vec2(rect.minX, rect.maxY)]
+                        model.presentation.setFootprint(TableFootprint(quad: quad, pockets: quad))
+                    }
             } else {
                 VStack(spacing: 12) {
                     Image(systemName: "arkit")
@@ -522,8 +538,7 @@ struct ARCameraView: View {
                     // Where the table lands on screen: names the pockets
                     // the way the player sees them and keeps the shot card
                     // off them (SessionModel+ShotPresentation).
-                    model.noteTableOnScreen(project: { coordinator.projectToScreen($0) },
-                                            viewport: coordinator.arView.bounds.size)
+                    model.noteTableOnScreen(project: { coordinator.projectToScreen($0) })
                     if overlayRenderer == nil {
                         // Root the overlays under the table's ARAnchor so
                         // ARKit's refinements carry them (drift fix).

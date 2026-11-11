@@ -10,11 +10,13 @@
 //  SHA sitting permanently on the play screen, and a shipping build was
 //  showing a stranger more of the workshop than the product.
 //
-//  Development builds are developer builds, so nothing changes there. A
-//  Release build hides all of it behind the seven-tap idiom on the version
-//  row — the same gesture iOS itself trained everyone on — and remembers
-//  the answer, so the owner unlocks once per install rather than once per
-//  launch.
+//  Off by default in every build, Debug included: a Debug build that
+//  unlocked itself looked unfinished to anyone who ran it. It unlocks by
+//  the seven-tap idiom on the version row (the same gesture iOS itself
+//  trained everyone on), which is remembered so the owner unlocks once per
+//  install, or by the launch argument `-developerModeUnlocked YES`
+//  (Scripts/device-push.sh --dev, UI tests). Only the labels and controls
+//  are gated: the debug mirror server runs in Debug builds regardless.
 //
 
 import CueSyncUI
@@ -43,22 +45,12 @@ final class DeveloperMode {
 
     init(store: UserDefaults = .standard) {
         self.store = store
-        // A development build IS a developer build: with no stored answer
-        // it starts unlocked, because gating it would only mean tapping
-        // seven times before every debugging session, and the remote table
-        // loop would lose the build badge it identifies builds by. An
-        // explicit answer wins in either kind of build, so a debug build
-        // can be launched with `-developerModeUnlocked NO` to see exactly
-        // what a player sees. The debug mirror itself is not gated by
-        // this: it keeps running in Debug builds whatever is shown.
-        #if DEBUG
-        let isDebugBuild = true
-        #else
-        let isDebugBuild = false
-        #endif
+        // An answer in UserDefaults (persisted, or `-developerModeUnlocked
+        // YES|NO` on the launch line, which UserDefaults surfaces under the
+        // same key) decides; with none, it is off.
         let stored: Bool? = store.object(forKey: Self.storageKey) == nil
             ? nil : store.bool(forKey: Self.storageKey)
-        isUnlocked = DeveloperUnlock.initialState(stored: stored, isDebugBuild: isDebugBuild)
+        isUnlocked = DeveloperUnlock.initialState(stored: stored)
     }
 
     /// Called when the version row is tapped.

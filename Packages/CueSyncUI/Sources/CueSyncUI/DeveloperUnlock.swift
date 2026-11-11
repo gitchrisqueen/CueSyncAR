@@ -28,19 +28,19 @@ public struct DeveloperUnlock: Sendable, Equatable {
 
     /// Whether the developer surfaces are showing at launch.
     ///
-    /// A development build is a developer build, so with nothing stored it
-    /// starts unlocked: the remote table loop identifies builds by the
-    /// badge. An explicit stored answer always wins, in either kind of
-    /// build, which is what lets a debug build be viewed the way a player
-    /// sees it (`-developerModeUnlocked NO` on the launch line, or
-    /// "Hide developer options" in Settings). A release build starts
-    /// locked unless the owner unlocked it before.
+    /// Off, in every kind of build: a Debug build that unlocked itself
+    /// showed the build badge, the mirror rows and the detector rows to
+    /// anyone who ran it, and looked unfinished. It turns on only by an
+    /// explicit answer: the seven-tap gesture (persisted, so an owner
+    /// unlocks once per install) or the launch argument
+    /// `-developerModeUnlocked YES`, which UserDefaults surfaces as the
+    /// same key. `Scripts/device-push.sh --dev` and UI tests use the
+    /// argument. The debug mirror server is not gated by this.
     ///
-    /// - Parameters:
-    ///   - stored: the persisted answer, nil when none has been stored.
-    ///   - isDebugBuild: true for a development build.
-    public static func initialState(stored: Bool?, isDebugBuild: Bool) -> Bool {
-        stored ?? isDebugBuild
+    /// - Parameter stored: the answer UserDefaults holds (persisted or
+    ///   from the launch line), nil when there is none.
+    public static func initialState(stored: Bool?) -> Bool {
+        stored ?? false
     }
 
     /// Taps still needed, once the current run is taken into account.

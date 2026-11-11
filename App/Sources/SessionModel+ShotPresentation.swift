@@ -25,6 +25,21 @@ import Observation
 import PerceptionKit
 import TableSpace
 
+/// The table on the screen, in points (y down), rounded to a few points so
+/// an unmoving table is an unchanged value and does not redraw the HUD.
+struct TableFootprint: Equatable {
+    /// The table, rails included, as four screen points.
+    var quad: [Vec2]
+    /// The pocket centres.
+    var pockets: [Vec2]
+
+    init(quad: [Vec2], pockets: [Vec2]) {
+        func snap(_ p: Vec2) -> Vec2 { Vec2((p.x / 4).rounded() * 4, (p.y / 4).rounded() * 4) }
+        self.quad = quad.map(snap)
+        self.pockets = pockets.map(snap)
+    }
+}
+
 /// What the HUD reads to word and place the shot card.
 @MainActor
 @Observable
@@ -32,13 +47,16 @@ final class ShotPresentation {
     /// Pocket names as seen from where the player stands. Empty until the
     /// table has been seen on screen: no name beats one from the wrong side.
     private(set) var pocketNames: [PocketID: String] = [:]
-    /// Where the shot cluster sits, so it does not cover a pocket.
-    private(set) var clusterSide: HUDPlacement.Side = .leading
+    /// Where the table is on the screen, nil until it has been seen. The
+    /// shot cluster is placed off it (HUDPlacement.clusterPlan).
+    private(set) var footprint: TableFootprint?
     /// The difficulty word on show, held against calibration flicker.
     private(set) var heldDifficulty: ShotRating.Difficulty?
     @ObservationIgnored private var hold = DifficultyHold()
     @ObservationIgnored private var heldShot: String?
     @ObservationIgnored private var lastScreenUpdate: TimeInterval = -.infinity
+    /// The last placement, so the cluster stays put while it is still clear.
+    @ObservationIgnored private var lastPlan: HUDClusterPlan?
 
     /// Minimum seconds between recomputing the screen geometry. Naming
     /// depends on where the device is looking, which moves continuously
@@ -47,9 +65,23 @@ final class ShotPresentation {
 
     /// Assigns only on change: an unchanged value must not invalidate the
     /// views reading it thirty times a second.
-    func setView(names: [PocketID: String], side: HUDPlacement.Side) {
+    func setView(names: [PocketID: String], footprint: TableFootprint?) {
         if names != pocketNames { pocketNames = names }
-        if side != clusterSide { clusterSide = side }
+        if footprint != self.footprint { self.footprint = footprint }
+    }
+
+    func setFootprint(_ footprint: TableFootprint?) {
+        if footprint != self.footprint { self.footprint = footprint }
+    }
+
+    /// Where to put the shot cluster on a screen of this size.
+    func clusterPlan(viewport: Vec2, sizes: HUDClusterSizes,
+                     insets: HUDClusterInsets) -> HUDClusterPlan {
+        let plan = HUDPlacement.clusterPlan(
+            tableQuad: footprint?.quad ?? [], pockets: footprint?.pockets ?? [],
+            viewport: viewport, sizes: sizes, insets: insets, previous: lastPlan)
+        lastPlan = plan
+        return plan
     }
 
     /// Run the held difficulty for the shot on offer (nil clears it).
@@ -131,9 +163,9 @@ extension SessionModel {
     /// pose, because the screen is the ground truth for "left" and "near":
     /// it already accounts for the device's orientation, its tilt and
     /// ARKit's own refinements. `project` is the AR view's world-to-screen
-    /// mapping (nil for a point behind the camera); `viewport` is the AR
-    /// view's size in points.
-    func noteTableOnScreen(project: (Vec3) -> CGPoint?, viewport: CGSize) {
+    /// mapping (nil for a point behind the camera), in the AR view's point
+    /// space, which is the full screen.
+    func noteTableOnScreen(project: (Vec3) -> CGPoint?) {
         guard presentation.shouldRefreshScreen(at: clock()),
               let calibration = tableCalibration, let table = tableState?.table else { return }
         func screen(_ p: Vec2) -> Vec2? {
@@ -145,15 +177,18 @@ extension SessionModel {
               let xTip = screen(Vec2(0.5, 0)),
               let yTip = screen(Vec2(0, 0.5)),
               let frame = PocketViewFrame(screenOrigin: origin, xTip: xTip, yTip: yTip) else { return }
-        let size = Vec2(Double(viewport.width), Double(viewport.height))
+        // The table with its rails and pocket jaws (about 10 cm past the
+        // nose-to-nose field): that is the cloth the card must stay off.
+        let half = table.halfExtents
+        let rail = 0.10
+        let corners = [Vec2(-half.x - rail, -half.y - rail), Vec2(half.x + rail, -half.y - rail),
+                       Vec2(half.x + rail, half.y + rail), Vec2(-half.x - rail, half.y + rail)]
+        let quad = corners.compactMap { screen($0) }
         let pockets = table.pockets.compactMap { screen($0.position) }
-        // A tablet's cluster is a wide card beside the guide; a phone's
-        // nearly spans the screen.
-        let wide = size.x >= 700
-        let side = HUDPlacement.clusterSide(
-            pockets: pockets, viewport: size,
-            widthFraction: wide ? min(0.9, 640 / size.x) : 0.9,
-            heightFraction: min(0.6, (wide ? 300 : 220) / max(size.y, 1)))
-        presentation.setView(names: PocketViewNaming.names(for: table, frame: frame), side: side)
+        // A corner behind the camera leaves no quad: the cluster then only
+        // dodges the pockets, as before.
+        let footprint = TableFootprint(quad: quad.count == 4 ? quad : [], pockets: pockets)
+        presentation.setView(names: PocketViewNaming.names(for: table, frame: frame),
+                             footprint: footprint)
     }
 }

@@ -106,6 +106,15 @@ public enum ShotEmptyState: Sendable, Equatable {
     }
 }
 
+/// How much of the shot the card shows.
+public enum ShotCardStyle: Sendable, Equatable {
+    /// Tier, group, the call, aim advice and the hint.
+    case full
+    /// Tier word and the call on one line (two when it wraps): for screens
+    /// with nowhere to put the full card (HUDClusterPlan).
+    case pill
+}
+
 #if canImport(SwiftUI)
 import SwiftUI
 
@@ -129,10 +138,13 @@ public struct ShotCard: View {
     /// the player is aiming at all. The actionable line, so it carries the
     /// tint rather than the grey.
     public let aimAdvice: String?
+    public let style: ShotCardStyle
 
     public init(ball: String?, pocket: String?, confidence: ShotConfidence,
                 chosenByPlayer: Bool, blockedReason: String? = nil,
-                group: String? = nil, aimAdvice: String? = nil) {
+                group: String? = nil, aimAdvice: String? = nil,
+                style: ShotCardStyle = .full) {
+        self.style = style
         self.aimAdvice = aimAdvice
         self.ball = ball
         self.pocket = pocket
@@ -169,6 +181,53 @@ public struct ShotCard: View {
     }
 
     public var body: some View {
+        Group {
+            switch style {
+            case .full: fullCard
+            case .pill: pill
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityText)
+        .accessibilityIdentifier("shot-card")
+    }
+
+    /// One line: the tier, then the call. Wraps rather than truncates when
+    /// the screen is too narrow for it, and carries the aim advice as a
+    /// second line only when there is any, because that line is the
+    /// actionable one.
+    private var pill: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .center, spacing: 8) {
+                tierChip
+                if let blockedReason {
+                    Text(blockedReason)
+                        .hudFont(.body, weight: .semibold)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if let callLine {
+                    Text(callLine)
+                        .hudFont(.body, weight: .bold)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            if let aimAdvice, blockedReason == nil {
+                Text(aimAdvice)
+                    .hudFont(.caption, weight: .semibold)
+                    .foregroundStyle(textTint)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .hudPlate(RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius, style: .continuous)
+                .stroke(tint.opacity(chosenByPlayer ? 1 : 0.6),
+                        lineWidth: chosenByPlayer ? 3 : 2)
+        )
+    }
+
+    private var fullCard: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 8) {
                 tierChip
@@ -213,9 +272,6 @@ public struct ShotCard: View {
                 .stroke(tint.opacity(chosenByPlayer ? 1 : 0.6),
                         lineWidth: chosenByPlayer ? 3 : 2)
         )
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityText)
-        .accessibilityIdentifier("shot-card")
     }
 
     /// The tier as an icon AND a word: colour is the third signal, not
@@ -260,8 +316,10 @@ public struct ShotEmptyCapsule: View {
             .hudFont(.body, weight: .semibold)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .hudPlate(Capsule())
-            .overlay(Capsule().stroke(Theme.cueAmber.color.opacity(0.7), lineWidth: 2))
+            .fixedSize(horizontal: false, vertical: true)
+            .hudPlate(RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius, style: .continuous)
+                .stroke(Theme.cueAmber.color.opacity(0.7), lineWidth: 2))
             .accessibilityIdentifier("shot-empty")
     }
 }
