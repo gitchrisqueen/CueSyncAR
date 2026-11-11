@@ -137,7 +137,7 @@ The mirror rounds ball coordinates to 1 cm.
 | ARKit raw camera drift over the same period (`pose.parkedHold.driftMm/driftDeg`) | not measured (no `pose` block) | up to 72 mm (mostly camera height) and 1.4 degrees yaw, cancelled by the hold | - | the cause, measured |
 | overlay vs t0, by eye on `/frame.jpg` 23 min after lock | rings about 5 cm off the balls after 10 min (2026-11-10 run) | ball rings within about 5 display px (about 1 cm) of their t0 position; right side-pocket disc about 10 px (1.5-2 cm) | <= 1.5 cm | met for balls; pocket disc borderline, by eye only |
 | calibration fit | 24-26 mm rms (4 pockets, pattern search) | unchanged: 24 mm rms; 6 pockets with eyeballed side picks 49 mm rms | <= 10 mm rms | **not met**, next step 1 |
-| table size | unverified | `pose.sizeFromBalls`: "balls say 2.24-2.29 +/- 0.06-0.07 m long: 8 ft (not decisive)" | identified, decisive | 8 ft identified, not yet decisive |
+| table size | unverified | `pose.sizeFromBalls` on `914ea9e`: "2.24-2.29 +/- 0.06-0.07 m: 8 ft (not decisive)"; on `02270e6` with the deferred check (more ball samples): "balls say 2.25 +/- 0.03 m long: 8 ft", decisive | identified, decisive | met (8 ft) |
 
 Why the camera height matters most: from the head rail the camera looks down at
 about 13 degrees, so a 7 cm error in camera height moves the point where a ball's
