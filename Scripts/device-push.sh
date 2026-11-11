@@ -3,7 +3,11 @@
 # then confirm over the debug mirror that the device runs THIS commit.
 #
 #   Scripts/device-push.sh [--build-only] [--config Debug|Release]
-#                          [--device "<name or UDID>"]... [--no-verify]
+#                          [--device "<name or UDID>"]... [--no-verify] [--dev]
+#
+# --dev launches with `-developerModeUnlocked YES`, which shows the build
+# badge, mirror rows and detector rows. Without it the app looks like a
+# player's build; the debug mirror runs in Debug builds either way.
 #
 # Install path: `devicectl` reaches a device over USB or the same Wi-Fi
 # (CoreDevice tunnel). It cannot address a Tailscale IP, so a device that is
@@ -25,14 +29,16 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG=Debug
 BUILD_ONLY=0
 VERIFY=1
+LAUNCH_ARGS=()
 WANT=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --build-only) BUILD_ONLY=1 ;;
     --no-verify) VERIFY=0 ;;
+    --dev) LAUNCH_ARGS=(-- -developerModeUnlocked YES) ;;
     --config) CONFIG="$2"; shift ;;
     --device) WANT+=("$2"); shift ;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
   shift
@@ -102,7 +108,7 @@ while IFS='|' read -r NAME UDID STATE MODEL; do
     RC=1; continue
   fi
   if ! xcrun devicectl device process launch --device "${UDID}" --terminate-existing \
-        "${BUNDLE}" >/tmp/cs-launch.log 2>&1; then
+        "${BUNDLE}" ${LAUNCH_ARGS[@]+"${LAUNCH_ARGS[@]}"} >/tmp/cs-launch.log 2>&1; then
     why="$(grep -iE 'error|locked' /tmp/cs-launch.log | head -1)"
     printf '%-28s %-12s %s\n' "${NAME}" "${STATE}" "LAUNCH FAILED (unlock the device?): ${why}"
     RC=1; continue

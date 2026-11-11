@@ -97,6 +97,10 @@ durable lessons that must not be re-learned:
   tracking JSON at `http://<device-ip>:8787` for any browser on the LAN
   (`App/Sources/DebugMirrorServer.swift`). This is the standard way to see
   the device when it's at the table away from the Mac.
+- **Developer mode is off by default in every build**, Debug included (build
+  badge, mirror and detector rows hidden; the mirror server still runs in
+  Debug). Unlock with the seven-tap gesture on Settings' version row, or launch
+  with `-developerModeUnlocked YES` (`Scripts/device-push.sh --dev`; UI tests).
 - **Build identity:** every build is stamped with the git SHA/branch/dirty
   flag it came from, surfaced in three places — the tappable badge at the
   bottom of the HUD, `build` in the mirror's `/state.json` and page header,

@@ -152,7 +152,9 @@ public struct BallCountChip: View {
 /// Bottom control bar on the HUD plate. Every control in it is given a
 /// 44 pt minimum hit target (`HUDMetrics.minimumTarget`) by the bar itself,
 /// so a control cannot forget to be tappable, with `HUDMetrics.barSpacing`
-/// between neighbours.
+/// between neighbours. It is one row while everything fits and wraps to
+/// more rows when it does not, so no label is ever truncated
+/// (`HUDBarRows`).
 public struct HUDBar<Content: View>: View {
     private let content: Content
 
@@ -161,7 +163,7 @@ public struct HUDBar<Content: View>: View {
     }
 
     public var body: some View {
-        HStack(spacing: HUDMetrics.barSpacing) {
+        HUDBarFlowLayout(spacing: HUDMetrics.barSpacing, rowSpacing: 2) {
             Group(subviews: content) { subviews in
                 ForEach(subviews) { subview in
                     subview.hudTapTarget()
@@ -171,7 +173,10 @@ public struct HUDBar<Content: View>: View {
         .hudFont(.body, weight: .semibold)
         .padding(.horizontal, 14)
         .padding(.vertical, 4)
-        .hudPlate(Capsule())
+        // A rounded rectangle, not a capsule: a capsule's end caps cut into
+        // the second row's corners. One row is 52 pt high, where this is
+        // indistinguishable from a capsule.
+        .hudPlate(RoundedRectangle(cornerRadius: 26, style: .continuous))
     }
 }
 #endif

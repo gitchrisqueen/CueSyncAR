@@ -68,15 +68,14 @@ struct DeveloperUnlockTests {
         #expect(!eighth)
     }
 
-    @Test("Launch state: a stored answer wins, otherwise the build kind decides")
-    func initialStateFollowsStoredAnswerThenBuildKind() {
-        // Nothing stored: a development build is a developer build, a
-        // release build is a player's.
-        #expect(DeveloperUnlock.initialState(stored: nil, isDebugBuild: true))
-        #expect(!DeveloperUnlock.initialState(stored: nil, isDebugBuild: false))
-        // An explicit answer wins in both kinds of build: a debug build can
-        // be viewed as a player sees it, and an unlocked release stays so.
-        #expect(!DeveloperUnlock.initialState(stored: false, isDebugBuild: true))
-        #expect(DeveloperUnlock.initialState(stored: true, isDebugBuild: false))
+    @Test("Launch state is off unless an answer says on, in every kind of build")
+    func initialStateIsOffUnlessAnswered() {
+        // Nothing stored: locked. A Debug build is not special any more;
+        // it used to unlock itself and looked unfinished.
+        #expect(!DeveloperUnlock.initialState(stored: nil))
+        // `-developerModeUnlocked YES` (or an earlier seven-tap unlock).
+        #expect(DeveloperUnlock.initialState(stored: true))
+        // `-developerModeUnlocked NO`, or "Hide developer options".
+        #expect(!DeveloperUnlock.initialState(stored: false))
     }
 }

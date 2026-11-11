@@ -129,18 +129,35 @@ final class SeededHUDUITests: XCTestCase {
     }
 
     /// Players never see developer instruments (build badge, mirror
-    /// address, detector rows): the Simulator debug build unlocks them by
-    /// default, so this pins the locked state explicitly.
-    func testPlayerSeesNoDeveloperControlsInMore() {
+    /// address, detector rows). A Debug build with NO launch argument must
+    /// look like a player's: developer mode is off by default everywhere.
+    func testDebugBuildWithNoArgumentShowsNoDeveloperRows() {
         let app = XCUIApplication()
-        app.launchArguments += ["-seedTable", "open", "-developerModeUnlocked", "NO"]
+        app.launchArguments += ["-seedTable", "open"]
         app.launch()
         waitForCapsule(app, containing: "Tracking 5 balls")
+        XCTAssertFalse(element(app, "build-badge").exists, "build badge visible without the argument")
         let more = app.buttons["more-button"]
         XCTAssertTrue(more.waitForExistence(timeout: 10))
         more.tap()
         XCTAssertTrue(app.buttons["more-settings"].waitForExistence(timeout: 10))
         XCTAssertFalse(element(app, "more-debug-mirror").exists, "debug mirror toggle visible to a player")
         XCTAssertFalse(app.staticTexts["Address"].exists, "mirror address visible to a player")
+    }
+
+    /// The launch argument unlocks them: Scripts and `device-push.sh --dev`
+    /// rely on it.
+    func testDeveloperModeUnlocksWithTheLaunchArgument() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-seedTable", "open", "-developerModeUnlocked", "YES"]
+        app.launch()
+        waitForCapsule(app, containing: "Tracking 5 balls")
+        XCTAssertTrue(element(app, "build-badge").waitForExistence(timeout: 10),
+                      "build badge missing with -developerModeUnlocked YES")
+        let more = app.buttons["more-button"]
+        XCTAssertTrue(more.waitForExistence(timeout: 10))
+        more.tap()
+        XCTAssertTrue(element(app, "more-debug-mirror").waitForExistence(timeout: 10),
+                      "debug mirror toggle missing with -developerModeUnlocked YES")
     }
 }
