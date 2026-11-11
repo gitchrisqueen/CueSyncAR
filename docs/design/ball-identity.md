@@ -234,6 +234,30 @@ Measured robustness: the box centre can be off by ±3 px — a fifth of a ball �
 direction without changing any ball's verdict, and the disc fraction is insensitive
 between 0.55 and 1.0 of the inscribed radius.
 
+### 4. Correction, 2026-11-10: the eight is decided on mean colour, not a pixel count
+
+The rule above ("near-zero chroma with a white number patch", per-pixel chroma fraction
+<= 0.15 and dark) named a dark BLUE ball the 8-ball at 0.9 confidence on the owner's
+black-cloth table (17 of 22 recorded iPad frames; `docs/research/2026-11-10-ball-detection-and-identity.md`
+on `claude/research-ball-detection`). H.264 noise put most of that ball's individual pixels
+under the 0.12 chroma floor. Shipped in `BallAppearance.classify`:
+
+- Black or white is decided on the chroma of the ball's AVERAGE white-balanced colour,
+  divided by the cue ball's brightness: below 0.15 is neutral (black if its value is under
+  0.6 of the cue ball's, else white). Measured: blue 0.236-0.313, eights 0.020-0.079.
+  Fitted on three distinct eights and one blue ball, so treat 0.15 as provisional.
+- Red against maroon uses value relative to the cue ball (< 0.75 is maroon), not absolute
+  value. The two are still not separable by brightness across lights, so they are decided
+  by the vote below.
+- `BallIdentity` holds a ball's name until another colour has LED the vote for 5 consecutive
+  looks (`switchObservations`); the first name still commits at 5 looks.
+- When the detector and the player named no cue ball in a frame,
+  `BallAppearancePass.brightestLeastColoured` (raw value x (1 - saturation)) supplies the
+  white reference as a low-confidence (0.6) guess: 31 of 31 labelled frames. It never
+  overrides a detector-named or tapped cue ball, and refuses a lone ball or a dead heat.
+
+Mirror state fields (`colour`, `colourConfidence`, `group`, `kind`) are unchanged.
+
 ## Verification plan
 
 Everything except the sampler is checkable offline against recordings already on

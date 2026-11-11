@@ -56,17 +56,27 @@ public struct BallIdentity: Sendable, Equatable {
         public var namingConfidence: Double
         /// Looks needed before a group is claimed at all.
         public var minimumObservations: Int
+        /// Consecutive looks a different colour must LEAD the vote before
+        /// a ball already named is renamed. Without it the name follows
+        /// the vote's leader frame to frame, and a ball sitting between
+        /// two colours (red and maroon, which no single-frame rule here
+        /// separates) flips its label, and the eight with it, every time
+        /// the tally crosses. The first name is not held back: it commits
+        /// as soon as `minimumObservations` looks exist.
+        public var switchObservations: Int
 
         public init(window: Int = 40,
                     stripeWhiteFraction: Double = 0.30,
                     stripeHueSpread: Double = 16,
                     namingConfidence: Double = 0.5,
-                    minimumObservations: Int = 5) {
+                    minimumObservations: Int = 5,
+                    switchObservations: Int = 5) {
             self.window = window
             self.stripeWhiteFraction = stripeWhiteFraction
             self.stripeHueSpread = stripeHueSpread
             self.namingConfidence = namingConfidence
             self.minimumObservations = minimumObservations
+            self.switchObservations = switchObservations
         }
 
         public static let `default` = Config()
@@ -80,6 +90,14 @@ public struct BallIdentity: Sendable, Equatable {
         /// sometimes, and a correction that gets voted away is worse than
         /// no correction at all.
         public var override: Ball.Kind?
+        /// The colour this ball is currently named. Set when the first
+        /// vote is possible and changed only by `switchObservations`
+        /// consecutive looks in which another colour leads the vote.
+        public internal(set) var committedFamily: ColorFamily?
+        /// The colour that has been leading against `committedFamily`,
+        /// and for how many consecutive looks.
+        var challenger: ColorFamily?
+        var challengerLooks = 0
 
         /// Highest white fraction ever seen. One clear look at a band is
         /// the evidence; averaging it away is the mistake.
@@ -113,7 +131,30 @@ public struct BallIdentity: Sendable, Equatable {
         if record.observations.count > config.window {
             record.observations.removeFirst(record.observations.count - config.window)
         }
+        commit(&record)
         records[id] = record
+    }
+
+    /// Advance the ball's committed colour by one look.
+    private func commit(_ record: inout Record) {
+        guard record.observations.count >= config.minimumObservations,
+              let leader = Self.tally(record.observations)?.leader else { return }
+        guard let committed = record.committedFamily else {
+            record.committedFamily = leader
+            return
+        }
+        if leader == committed {
+            record.challenger = nil
+            record.challengerLooks = 0
+            return
+        }
+        record.challengerLooks = leader == record.challenger ? record.challengerLooks + 1 : 1
+        record.challenger = leader
+        if record.challengerLooks >= config.switchObservations {
+            record.committedFamily = leader
+            record.challenger = nil
+            record.challengerLooks = 0
+        }
     }
 
     /// Take a whole frame's readings at once.
@@ -152,20 +193,42 @@ public struct BallIdentity: Sendable, Equatable {
     /// into a confident answer. It named two different balls the 13.
     public func family(for id: BallID) -> (family: ColorFamily, confidence: Double)? {
         guard let record = records[id],
-              record.observations.count >= config.minimumObservations else { return nil }
+              record.observations.count >= config.minimumObservations,
+              let tally = Self.tally(record.observations) else { return nil }
+        // The name held since the last switch, not whoever leads this
+        // instant; the leader only takes over after `switchObservations`
+        // consecutive looks. While it is being challenged the held
+        // colour's share has already shrunk, so the confidence (and so
+        // `isTentative`) shows the doubt.
+        let family = record.committedFamily.flatMap { tally.scores[$0] == nil ? nil : $0 }
+            ?? tally.leader
+        guard let score = tally.scores[family] else { return nil }
+        return (family, score.share * score.strength)
+    }
+
+    /// Confidence-weighted vote over a window of looks, with a
+    /// deterministic tie-break so the same looks always name the same ball
+    /// the same way.
+    private static func tally(_ observations: [AppearanceObservation])
+        -> (leader: ColorFamily, scores: [ColorFamily: (share: Double, strength: Double)])? {
         var weights: [ColorFamily: Double] = [:]
         var counts: [ColorFamily: Int] = [:]
-        for observation in record.observations {
+        for observation in observations {
             weights[observation.family, default: 0] += observation.confidence
             counts[observation.family, default: 0] += 1
         }
         let total = weights.values.reduce(0, +)
         guard total > 0,
-              let best = weights.max(by: { $0.value < $1.value }),
-              let bestCount = counts[best.key], bestCount > 0 else { return nil }
-        let share = best.value / total
-        let strength = best.value / Double(bestCount)
-        return (best.key, share * strength)
+              let best = weights.max(by: {
+                  $0.value == $1.value ? $0.key.rawValue > $1.key.rawValue : $0.value < $1.value
+              }) else { return nil }
+        var scores: [ColorFamily: (share: Double, strength: Double)] = [:]
+        for (family, weight) in weights {
+            guard let count = counts[family], count > 0, weight > 0 else { continue }
+            scores[family] = (weight / total, weight / Double(count))
+        }
+        guard scores[best.key] != nil else { return nil }
+        return (best.key, scores)
     }
 
     /// Which half of the rack, decided on the strongest evidence ever
