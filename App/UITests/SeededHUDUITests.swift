@@ -77,6 +77,34 @@ final class SeededHUDUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Point at the table"].exists)
     }
 
+    /// Locking the table is the app's biggest moment: it says so, on screen,
+    /// for a couple of seconds (FeedbackCenter). Haptic and sound cannot be
+    /// observed here; the `feedback` log line is the proof of those.
+    func testLockingTheTableShowsABanner() {
+        let app = launchSeeded("open")
+        let banner = element(app, "feedback-banner")
+        XCTAssertTrue(banner.waitForExistence(timeout: 60), "no banner when the table locked")
+        XCTAssertTrue(banner.label.hasPrefix("Table locked"), banner.label)
+    }
+
+    /// The scoreboard is off until asked for, and a chip once it is on.
+    func testScoreboardChipFollowsTheSetting() {
+        let off = XCUIApplication()
+        // Pinned off, so an earlier run's stored choice cannot decide this one.
+        off.launchArguments += ["-seedTable", "open", "-ballGroup", "any", "-showScoreboard", "0"]
+        off.launch()
+        waitForCapsule(off, containing: "Tracking 5 balls")
+        XCTAssertFalse(element(off, "score-chip").exists, "scoreboard is on by default")
+        off.terminate()
+
+        let on = XCUIApplication()
+        on.launchArguments += ["-seedTable", "open", "-ballGroup", "any", "-showScoreboard", "1"]
+        on.launch()
+        let chip = element(on, "score-chip")
+        XCTAssertTrue(chip.waitForExistence(timeout: 60), "no scoreboard chip with the setting on")
+        XCTAssertEqual(chip.label, "No shots yet this session")
+    }
+
     func testChoosingAGroupReRanksAndChangesTheCard() {
         let app = launchSeeded("open")
         waitForCapsule(app, containing: "Tracking 5 balls")

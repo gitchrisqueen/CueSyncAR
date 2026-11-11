@@ -88,11 +88,86 @@ extension SessionModel {
         seedSyntheticTable(named: name)
     }
 
-    /// `/cmd?action=seed&layout=<name>`. True when the action was a seed.
+    /// `/cmd?action=seed&layout=<name>`, plus the arcade-layer checks:
+    ///
+    ///   `action=feedback&event=shotMade[&detail=...][&force=1][&hold=<s>]`  fire one event
+    ///   `action=simulateShot&result=made|missed|scratch`          play a synthetic
+    ///   shot through the real outcome detector, ranking and HUD
+    ///
+    /// True when the action was one of these. Simulator builds only.
     func handleDebugSeedCommand(_ params: [String: String]) -> Bool {
-        guard params["action"] == "seed" else { return false }
-        seedSyntheticTable(named: params["layout"] ?? "open")
+        switch params["action"] {
+        case "seed":
+            seedSyntheticTable(named: params["layout"] ?? "open")
+        case "feedback":
+            guard let raw = params["event"], let event = FeedbackEvent(rawValue: raw) else {
+                showTapFeedback("Unknown feedback event (\(FeedbackEvent.allCases.map(\.rawValue).joined(separator: ", ")))")
+                return true
+            }
+            feedback.bannerHoldOverride = params["hold"].flatMap(Double.init)
+            postFeedback(event, detail: params["detail"], force: params["force"] == "1")
+        case "simulateShot":
+            simulateShot(result: params["result"] ?? "made")
+        default:
+            return false
+        }
         return true
+    }
+
+    /// Feed a scripted shot to the live path at 15 Hz of synthetic time:
+    /// rest, strike, then the ball rolls into its pocket (made), stops short
+    /// (missed) or the cue ball drops (scratch). The frames go through
+    /// `installDebugState` and `recomputeRanking`, which is the call every
+    /// pipeline output makes, so the detector, the score, the banner and the
+    /// log lines are the real ones.
+    func simulateShot(result: String) {
+        guard let start = tableState, let cue = start.cueBall, let shot = activeShot, shot.blocker == nil,
+              let target = start.ball(shot.ball),
+              let pocket = start.table.pockets.first(where: { $0.id == shot.pocket }) else {
+            showTapFeedback("No shot to simulate: seed a table with a suggested shot first")
+            return
+        }
+        let step = 1.0 / 15.0
+        var time = max(clock(), feedback.lastFedTimestamp ?? 0) + 1
+        func frame(_ balls: [Ball]) {
+            time += step
+            installDebugState(TableState(table: start.table, balls: balls, timestamp: time))
+            recomputeRanking()
+        }
+        let others = start.balls.filter { $0.id != cue.id && $0.id != target.id }
+        func balls(cue cuePosition: Vec2?, target targetPosition: Vec2?) -> [Ball] {
+            var all = others
+            if let cuePosition { var c = cue; c.position = cuePosition; all.append(c) }
+            if let targetPosition { var t = target; t.position = targetPosition; all.append(t) }
+            return all
+        }
+        func walk(_ from: Vec2, to goal: Vec2, perFrame: Double, stopShort: Double = 0) -> [Vec2] {
+            let total = from.distance(to: goal) - stopShort
+            let count = max(1, Int((total / perFrame).rounded(.up)))
+            return (1...count).map { from + (goal - from).normalized * min(total, perFrame * Double($0)) }
+        }
+
+        for _ in 0..<8 { frame(balls(cue: cue.position, target: target.position)) }
+        switch result {
+        case "scratch":
+            for p in walk(cue.position, to: pocket.position, perFrame: 0.08, stopShort: 0.03) {
+                frame(balls(cue: p, target: target.position))
+            }
+            for _ in 0..<25 { frame(balls(cue: nil, target: target.position)) }
+        case "missed":
+            let path = Array(walk(cue.position, to: target.position, perFrame: 0.15, stopShort: 0.25).prefix(4))
+            for p in path { frame(balls(cue: p, target: target.position)) }
+            for _ in 0..<90 { frame(balls(cue: path.last, target: target.position)) }
+        default:
+            let cuePath = walk(cue.position, to: target.position, perFrame: 0.15, stopShort: 0.25)
+            let restCue = cuePath.prefix(4).last ?? cue.position
+            for p in cuePath.prefix(4) { frame(balls(cue: p, target: target.position)) }
+            for p in walk(target.position, to: pocket.position, perFrame: 0.07, stopShort: 0.03) {
+                frame(balls(cue: restCue, target: p))
+            }
+            for _ in 0..<25 { frame(balls(cue: restCue, target: nil)) }
+        }
+        publishMirrorFrame(nil)
     }
 
     /// Returns false (and tells the player) for an unknown layout name.
@@ -102,6 +177,9 @@ extension SessionModel {
             showTapFeedback("Unknown seed '\(name)' (\(DebugSeed.layoutNames.joined(separator: ", ")))")
             return false
         }
+        // Take the "before" sample, so the lock below is seen as a lock and
+        // not as a table that was already locked when the sampler started.
+        feedbackTick()
         // A table the size of the layout, lying on the ground plane with its
         // long axis along world x, so table space and world space agree.
         restoreCalibration(TableCalibration(origin: .zero, xAxis: Vec3(1, 0, 0),

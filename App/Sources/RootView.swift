@@ -84,6 +84,7 @@ struct RootView: View {
             // takes the same Dynamic Type cap as the rest of the HUD.
             ShotAdviceCluster()
                 .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            FeedbackEffectsLayer()
 
             VStack {
                 // Exactly three slots, in this order, forever: the status
@@ -95,12 +96,12 @@ struct RootView: View {
                 // the mirror URL -> the More sheet's developer section
                 // (the URL is also selectable in Settings -> Developer).
                 StatusCapsule(status: hudStatus)
+                    .lockFlash(model.feedback.lockFlashCount) // FeedbackViews.swift
                 if let recording = model.recordingStatus {
                     RecordingBadge(status: recording)
                 }
-                if let message = hudMessage {
-                    HUDToast(message: message)
-                }
+                // The toast slot: banner, scoreboard chip or old toast (FeedbackViews.swift).
+                FeedbackSlot(message: hudMessage)
                 Spacer()
                 VStack {
                     HUDControlBar { sheet = .more }

@@ -31,6 +31,7 @@ struct MoreSheet: View {
         NavigationStack {
             List {
                 atTheTableSection
+                ScoreboardSection()
                 settingsSection
                 if developerMode.isUnlocked { buildSection }
             }

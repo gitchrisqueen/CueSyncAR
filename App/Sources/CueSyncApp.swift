@@ -17,6 +17,7 @@ struct CueSyncApp: App {
             RootView()
                 .environment(model)
                 .task {
+                    model.startFeedbackSampling() // SessionModel+Feedback.swift
                     await model.bootstrap()
                     #if DEBUG && targetEnvironment(simulator)
                     model.applyLaunchSeedIfRequested() // DebugSeed.swift

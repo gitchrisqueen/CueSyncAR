@@ -119,6 +119,12 @@ public enum SettingsKey {
     public static let skillLevel = "skillLevel"
     /// How much the app says out loud. Off unless the player asks.
     public static let speechVerbosity = "speechVerbosity"
+    /// Short synthesised sounds for the moments that matter. On by default.
+    public static let soundsEnabled = "feedbackSounds"
+    /// Haptic taps for the same moments. On by default.
+    public static let hapticsEnabled = "feedbackHaptics"
+    /// The made / attempted chip. Off unless the player asks.
+    public static let showScoreboard = "showScoreboard"
 }
 
 /// Everything the owner can change without a rebuild.
@@ -201,6 +207,14 @@ public struct SettingsModel: Sendable, Equatable {
     /// that starts talking at someone unannounced is a bug, not a feature.
     public var speechVerbosity: SpeechVerbosity = .off
 
+    /// Arcade feedback (FeedbackPlan). Sounds follow the ringer switch; the
+    /// voice above is separate and is not touched by either.
+    public var soundsEnabled = true
+    public var hapticsEnabled = true
+    /// The session scoreboard chip. Off by default: a score is something a
+    /// player opts into, not something a practice tool imposes.
+    public var showScoreboard = false
+
     /// The defaults — what a fresh install runs on.
     /// - Parameter debugMirrorEnabledByDefault: what the mirror preference
     ///   should be when nothing is persisted yet. See the property.
@@ -263,6 +277,15 @@ public struct SettingsModel: Sendable, Equatable {
            let value = SpeechVerbosity(rawValue: raw) {
             speechVerbosity = value
         }
+        if let raw = store.bool(forKey: SettingsKey.soundsEnabled) {
+            soundsEnabled = raw
+        }
+        if let raw = store.bool(forKey: SettingsKey.hapticsEnabled) {
+            hapticsEnabled = raw
+        }
+        if let raw = store.bool(forKey: SettingsKey.showScoreboard) {
+            showScoreboard = raw
+        }
     }
 
     /// Write every setting. Writing all of them (rather than only what
@@ -290,7 +313,10 @@ public struct SettingsModel: Sendable, Equatable {
             SettingsKey.detectorPinnedToCPU: .bool(detectorPinnedToCPU),
             SettingsKey.ballGroup: .string(ballGroup.rawValue),
             SettingsKey.skillLevel: .string(skillLevel.rawValue),
-            SettingsKey.speechVerbosity: .string(speechVerbosity.rawValue)
+            SettingsKey.speechVerbosity: .string(speechVerbosity.rawValue),
+            SettingsKey.soundsEnabled: .bool(soundsEnabled),
+            SettingsKey.hapticsEnabled: .bool(hapticsEnabled),
+            SettingsKey.showScoreboard: .bool(showScoreboard)
         ]
     }
 
