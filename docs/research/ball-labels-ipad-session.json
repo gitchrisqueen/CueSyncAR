@@ -1,0 +1,1171 @@
+{
+ "about": "Recorded iPad session device-20261111T021910Z, every 8th video frame (ffmpeg select=not(mod(n,8))), 1440x1080. Static scene; the same four hand-labelled centres (checked by eye on frames 1 and 21) apply to every frame.",
+ "frames": [
+  {
+   "id": "sess-f001",
+   "path": "~/CueSyncResearch/session/f001.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f002",
+   "path": "~/CueSyncResearch/session/f002.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f003",
+   "path": "~/CueSyncResearch/session/f003.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f004",
+   "path": "~/CueSyncResearch/session/f004.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f005",
+   "path": "~/CueSyncResearch/session/f005.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f006",
+   "path": "~/CueSyncResearch/session/f006.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f007",
+   "path": "~/CueSyncResearch/session/f007.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f008",
+   "path": "~/CueSyncResearch/session/f008.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f009",
+   "path": "~/CueSyncResearch/session/f009.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f010",
+   "path": "~/CueSyncResearch/session/f010.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f011",
+   "path": "~/CueSyncResearch/session/f011.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f012",
+   "path": "~/CueSyncResearch/session/f012.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f013",
+   "path": "~/CueSyncResearch/session/f013.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f014",
+   "path": "~/CueSyncResearch/session/f014.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f015",
+   "path": "~/CueSyncResearch/session/f015.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f016",
+   "path": "~/CueSyncResearch/session/f016.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f017",
+   "path": "~/CueSyncResearch/session/f017.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f018",
+   "path": "~/CueSyncResearch/session/f018.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f019",
+   "path": "~/CueSyncResearch/session/f019.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f020",
+   "path": "~/CueSyncResearch/session/f020.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f021",
+   "path": "~/CueSyncResearch/session/f021.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  },
+  {
+   "id": "sess-f022",
+   "path": "~/CueSyncResearch/session/f022.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "balls": [
+    {
+     "x": 524,
+     "y": 500,
+     "kind": "object",
+     "colour": "red",
+     "d": 24
+    },
+    {
+     "x": 879,
+     "y": 474,
+     "kind": "object",
+     "colour": "orange",
+     "d": 21
+    },
+    {
+     "x": 740,
+     "y": 555,
+     "kind": "cue",
+     "colour": "white",
+     "d": 31
+    },
+    {
+     "x": 897,
+     "y": 553,
+     "kind": "object",
+     "colour": "blue",
+     "d": 29
+    }
+   ]
+  }
+ ]
+}

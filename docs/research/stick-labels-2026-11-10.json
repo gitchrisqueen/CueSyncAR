@@ -1,0 +1,1031 @@
+{
+ "about": "Hand-labelled cue-stick axes (tip near the cue ball, a second point toward the butt), frame pixels. iPad session frames: the stick lay still on the cloth, so one label serves all 22. Clip frames: the stick is held in a stance or stroke.",
+ "frames": [
+  {
+   "id": "sess-f001",
+   "detId": "sess-f001",
+   "path": "~/CueSyncResearch/session/f001.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f002",
+   "detId": "sess-f002",
+   "path": "~/CueSyncResearch/session/f002.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f003",
+   "detId": "sess-f003",
+   "path": "~/CueSyncResearch/session/f003.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f004",
+   "detId": "sess-f004",
+   "path": "~/CueSyncResearch/session/f004.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f005",
+   "detId": "sess-f005",
+   "path": "~/CueSyncResearch/session/f005.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f006",
+   "detId": "sess-f006",
+   "path": "~/CueSyncResearch/session/f006.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f007",
+   "detId": "sess-f007",
+   "path": "~/CueSyncResearch/session/f007.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f008",
+   "detId": "sess-f008",
+   "path": "~/CueSyncResearch/session/f008.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f009",
+   "detId": "sess-f009",
+   "path": "~/CueSyncResearch/session/f009.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f010",
+   "detId": "sess-f010",
+   "path": "~/CueSyncResearch/session/f010.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f011",
+   "detId": "sess-f011",
+   "path": "~/CueSyncResearch/session/f011.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f012",
+   "detId": "sess-f012",
+   "path": "~/CueSyncResearch/session/f012.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f013",
+   "detId": "sess-f013",
+   "path": "~/CueSyncResearch/session/f013.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f014",
+   "detId": "sess-f014",
+   "path": "~/CueSyncResearch/session/f014.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f015",
+   "detId": "sess-f015",
+   "path": "~/CueSyncResearch/session/f015.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f016",
+   "detId": "sess-f016",
+   "path": "~/CueSyncResearch/session/f016.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f017",
+   "detId": "sess-f017",
+   "path": "~/CueSyncResearch/session/f017.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f018",
+   "detId": "sess-f018",
+   "path": "~/CueSyncResearch/session/f018.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f019",
+   "detId": "sess-f019",
+   "path": "~/CueSyncResearch/session/f019.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f020",
+   "detId": "sess-f020",
+   "path": "~/CueSyncResearch/session/f020.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f021",
+   "detId": "sess-f021",
+   "path": "~/CueSyncResearch/session/f021.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "sess-f022",
+   "detId": "sess-f022",
+   "path": "~/CueSyncResearch/session/f022.png",
+   "ballDiameterPx": 27,
+   "quad": [
+    [
+     119,
+     803
+    ],
+    [
+     515,
+     445
+    ],
+    [
+     936,
+     444
+    ],
+    [
+     1296,
+     792
+    ]
+   ],
+   "cueBall": [
+    740,
+    555
+   ],
+   "stick": {
+    "tip": [
+     767,
+     579
+    ],
+    "butt": [
+     1181,
+     785
+    ]
+   }
+  },
+  {
+   "id": "pub-f0030",
+   "detId": "pub-f0030",
+   "path": "~/CueSyncClips/pub-green-7ft-topdown/frames/f0030.png",
+   "ballDiameterPx": 22,
+   "quad": [
+    [
+     172,
+     50
+    ],
+    [
+     55,
+     550
+    ],
+    [
+     632,
+     548
+    ],
+    [
+     498,
+     50
+    ]
+   ],
+   "cueBall": [
+    505,
+    305
+   ],
+   "stick": {
+    "tip": [
+     495,
+     275
+    ],
+    "butt": [
+     440,
+     49
+    ]
+   }
+  },
+  {
+   "id": "pub-f0055",
+   "detId": "pub-f0055",
+   "path": "~/CueSyncClips/pub-green-7ft-topdown/frames/f0055.png",
+   "ballDiameterPx": 22,
+   "quad": [
+    [
+     172,
+     50
+    ],
+    [
+     55,
+     550
+    ],
+    [
+     632,
+     548
+    ],
+    [
+     498,
+     50
+    ]
+   ],
+   "cueBall": [
+    356,
+    209
+   ],
+   "stick": {
+    "tip": [
+     412,
+     186
+    ],
+    "butt": [
+     640,
+     83
+    ]
+   }
+  },
+  {
+   "id": "speed-f0030",
+   "detId": "speed-f0030",
+   "path": "~/CueSyncClips/speedpool-bluecloth/frames/f0030.png",
+   "ballDiameterPx": 25,
+   "quad": [
+    [
+     205,
+     627
+    ],
+    [
+     528,
+     626
+    ],
+    [
+     655,
+     880
+    ],
+    [
+     62,
+     880
+    ]
+   ],
+   "cueBall": [
+    479,
+    663
+   ],
+   "stick": {
+    "tip": [
+     490,
+     663
+    ],
+    "butt": [
+     590,
+     661
+    ]
+   }
+  },
+  {
+   "id": "speed-f0055",
+   "detId": "speed-f0055",
+   "path": "~/CueSyncClips/speedpool-bluecloth/frames/f0055.png",
+   "ballDiameterPx": 25,
+   "quad": [
+    [
+     205,
+     627
+    ],
+    [
+     528,
+     626
+    ],
+    [
+     655,
+     880
+    ],
+    [
+     62,
+     880
+    ]
+   ],
+   "cueBall": [
+    319,
+    746
+   ],
+   "stick": {
+    "tip": [
+     256,
+     747
+    ],
+    "butt": [
+     40,
+     753
+    ]
+   }
+  },
+  {
+   "id": "home-f0055",
+   "detId": "home-f0055",
+   "path": "~/CueSyncClips/home-9ft-breakrun/frames/f0055.png",
+   "ballDiameterPx": 24,
+   "quad": [
+    [
+     195,
+     642
+    ],
+    [
+     503,
+     640
+    ],
+    [
+     668,
+     893
+    ],
+    [
+     48,
+     900
+    ]
+   ],
+   "cueBall": [
+    258,
+    834
+   ],
+   "stick": {
+    "tip": [
+     212,
+     825
+    ],
+    "butt": [
+     40,
+     770
+    ]
+   }
+  }
+ ]
+}
