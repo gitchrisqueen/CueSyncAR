@@ -3,7 +3,7 @@
 **Status:** research, 2026-11-10 (web pages read 2026-11-10/11, dates below). Branch
 `claude/research-model-licence` (base `origin/claude/research-ball-detection`). No app or
 package code changed. No weights, data or footage committed. Scripts: `Tools/research/rfdetr_poc.py`,
-`Tools/research/rfdetr_docker.sh`.
+`Tools/research/rfdetr_docker.sh`, `Tools/research/coreml_time.py`.
 
 **This is research, not legal advice.** It records what the licensors' own pages say and
 what was measured. Points marked **[lawyer]** need a lawyer before the app is distributed.
@@ -24,7 +24,12 @@ release, but not this week. Three facts drive this:
    Large: code and checkpoints Apache-2.0 (the PML-licensed sizes are Atto/Femto/Pico/XL/2XL,
    which we must not use). Its own docs show a Core ML export with 592 of 599 ops on the
    Neural Engine and 20.8 ms on an M3 Pro (fp16, `CPU_AND_NE`). Our proof of concept
-   (below) {{POC_ONE_LINE}}
+   (below) ran the public Apache-2.0 COCO Nano checkpoint on 31 hand-labelled real frames:
+   the COCO `sports ball` class found 155 of 167 balls at score >= 0.1 but only 63 of 167
+   at >= 0.3, so it sees pool balls but must be fine-tuned before use. It exported to Core
+   ML (fp16 mlprogram) at the first attempt, in a Linux container, and runs on this Mac. On
+   this Intel Mac it is 2.5x slower than the shipped YOLO on CPU and 12x slower on the GPU.
+   Those ratios say nothing reliable about the A13 Neural Engine.
 3. **The cost of switching is mostly data and a decoder, not money.** GPU time for a
    fine-tune is tens of dollars (estimate, RunPod A100 80 GB at $1.79/h). The real cost
    is about 2-3 engineer-weeks plus 10-20 hours of label correction, and one unknown that
@@ -123,7 +128,7 @@ estimate, not a measurement.
 
 | model | code licence | weights licence | params | GFLOPs | COCO AP / APs | input | Core ML route | ANE risk | A13 latency |
 |---|---|---|---|---|---|---|---|---|---|
-| **RF-DETR-N** | Apache-2.0 | Apache-2.0 (N/S/M/L) | 30.5 M | 31.9 | 48.0 / 25.2 | 384 | built-in `format="coreml"` (iOS 16 mlprogram), documented | low-medium: 592/599 ops on ANE at fp16; topk on CPU | est. 40-80 ms at 384; 90-200 ms at 640 |
+| **RF-DETR-N** | Apache-2.0 | Apache-2.0 (N/S/M/L) | 30.5 M | 31.9 | 48.0 / 25.2 | 384 | built-in `format="coreml"`, documented; **reproduced in Q3** (fp16 mlprogram, spec v6, multiarray input) | low-medium: 592/599 ops on ANE at fp16; topk on CPU | est. 40-80 ms at 384; 90-200 ms at 640 |
 | RF-DETR-S | Apache-2.0 | Apache-2.0 | 32.1 M | 59.8 | 52.9 / 32.0 | 512 | same | same (650/658 on ANE) | est. 80-160 ms |
 | RF-DETR Atto/Femto/Pico/XL/2XL | Apache-2.0 | **PML 1.0** (needs Roboflow plan; commercial self-hosting needs Enterprise add-on) | | | | | | | **avoid** |
 | D-FINE-N | Apache-2.0 | none stated for COCO checkpoints; Objects365 ones "may be subject to the Objects365 dataset terms" | 3.8 M | 7.3 | 42.7 / 22.9 | 640 | no official export; a community `dfine-n-coco` .mlpackage exists (john-rocky/CoreML-Models) | **high**: deformable attention (`grid_sample`) is unlikely to run on ANE; a GPU fallback hits the iOS 26 MPSGraph crash we already know | est. 20-60 ms if it stays on ANE; unknown otherwise |
@@ -159,7 +164,117 @@ I scaled by 2-4x for the ANE gap: 40-80 ms at 384, and by the 2.8x pixel factor 
 
 ## Q3. Proof of concept
 
-{{POC_SECTION}}
+Run 2026-11-10/11 on the development Mac (Intel i9-9880H, Radeon Pro 560X + UHD 630,
+**no Neural Engine**). Model: `RFDETRNano()` with its public COCO checkpoint
+(`rf-detr-nano.pth`, 349 MB, auto-downloaded, MD5 checked by rfdetr). Default 384 px input.
+Nothing from this run is committed except the scripts. Weights, exports and logs stay under
+`~/CueSyncResearch/licence/`.
+
+**Step 1: install. Native pip failed; Docker worked.** A venv on this Mac
+(`~/CueSyncResearch/licence/venv-rf`, Python 3.11) installs rfdetr 1.12.0, but PyTorch for
+Intel macOS stops at 2.2.2, and rfdetr needs transformers 5. The import fails:
+
+```
+[transformers] Disabling PyTorch because PyTorch >= 2.6 is required but found 2.2.2
+ImportError: cannot import name 'BackboneConfigMixin' from 'transformers'
+```
+
+(The same run also printed the NumPy 2 vs NumPy-1-compiled-module ABI warning.) Fix: a
+`linux/amd64` `python:3.12-slim` container with the CPU PyTorch wheel. It got rfdetr 1.12.0,
+torch 2.15.0+cpu, torchvision 0.29.2+cpu, transformers 5.22.2, coremltools 9.0 and numpy
+2.5.4. Command (repo root as `$PWD`):
+
+```
+sh Tools/research/rfdetr_docker.sh "$PWD" ~/CueSyncResearch/licence/docker \
+  --labels /labels/ball-labels-2026-11-10.json --labels /labels/ball-labels-ipad-session.json \
+  --size nano --threshold 0.3 --export-dir /out/export2 --neural-engine
+```
+
+**Step 2: COCO `sports ball` on real frames (PyTorch, fp32, in the container).** Frames
+and labels are the hand labels from the 2026-11-10 research. Set A has 9 frames: iPad
+`ipad-cal/f1.jpg` and 8 clip frames from `pub-green-7ft-topdown`, `speedpool-bluecloth` and
+`home-9ft-breakrun`. Set B has 22 frames from the recorded iPad session. The match rule:
+box centre within max(8 px, 0.6 x ball diameter), one-to-one.
+`f5.jpg` has no labels, so it was not scored.
+
+| set | balls | found @0.3 | found @0.1 | unmatched ball boxes @0.1 | median `predict()` |
+|---|---|---|---|---|---|
+| A (iPad f1 + 3 clips) | 79 | 31 (39%) | 72 (91%) | 11 | 384-496 ms |
+| B (iPad session) | 88 | 32 (36%) | 83 (94%) | 0 | 312-337 ms |
+
+Gotcha: `predict()` on the COCO checkpoint returns *original* COCO ids (sports ball = 37).
+Indexing the 80-name `class_names` list with them mislabels every box. `rfdetr_poc.py` uses
+the id-keyed `COCO_CLASSES` instead.
+
+What this shows: the off-the-shelf model does see pool balls, but with low scores. The
+highest sports-ball score was 0.37 on `f1.jpg` and 0.34 on a blue-cloth frame. At the
+app's usual 0.3-0.35 floor it misses most balls. At 0.1 the same frames also produce
+hundreds of non-ball boxes (set B: bottle 251, backpack 170, handbag 170, chair 169). Those
+are dropped by class, but they show the scores are not calibrated for this scene. This is
+expected for COCO, where "sports ball" is mostly footballs and tennis balls. It supports
+fine-tuning, not using COCO as is.
+
+**Step 3: Core ML export: succeeded at the first attempt.** In the same container:
+`RFDETRNano().export(output_dir=..., format="coreml", coreml_precision="float16",
+coreml_neural_engine=True)` took 53.9 s. rfdetr warns: "CoreML export is experimental and
+work-in-progress. Dynamic batch is not supported." coremltools warns: "Torch version
+2.15.0+cpu has not been tested with coremltools ... Torch 2.7.0 is the most recent version
+that has been tested." The result is a 53 MB `.mlpackage`, an `mlProgram` with spec version 6,
+source dialect `TorchExport::ATEN`. Its interface, read with coremltools on the Mac:
+
+- input `tensors`: **MLMultiArray** float32 `1x3x384x384`, **not an image input**.
+  Normalisation is **not** baked in. The sidecar `.rfdetr.json` gives ImageNet mean/std,
+  pixel scale 1/255, RGB, bilinear resize without antialias. The app must resize and
+  normalise itself, or wrap the model.
+- outputs `concat_2` `(1, 300, 4)` = boxes, cxcywh normalised; `linear_30` `(1, 300, 91)`
+  = logits indexed by original COCO id. The sidecar names them `pred_boxes` /
+  `pred_logits`. No NMS and no Vision pipeline.
+
+A second export by the earlier agent (`docker/export/`) has the same interface.
+
+**Step 3b: Core ML parity on the Mac.** `coreml_time.py --labels` decodes the Core ML outputs
+(sigmoid of column 37) on the same frames. It uses the same match rule; preprocessing is a
+PIL resize to 384 plus ImageNet normalisation.
+
+| set | found @0.3 (Core ML / PyTorch) | found @0.1 (Core ML / PyTorch) |
+|---|---|---|
+| A | 23 / 31 | 71 / 72 (8 unmatched ball boxes) |
+| B | 25 / 32 | 73 / 83 |
+
+The fp16 Core ML model finds fewer balls than PyTorch fp32, mostly at 0.3. The cause is not
+isolated: fp16 is one candidate. Another is the resize filter: PIL's default is bicubic
+here, while rfdetr uses bilinear. **Where it fails (Core ML, @0.1):** the black 8-ball on
+blue cloth is missed in all 3 `speedpool-bluecloth` frames, plus 2 yellow balls there. In
+`home-9ft-breakrun/f0055`, purple, green-stripe and red-stripe are missed. The **blue ball**
+in the iPad session is missed in 15 of 22 frames. So it fails on dark balls, and on balls
+whose colour is close to the cloth. The shipped model at native scale was also weak on the
+8-ball (1 of 8 on the clips, 2026-11-10 research). For comparison, the shipped fine-tuned
+YOLO finds 87 of 88 balls on set B (same research), where zero-shot RF-DETR finds 73-83.
+The zero-shot model is not a drop-in replacement.
+
+**Step 4: Core ML timing on this Mac.** `coreml_time.py`, 30 runs after one warm-up, median
+(p90). The machine was **busy**: load average 11-25 from an Xcode build and Chrome, which
+this run could not stop. Treat absolute numbers as noisy. Both models were timed back to
+back under the same load, so the ratio is the useful figure:
+
+| model | CPU_ONLY | CPU_AND_GPU (Radeon Pro 560X) | CPU_AND_NE |
+|---|---|---|---|
+| RF-DETR-N 384, fp16 (this export) | 732 ms (1017) | 1078 ms (1181) | 688 ms (860) |
+| shipped `BallDetector` YOLO11n 640 + NMS | 285 ms (519) | 86.5 ms (89.2) | 253 ms (529) |
+
+Two earlier RF-DETR runs gave 659/1159/957 ms and 541/1045/791 ms (the second ran while the
+container was busy), so the spread is wide. **This Mac has no Neural Engine.** The
+`CPU_AND_NE` column is CPU execution, not ANE speed. On this hardware, RF-DETR-N at 384
+costs about 2.5x the shipped YOLO on CPU and about 12x on the AMD GPU. That the GPU is
+slower than the CPU suggests the transformer ops map poorly to this GPU. It does **not**
+predict the A13: ANE placement (592/599 ops per Roboflow's M3 Pro test) is what matters
+there, and it was not measured. It is a warning, though: if the A13 rejects ops from the
+ANE, the GPU/CPU fallback will be far slower than today's model.
+
+**PoC verdict.** Licence-clean model: yes. Apple export: yes, it works as documented. Sees
+pool balls zero-shot: partly (91-94% at a 0.1 floor, 36-39% at 0.3, weak on dark and
+cloth-coloured balls). Speed on the target: unknown. The iPad probe (Q5 step 1) is still the
+go/no-go gate. The export half of that step is done; only the device half remains.
 
 ## Q4. Data and training plan
 
@@ -235,8 +350,8 @@ RF-DETR-N at 640 is ~14x the compute per image, so CPU training would take days 
 
 | step | work | days (est.) |
 |---|---|---|
-| 1 | Export RF-DETR-N (COCO, 576/640) to Core ML fp16; run `DetectorComputeProbe` + timing on the iPad 9th gen. **Go/no-go gate before any labelling.** | 1-2 |
-| 2 | Decoder: RF-DETR exports raw tensors (`dets`, `labels`; names inferred, match by position), not a Vision NMS pipeline. `CoreMLDetectionProvider` today reads `VNRecognizedObjectObservation`; add a decoder for `VNCoreMLFeatureValueObservation` (cxcywh normalised boxes, sigmoid scores, top-k, threshold, no NMS), ImageNet normalisation (check whether it is baked into the export), and the input resize (`scaleFill` must match training). Unit tests on Linux with a fixture tensor. | 2-3 |
+| 1 | Export RF-DETR-N (COCO, 576/640) to Core ML fp16; run `DetectorComputeProbe` + timing on the iPad 9th gen. **Go/no-go gate before any labelling.** The 384 export already works (Q3); re-export at 576/640, then the device run. | 1-2 |
+| 2 | Decoder: the export (Q3) takes an MLMultiArray `tensors` 1x3xHxW, not an image, so Vision's image path does not apply as is. Options: call `MLModel` directly, or re-wrap the input as an ImageType at conversion. Normalisation is **not** baked in: ImageNet mean/std and 1/255, RGB, bilinear. Outputs are `concat_2` (1x300x4, cxcywh normalised) and `linear_30` (1x300x91, logits by COCO id). Names are auto-generated, so match by shape. `CoreMLDetectionProvider` today reads `VNRecognizedObjectObservation`; add a decoder: sigmoid, top-k, threshold, no NMS. The input resize must match training (`scaleFill`). Unit tests on Linux with a fixture tensor. | 2-3 |
 | 3 | Class map: new labels go through `Ball.Kind(classLabel:)`; `cue` = stick semantics must be kept or renamed in one place (CueSyncCore is frozen: a contract-change PR if the mapping lives there). | 0.5-1 |
 | 4 | Data: pre-label, correct 300-600 frames, merge with public data, splits. | 3-5 (8-17 h of labelling) |
 | 5 | Training runs + eval with `Tools/DetectionEval` against the 2026-11-10 bars. | 2-4 |
@@ -297,7 +412,18 @@ and training. Request an Ultralytics quote in parallel.
   snippets, not re-read on the page today.
 - Ultralytics Enterprise price: not published. Colab prices: not published without sign-in.
 - No A13/ANE measurement: this Mac is an Intel i9-9880H with no Neural Engine. Every A13
-  number is an estimate.
+  number is an estimate. The Q3 Mac timings were taken under heavy unrelated load (load
+  average 11-25), so they are noisy; only the back-to-back ratio against the shipped model
+  is meaningful, and even that is Intel CPU / AMD GPU behaviour, not ANE behaviour.
+- The PoC used the COCO checkpoint at the default 384 px only. No 576/640 export, no
+  fine-tune, and no ANE op-placement report (needs Apple-silicon hardware) were run.
+- The Core ML vs PyTorch recall gap (Q3 step 3b) is not explained. fp16 and the resize
+  filter (bicubic in the Mac script, bilinear in rfdetr) were not separated.
+- rfdetr's Core ML export runs only in a Linux container on this Intel Mac: native pip
+  fails (Intel macOS PyTorch stops at 2.2.2). The container used torch 2.15.0, which
+  coremltools 9.0 says it has not tested.
+- The PoC scored 31 frames from 4 scenes against the hand labels; it is a sanity check, not
+  an evaluation.
 - No training run; GPU hours are estimates. QuinVPS CPU/RAM unknown.
 - Licences for YOLOv7/v9/v10/v12, PicoDet, MobileNet-SSD and EfficientDet-Lite were not
   re-read today (EfficientDet's repo page did not show one).

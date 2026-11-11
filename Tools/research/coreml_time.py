@@ -19,7 +19,10 @@ from PIL import Image
 
 MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-COCO_SPORTS_BALL = 37  # 0-based contiguous COCO-80 index of "sports ball"
+# The COCO export's logits are 91 wide and indexed by ORIGINAL COCO category
+# id (1-90 with gaps), so "sports ball" is column 37 (see the export's
+# .rfdetr.json class_id_to_name), not its position in the 80-name list.
+COCO_SPORTS_BALL = 37
 
 
 def describe(model):
@@ -60,6 +63,8 @@ def main():
     parser.add_argument("--runs", type=int, default=20)
     parser.add_argument("--image", action="append", default=[])
     parser.add_argument("--threshold", type=float, default=0.3)
+    parser.add_argument("--labels", action="append", default=[],
+                        help="ball-label JSON (docs/research/ball-labels-*.json) for per-frame recall")
     args = parser.parse_args()
 
     report = {"model": args.model}
@@ -99,7 +104,55 @@ def main():
                                                          if s >= args.threshold)),
             }
         report["frames"] = hits
+
+    if args.labels:
+        report["labelled"] = match_labels(args.model, args.labels, args.threshold)
     print(json.dumps(report, indent=1))
+
+
+def ball_boxes(model, inputs, image):
+    """Decoded sports-ball boxes (cx, cy, score) in original-image pixels."""
+    result = model.predict(make_feed(inputs, image))
+    arrays = list(result.values())
+    boxes = next(a for a in arrays if a.shape[-1] == 4)[0]
+    logits = next(a for a in arrays if a.shape[-1] > 4)[0]
+    ball = 1 / (1 + np.exp(-logits[:, COCO_SPORTS_BALL]))
+    width, height = image.size
+    return [(float(b[0] * width), float(b[1] * height), float(s)) for b, s in zip(boxes, ball)]
+
+
+def match_labels(model_path, label_files, threshold):
+    """Per-frame recall of hand-labelled balls, same rule as rfdetr_poc.py
+    (centre within max(8 px, 0.6 x diameter), greedy one-to-one)."""
+    import os
+
+    model = ct.models.MLModel(model_path, compute_units=ct.ComputeUnit.CPU_ONLY)
+    inputs, _ = describe(model)
+    rows = []
+    for path in label_files:
+        with open(path) as handle:
+            frames = json.load(handle)["frames"]
+        for frame in frames:
+            image = Image.open(os.path.expanduser(frame["path"])).convert("RGB")
+            dets = ball_boxes(model, inputs, image)
+            row = {"frame": frame["path"], "balls": len(frame["balls"])}
+            for thr in sorted({threshold, 0.1}):
+                centres = [(x, y) for x, y, s in dets if s >= thr]
+                used, missed = set(), []
+                for ball in frame["balls"]:
+                    radius = max(8.0, 0.6 * ball.get("d", frame.get("ballDiameterPx", 20)))
+                    best = None
+                    for idx, (cx, cy) in enumerate(centres):
+                        dist = ((cx - ball["x"]) ** 2 + (cy - ball["y"]) ** 2) ** 0.5
+                        if idx not in used and dist <= radius and (best is None or dist < best[1]):
+                            best = (idx, dist)
+                    if best is None:
+                        missed.append(f"{ball.get('kind', '?')}/{ball.get('colour', '?')}")
+                    else:
+                        used.add(best[0])
+                row[f"@{thr}"] = {"found": len(used), "extra": len(centres) - len(used), "missed": missed}
+            rows.append(row)
+    return rows
 
 
 if __name__ == "__main__":
