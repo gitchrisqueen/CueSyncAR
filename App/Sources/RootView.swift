@@ -144,6 +144,9 @@ struct RootView: View {
                 SettingsView()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .mirrorOpenSheet)) { note in
+            sheet = HUDSheet(rawValue: note.userInfo?["name"] as? String ?? "")
+        }
         .onAppear {
             UIDevice.current.beginGeneratingDeviceOrientationNotifications()
             autoRotation = Self.rotation(for: UIDevice.current.orientation) ?? autoRotation

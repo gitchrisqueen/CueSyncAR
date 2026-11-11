@@ -877,9 +877,8 @@ extension SessionModel {
         // A list rather than a chain of `if`s: this function already sits
         // at SwiftLint's cyclomatic ceiling, and every new command set
         // added as another branch pushes it further past.
-        let handlers = [handleCalibrationMirrorCommand,
-                        handleShotSelectionMirrorCommand,
-                        handleSpeechMirrorCommand]
+        let handlers = [handleCalibrationMirrorCommand, handleShotSelectionMirrorCommand,
+                        handleSpeechMirrorCommand, handleUIMirrorCommand]
         for handler in handlers where handler(params) { return }
         switch params["action"] {
         case "resetTracking":

@@ -154,3 +154,22 @@ extension SessionModel {
                       uiJPEG: server.wantsUISnapshot ? MirrorUISnapshot.jpeg() : nil)
     }
 }
+
+extension Notification.Name {
+    /// Posted by the mirror's `openSheet` command; RootView raises the sheet.
+    static let mirrorOpenSheet = Notification.Name("cuesync.mirrorOpenSheet")
+}
+
+extension SessionModel {
+    /// `GET /cmd?action=openSheet&name=more|settings|none`: lets a remote
+    /// reviewer reach the sheets of a device nobody is touching (screens are
+    /// then read from `/ui.jpg`). Returns false for any other action.
+    func handleUIMirrorCommand(_ params: [String: String]) -> Bool {
+        guard params["action"] == "openSheet" else { return false }
+        let name = params["name"] ?? "none"
+        NotificationCenter.default.post(name: .mirrorOpenSheet, object: nil,
+                                        userInfo: ["name": name])
+        showRemoteFeedback("Sheet: \(name)")
+        return true
+    }
+}
