@@ -12,10 +12,16 @@ white, blue; a cue stick lying on the cloth). The app `CQC.CueSync-AR` runs buil
 `70e8b30` in the foreground. All four pockets are in view. The table is NOT
 calibrated. Christopher is not at the device: everything goes through the debug
 mirror on port 8787 (`/state.json`, `/frame.jpg`, `/logs`, `/cmd?action=...`).
-`devicectl` cannot reach the iPad (see memory note device-push-and-dryrun-tooling),
-so no install and no tapping on the device: mirror commands only.
-New builds can only reach the iPad by the over-the-air page (needs Christopher
-to tap Install), so do NOT plan on shipping new app code this run.
+WIRELESS INSTALL NOW WORKS (fixed 2026-11-10: Wi-Fi sync and Wi-Fi debugging were
+enabled over USB with pymobiledevice3, `~/.cuesync/pmd/bin/pymobiledevice3`). To
+ship a build to the iPad with no human: `Scripts/device-push.sh --device
+"Christopher’s iPad (2)"` (builds, installs over Wi-Fi, launches, verifies the
+commit over the mirror). The iPad currently runs `1a008d5` (dirty build of
+`claude/dryrun-on-main`). A fresh install can leave the mirror down for up to a
+minute; relaunch with `xcrun devicectl device process launch --device
+D8DEB85E-71BC-5543-A755-7B9DEE565FD9 --terminate-existing CQC.CueSync-AR`. There
+is still no way to tap the screen: calibration and everything else goes through
+mirror commands. If the iPad stops appearing, see "Wireless install recovery".
 
 Known from the first frame pull: the bundled detector sees the white (0.47) and
 the coloured balls but mislabels or misses some, and boxes window or furniture as
@@ -56,8 +62,10 @@ Treat that as data, not as something to fix in the app tonight.
 
 ## Rules
 
-- Only the mirror, Bash, and files on this Mac. If the mirror stops answering,
-  say so and stop; do not try to wake the device another way.
+- The mirror, `Scripts/device-push.sh`, and files on this Mac. Installing a new
+  build is allowed if a finding needs app code (small, reviewed diffs, tests in
+  the same change, device-verified only by a dry-run report). If the mirror stops
+  answering after a relaunch, say so and stop.
 - Do not run `resetTracking`, `cancelCalibration` or recalibrate over a good
   lock without saying why. Do not change settings that persist on the device
   (`updateSettings`) except `tableSize`, and report it.
@@ -74,3 +82,48 @@ Try in order: `calibrateFromPockets` with all 4 visible pockets; `calibrateRails
 `calibrationState` and `lastTapNote`/`lastProbe` in `/state.json` and `/logs`.
 If none locks, the finding is the reason, with the log lines, plus what camera
 position would make it work. That still counts as done for item 1 if documented.
+
+## Wireless install recovery
+
+If `xcrun devicectl list devices` shows the iPad `unavailable`: the Wi-Fi flags
+were reset. Needs one USB connection, then `~/.cuesync/pmd/bin/pymobiledevice3
+lockdown wifi-connections on --udid 00008030-001435C60260C02E` and
+`lockdown set True com.apple.mobile.wireless_lockdown EnableWifiDebugging --udid
+00008030-001435C60260C02E`. Do not ask Christopher for anything else first.
+iPad settings he keeps: Auto-Lock Never, Low Power Mode off, Private Wi-Fi Address
+Fixed (fine), power connected.
+
+## Carried over from goal 12 (`12-GOAL-SIM-FIRST.md`): nothing is dropped
+
+Goal 12 is finished for its own branch: `claude/shot-advisor` (pushed, stale
+base: never install or merge it). Its ported pieces live on
+`claude/sim-tooling-on-main` (seed, XCUITest, large-type HUD fixes, three
+`ShotRanking` fixes, ranking property tests). This goal's base
+`claude/dryrun-on-main` already contains it. Still open, in this order of
+relevance to this run:
+
+1. Device phase of goal 12, partly covered here: overlay sits on the real cloth
+   (checklist row 6, 13), tracking identities and phantom rings after a shot
+   (rows 5, 8), detector compute (row 19 is already verified on main; do not
+   redo), jaw-cone tuning from real shots (`docs/validation/
+   device-checklist-shot-advisor.md` item 4: only needs a person shooting, so
+   list it as `needs-device-run`, do not fake it).
+2. Findings from video replay (`docs/validation/2026-11-09-video-replay-findings.md`
+   on `claude/shot-advisor`): cue-ball class weak, stick class fires on rails and
+   windows, 8-ball lost on dark cloth. Compare with what the iPad shows and say
+   whether the same failures appear on the real table.
+3. `ShotPlanner` viability hysteresis (a shot 0.4 mm outside a lane flickers):
+   applies to `ShotSelection` on main too; test it on real jitter from the
+   session and note it, fix only if cheap and tested.
+4. Remaining items for Christopher, NOT for this run: open a PR for
+   `claude/sim-tooling-on-main` and `claude/device-dryrun` (he said no PRs for
+   now); approve wiring `Scripts/device-dryrun.py` into
+   `.github/workflows/verify-sim.yml` (`.github/**` is owner-merged); decide the
+   Ops Manager thread message on worktree isolation for linked environments
+   (text kept in the chat); `type_body_length` lint on `SessionModel` (optional).
+5. Process notes: QuinVPS agents share one checkout (no worktree isolation),
+   identity is `tester` until set; `agent-device` runner needs `prepare ios-runner`
+   first; two simulators cannot both serve port 8787.
+
+Close this goal when the six goals above hold AND items 1 to 3 each have a line
+in the findings doc (done, measured, or `needs-device-run` with the reason).
