@@ -246,6 +246,29 @@ struct OverlayLayoutTargetTests {
         #expect(layout.targetPocket != nil)
     }
 
+    @Test("The recommended shot is one colour, and it is the heaviest tier on the table")
+    func planIsTheHero() throws {
+        let (state, calibration, target) = try fixture()
+        let live = solver.predict(state: state,
+                                  aim: AimRay(origin: Vec2(-0.7, -0.35), direction: Vec2(1, 0)),
+                                  options: SolverOptions(initialSpeed: 3.5, maxEvents: 8))
+        let layout = OverlayLayout.compose(state: state, prediction: live,
+                                           calibration: calibration, target: target)
+        let solidPlan = layout.targetStrips.filter { !$0.dashed }
+        #expect(solidPlan.count >= 2, "cue leg and object leg")
+        #expect(solidPlan.allSatisfy { $0.color == OverlayStyle.shotColor })
+        for strip in solidPlan {
+            #expect(OverlayStyle.tier(role: strip.role, dashed: strip.dashed) == .hero)
+        }
+        // The live aim keeps amber, so the two never share a colour.
+        let liveCue = layout.strips.filter { !$0.dashed && $0.color != OverlayStyle.shotColor }
+        #expect(!liveCue.isEmpty)
+        #expect(layout.strips.allSatisfy {
+            OverlayStyle.width(OverlayStyle.tier(role: $0.role, dashed: $0.dashed))
+                < OverlayStyle.width(.hero)
+        })
+    }
+
     /// The case the feature exists for: a player taps a ball before
     /// getting down on the shot, so there is no live aim at all.
     @Test("ballsOnly still draws the recommended shot")

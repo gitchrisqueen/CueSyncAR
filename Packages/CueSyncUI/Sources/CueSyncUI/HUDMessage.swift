@@ -123,11 +123,12 @@ public struct HUDToast: View {
 
     public var body: some View {
         Text(message.text)
-            .font(.caption)
+            .hudFont(.caption)
             .multilineTextAlignment(.center)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(.ultraThinMaterial, in: Capsule())
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .hudPlate(RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius, style: .continuous))
+            // After the plate, so the tone colour wins over its white.
             .foregroundStyle(Self.color(for: message.tone))
             .transition(.opacity)
             .accessibilityIdentifier("hud-toast")
@@ -135,9 +136,10 @@ public struct HUDToast: View {
 
     static func color(for tone: HUDMessage.Tone) -> Color {
         switch tone {
-        case .critical: .red
-        case .advisory: .yellow
-        case .neutral: .primary
+        // Text-grade tints, checked against the plate (HUDContrastTests).
+        case .critical: Theme.hardText.color
+        case .advisory: Theme.fairText.color
+        case .neutral: Theme.hudText.color
         }
     }
 }

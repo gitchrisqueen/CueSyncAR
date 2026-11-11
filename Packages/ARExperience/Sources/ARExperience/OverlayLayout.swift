@@ -39,11 +39,10 @@ public struct OverlayLayout: Sendable, Equatable {
         public var color: UInt32 // 0xRRGGBB token value
         /// Whether this strip is the live aim or the recommended shot.
         ///
-        /// Kept out of `color` on purpose: both lines use the same
-        /// semantic colours (amber for the cue's approach, green for the
-        /// object ball's path), so a player learns one colour language.
-        /// What separates them is weight — the plan is drawn thinner and
-        /// more transparent, the way a guide line differs from a result.
+        /// The live aim keeps the semantic colours (amber for the cue's
+        /// approach, green for the object ball's path). The plan is the
+        /// hero: one colour, `OverlayStyle.shotColor`, drawn heaviest
+        /// (see OverlayStyle for the weights).
         public var role: Role = .live
 
         public enum Role: String, Sendable, Equatable {
@@ -152,7 +151,7 @@ public struct OverlayLayout: Sendable, Equatable {
                 afterContact = false
             }
 
-            let color: UInt32
+            var color: UInt32
             let dashed: Bool
             if isCue {
                 if afterContact {
@@ -166,6 +165,10 @@ public struct OverlayLayout: Sendable, Equatable {
                 color = objectColor
                 dashed = false
             }
+            // The recommended shot is ONE colour from the cue ball to the
+            // pocket (OverlayStyle): amber means "where you are aiming"
+            // and nothing else, so the plan's cue-ball leg is not amber.
+            if role == .plan, !dashed { color = OverlayStyle.shotColor }
 
             let mid = (segment.start + segment.end) * 0.5
             let worldStart = calibration.tableToWorld(segment.start)

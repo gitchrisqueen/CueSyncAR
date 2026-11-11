@@ -80,12 +80,10 @@ struct HUDControlBar: View {
         } label: {
             if let size = model.tableCalibration?.size {
                 Label(RootView.sizeBadge(for: size), systemImage: "checkmark.rectangle")
-                    .font(.footnote.weight(.semibold))
                     .lineLimit(1)
                     .fixedSize()
             } else {
                 Label("Set up table", systemImage: "rectangle.dashed")
-                    .font(.footnote.weight(.semibold))
                     .lineLimit(1)
                     .fixedSize()
             }
@@ -107,7 +105,6 @@ struct HUDControlBar: View {
             model.setUsingFrontCamera(false)
         } label: {
             Label("Back camera", systemImage: "arrow.uturn.backward.circle")
-                .font(.footnote.weight(.semibold))
         }
         .accessibilityLabel("Return to the back camera and the AR session")
         .accessibilityIdentifier("camera-flip-button")
@@ -131,7 +128,6 @@ struct HUDControlBar: View {
             }
         } label: {
             Label(model.practiceMode.title, systemImage: "figure.billiards")
-                .font(.footnote.weight(.semibold))
                 .lineLimit(1)
         }
         .accessibilityLabel("Practice mode: \(model.practiceMode.title)")
@@ -142,7 +138,7 @@ struct HUDControlBar: View {
         Button(action: onMore) {
             Label("More", systemImage: "ellipsis.circle")
                 .labelStyle(.iconOnly)
-                .font(.body.weight(.semibold))
+                .imageScale(.large)
         }
         .accessibilityLabel("More — record and settings")
         .accessibilityIdentifier("more-button")

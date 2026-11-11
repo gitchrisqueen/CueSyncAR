@@ -27,11 +27,13 @@ struct SpokenGuidanceTests {
 
     private func playing(nudge: AimNudge? = nil,
                          shot: ShotRating? = nil,
-                         chosenByPlayer: Bool = false) -> SpokenGuidance.Situation {
+                         chosenByPlayer: Bool = false,
+                         call: ShotCall? = nil) -> SpokenGuidance.Situation {
         SpokenGuidance.Situation(stage: .tracking,
                                  shot: shot ?? self.shot(),
                                  chosenByPlayer: chosenByPlayer,
-                                 nudge: nudge)
+                                 nudge: nudge,
+                                 call: call)
     }
 
     private func coach(_ verbosity: SpeechVerbosity = .coaching) -> SpokenGuidance {
@@ -53,7 +55,8 @@ struct SpokenGuidanceTests {
         var guidance = coach(.keyMoments)
         let opening = guidance.next(for: playing(nudge: .left(degrees: 9)), at: 0)
         #expect(opening?.priority == .moment)
-        #expect(opening?.text.contains("62 percent") == true)
+        #expect(opening?.text.contains("It looks fair") == true)
+        #expect(opening?.text.contains("percent") == false)
         // Everything else on offer is a nudge, so from here it is silent.
         for tick in 1...40 {
             let time = TimeInterval(tick) * 2
@@ -105,10 +108,13 @@ struct SpokenGuidanceTests {
     @Test("A new shot is a new announcement")
     func announcesEachShot() {
         var guidance = coach(.keyMoments)
-        #expect(guidance.next(for: playing(), at: 0)?.text.contains("top-left corner") == true)
+        let first = ShotCall(ball: "Red ball", pocket: "far-left corner")
+        #expect(guidance.next(for: playing(call: first), at: 0)?.text
+                    .contains("Red ball into the far-left corner") == true)
         let other = shot(ball: 7, pocket: .sideBottom, probability: 0.31)
-        let next = guidance.next(for: playing(shot: other), at: 10)
-        #expect(next?.text == "Best shot, 31 percent into the bottom side.")
+        let second = ShotCall(ball: "Maroon ball", pocket: "right side pocket")
+        let next = guidance.next(for: playing(shot: other, call: second), at: 10)
+        #expect(next?.text == "Best shot, Maroon ball into the right side pocket. It looks hard.")
     }
 
     @Test("The player's own pick is never read out as the app's suggestion")
@@ -325,8 +331,15 @@ struct SpokenGuidanceTests {
     func spokenLineTracksTheHeadline() {
         let open = shot(probability: 0.62)
         #expect(open.headline == "62% into the top-left corner")
-        #expect(open.spokenLine(chosenByPlayer: false)
-                == "Best shot, 62 percent into the top-left corner.")
+        // The HUD no longer shows the number, and neither does the voice:
+        // both say the ball, the pocket as the player sees it, and a tier.
+        let call = ShotCall(ball: "Blue ball", pocket: "far-left corner")
+        #expect(open.spokenLine(chosenByPlayer: false, call: call)
+                == "Best shot, Blue ball into the far-left corner. It looks fair.")
+        #expect(open.spokenLine(chosenByPlayer: true, call: call)
+                == "Your ball, Blue ball into the far-left corner. It looks fair.")
+        // No view of the table yet: no pocket named, never the table-axis one.
+        #expect(open.spokenLine(chosenByPlayer: false) == "Best shot. It looks fair.")
         let thin = shot(blocker: .cutTooThin)
         #expect(thin.headline.contains("No angle"))
         #expect(thin.spokenLine(chosenByPlayer: false).hasPrefix("No angle there."))

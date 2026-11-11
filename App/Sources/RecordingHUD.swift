@@ -8,6 +8,7 @@
 //  cost is stated before anything is written.
 //
 
+import CueSyncUI
 import SwiftUI
 
 struct RecordButton: View {
@@ -28,7 +29,7 @@ struct RecordButton: View {
             Label(model.isRecording ? "Stop recording" : "Record session",
                   systemImage: model.isRecording ? "stop.circle.fill" : "record.circle")
                 .labelStyle(.iconOnly)
-                .foregroundStyle(model.isRecording ? Color.red : Color.primary)
+                .foregroundStyle(model.isRecording ? Theme.hardText.color : Color.primary)
         }
         .accessibilityLabel(model.isRecording ? "Stop recording the session"
                             : "Record this session for replay")
@@ -49,29 +50,34 @@ struct RecordButton: View {
 /// proof, at the table, that frames are actually landing on disk.
 struct RecordingBadge: View {
     let status: RecordingStatus
+    @State private var developerMode = DeveloperMode.shared
 
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "record.circle.fill")
-                .foregroundStyle(.red)
+                .foregroundStyle(Theme.hardText.color)
             Text("REC \(status.clock)")
                 .monospacedDigit()
-            Text("· \(status.frames) frames · ~\(Int(status.estimatedMegabytes)) MB")
-                .monospacedDigit()
+            // Frame and megabyte counts are the proof for whoever is
+            // debugging a recording, and noise to a player.
+            if developerMode.isUnlocked {
+                Text("· \(status.frames) frames · ~\(Int(status.estimatedMegabytes)) MB")
+                    .monospacedDigit()
+            }
             if status.videoDropped > 0 {
                 Text("· \(status.videoDropped) video dropped")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Theme.fairText.color)
             }
             if let error = status.lastError {
                 Text("· \(error)")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Theme.hardText.color)
                     .lineLimit(1)
             }
         }
-        .font(.caption.weight(.semibold))
-        .padding(.horizontal, 10)
+        .hudFont(.caption, weight: .semibold)
+        .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(.ultraThinMaterial, in: Capsule())
+        .hudPlate(Capsule())
         .accessibilityLabel("Recording, \(status.clock), \(status.frames) frames")
     }
 }

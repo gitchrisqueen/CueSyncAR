@@ -14,35 +14,54 @@ import CoachKit
 import CueSyncUI
 import SwiftUI
 
-/// Cue-ball tip guidance beside the shot the app is offering. Sits at the
-/// bottom left, above the control bar, so it never covers the cloth in the
-/// middle of the frame.
+/// Cue-ball tip guidance beside the shot the app is offering. Sits along
+/// the bottom, above the control bar, and moves to keep clear of the
+/// pockets.
 struct ShotAdviceCluster: View {
     @Environment(SessionModel.self) private var model
 
     var body: some View {
-        if model.isLiveTracking, model.shotGuide != nil || model.activeShot != nil {
+        let empty = model.shotEmptyState
+        if model.isLiveTracking, model.shotGuide != nil || model.activeShot != nil || empty != nil {
+            let side = model.presentation.clusterSide
             HStack(alignment: .bottom, spacing: 10) {
+                // Along the bottom edge, at whichever of left, middle and
+                // right has no pocket under it (HUDPlacement).
+                if side != .leading { Spacer(minLength: 0) }
                 if let guide = model.shotGuide {
                     CueBallGuideView(tipOffset: guide.tipOffset,
                                      headline: guide.headline,
                                      cutAngleDegrees: guide.cutAngleDegrees)
                 }
-                if let shot = model.activeShot {
-                    ShotCard(percentage: shot.blocker == nil ? shot.percentage : nil,
-                             pocket: shot.blocker == nil ? shot.pocket.spokenName : nil,
-                             confidence: ShotConfidence(shot.difficulty),
-                             chosenByPlayer: model.targetIsPlayerChosen,
-                             blockedReason: shot.blocker == nil ? nil : shot.headline,
-                             group: model.ballGroup == .any ? nil : model.ballGroup.label,
-                             aimAdvice: model.targetCorrection?.advice)
+                if let empty {
+                    // A full rack or no clean pot: say so, instead of the
+                    // card vanishing and the player wondering if the app
+                    // has stopped. A rack outranks any shot rated into it.
+                    ShotEmptyCapsule(state: empty)
+                } else if let shot = model.activeShot {
+                    card(for: shot)
                 }
-                Spacer(minLength: 0)
+                if side != .trailing { Spacer(minLength: 0) }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 4)
             .transition(.opacity)
+            .animation(.easeInOut(duration: 0.2), value: side)
         }
+    }
+
+    /// The card: the ball and the pocket in the player's words, and how
+    /// hard it is as a word. The percentage is not shown; it stays in the
+    /// mirror's state.json.
+    private func card(for shot: ShotRating) -> some View {
+        let call = shot.blocker == nil ? model.shotCall(for: shot) : nil
+        return ShotCard(ball: call?.ball,
+                        pocket: call?.pocket,
+                        confidence: ShotConfidence(model.shownDifficulty(of: shot)),
+                        chosenByPlayer: model.targetIsPlayerChosen,
+                        blockedReason: shot.blocker == nil ? nil : shot.headline,
+                        group: model.ballGroup == .any ? nil : model.ballGroup.label,
+                        aimAdvice: model.targetCorrection?.advice)
     }
 }
 
@@ -58,7 +77,6 @@ struct BallGroupButton: View {
             model.cycleBallGroup()
         } label: {
             Text(model.ballGroup.label)
-                .font(.footnote.weight(.semibold))
                 .lineLimit(1)
         }
         .accessibilityLabel("Shooting \(model.ballGroup.label). Tap to change group.")

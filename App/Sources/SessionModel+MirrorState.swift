@@ -280,6 +280,15 @@ extension SessionModel {
             }
             if let error = targetAimErrorDegrees { row["aimErrorDeg"] = (error * 10).rounded() / 10 }
             row["planSegments"] = targetOverlay?.prediction.segments.count ?? 0
+            // What the card says, so a browser can check the player's view
+            // of the shot against the table-axis fields above. The percent
+            // stays in this block: it is the card that no longer shows it.
+            row["tier"] = shownDifficulty(of: active).tierWord
+            if let call = activeShotCall {
+                row["call"] = call.line
+                row["ball"] = call.ball
+                if let pocket = call.pocket { row["viewPocket"] = pocket }
+            }
             out["active"] = row
         }
         return out

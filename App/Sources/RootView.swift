@@ -519,6 +519,11 @@ struct ARCameraView: View {
                     if let cameraTransform = coordinator.currentCameraTransform {
                         model.updateAim(cameraTransform: cameraTransform)
                     }
+                    // Where the table lands on screen: names the pockets
+                    // the way the player sees them and keeps the shot card
+                    // off them (SessionModel+ShotPresentation).
+                    model.noteTableOnScreen(project: { coordinator.projectToScreen($0) },
+                                            viewport: coordinator.arView.bounds.size)
                     if overlayRenderer == nil {
                         // Root the overlays under the table's ARAnchor so
                         // ARKit's refinements carry them (drift fix).
@@ -530,6 +535,10 @@ struct ARCameraView: View {
                         lastRenderedLayout = nil // re-render in the new palette now
                     }
                     renderOverlays(lastRendered: &lastRenderedLayout)
+                    // Confidence honesty (05-UX-DESIGN): a guide drawn on
+                    // a table ARKit has lost, or from a third of the
+                    // balls, fades instead of staying at full strength.
+                    overlayRenderer?.overlayOpacity = model.hudStatus?.overlayOpacity ?? 1
                     if model.isRecording {
                         lastSnapshotAt = await recordingTick(coordinator, lastSnapshotAt: lastSnapshotAt)
                     }

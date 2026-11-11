@@ -20,6 +20,7 @@
 
 #if DEBUG && targetEnvironment(simulator)
 
+import CoachKit
 import CueSyncCore
 import Foundation
 import TableSpace
@@ -107,6 +108,11 @@ extension SessionModel {
                                             yAxis: Vec3(0, 0, 1), size: state.table.size),
                            anchorTransform: .identity)
         installDebugState(state)
+        // No AR view to project through, so pocket names come from the 2D
+        // drawing's own frame (table x right, y up the screen): "near" is
+        // the bottom rail, exactly as TableSceneView draws it.
+        presentation.setView(names: PocketViewNaming.names(for: state.table, frame: .identity),
+                             side: .leading)
         recomputeRanking()
         showTapFeedback("Seeded table: \(name)")
         publishMirrorFrame(nil)

@@ -121,10 +121,11 @@ public struct StatusCapsule: View {
 
     public var body: some View {
         Label(status.label, systemImage: status.systemImage)
-            .font(.callout.weight(.medium))
-            .padding(.horizontal, 14)
+            .hudFont(.body)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .background(.ultraThinMaterial, in: Capsule())
+            .hudPlate(Capsule())
             .accessibilityIdentifier("status-capsule")
     }
 }
@@ -138,18 +139,20 @@ public struct BallCountChip: View {
 
     public var body: some View {
         Label("\(count)", systemImage: "circle.grid.3x3.fill")
-            .font(.footnote.weight(.semibold))
+            .hudFont(.caption, weight: .semibold)
             .monospacedDigit()
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(.ultraThinMaterial, in: Capsule())
+            .hudPlate(Capsule())
             .accessibilityLabel("\(count) balls tracked")
             .accessibilityIdentifier("ball-count-chip")
     }
 }
 
-/// Bottom glass control bar. Content lays out horizontally with standard
-/// spacing and ≥44pt hit targets.
+/// Bottom control bar on the HUD plate. Every control in it is given a
+/// 44 pt minimum hit target (`HUDMetrics.minimumTarget`) by the bar itself,
+/// so a control cannot forget to be tappable, with `HUDMetrics.barSpacing`
+/// between neighbours.
 public struct HUDBar<Content: View>: View {
     private let content: Content
 
@@ -158,13 +161,17 @@ public struct HUDBar<Content: View>: View {
     }
 
     public var body: some View {
-        HStack(spacing: 16) {
-            content
+        HStack(spacing: HUDMetrics.barSpacing) {
+            Group(subviews: content) { subviews in
+                ForEach(subviews) { subview in
+                    subview.hudTapTarget()
+                }
+            }
         }
-        .frame(minHeight: 44)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: Capsule())
+        .hudFont(.body, weight: .semibold)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 4)
+        .hudPlate(Capsule())
     }
 }
 #endif

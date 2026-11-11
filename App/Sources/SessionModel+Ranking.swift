@@ -43,11 +43,13 @@ extension SessionModel {
     func recomputeRanking() {
         guard let state = tableState else {
             shotSelection.clear()
+            presentation.noteShot(nil, at: clock())
             return
         }
         shotSelection.update(state: state,
                              group: settings.ballGroup,
                              config: settings.skillLevel.rankingConfig)
+        presentation.noteShot(activeShot, at: clock())
         refreshTargetOverlay()
         // The offered shot may have changed, which is the one thing the
         // voice most wants to announce (SessionModel+Speech).
@@ -56,6 +58,7 @@ extension SessionModel {
 
     func clearRanking() {
         shotSelection.clear()
+        presentation.noteShot(nil, at: clock())
         targetOverlay = nil
     }
 
@@ -141,7 +144,11 @@ extension SessionModel {
             let summary = "target=\(rating.ball.rawValue) p=\(rating.percentage)%"
                 + " pocket=\(rating.pocket.rawValue)"
             Self.log.info("target selected: \(summary, privacy: .public)")
-            showTapFeedback(rating.headline)
+            // The ball and pocket in the player's words and a tier, never
+            // the percentage: the same shape as the card.
+            showTapFeedback(rating.blocker == nil
+                            ? "\(shotCall(for: rating).line) · \(rating.difficulty.tierWord)"
+                            : rating.headline)
             // Deliberately not recorded as a RecordedEvent yet: a replayed
             // target only means something once the ranking is in the
             // replay output schema, and adding a case ReplayRunner ignores

@@ -48,7 +48,8 @@ extension SessionModel {
             stage: hudStatus.map(SessionModel.guidanceStage) ?? .starting,
             shot: activeShot,
             chosenByPlayer: targetIsPlayerChosen,
-            nudge: targetCorrection.map(SessionModel.aimNudge))
+            nudge: targetCorrection.map(SessionModel.aimNudge),
+            call: activeShotCall)
     }
 
     /// The HUD's status in the voice's terms.

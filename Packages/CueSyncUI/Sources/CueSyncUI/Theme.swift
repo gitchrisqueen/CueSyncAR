@@ -28,6 +28,37 @@ public enum Theme {
     public static let chalkBlue = ColorToken(0x4A90D9)
     /// Errors and predicted scratches.
     public static let warnCoral = ColorToken(0xE8604C)
+
+    // MARK: HUD text on the scrim
+    //
+    // The four tokens above are for the table (lines, discs, rings) and
+    // for icons and borders. They are too dark to be TEXT on a HUD over a
+    // live camera: felt green measured 1.6 to 3.1 : 1 on the real iPad.
+    // Text uses the brighter siblings below, on a dark scrim, and
+    // `HUDContrastTests` holds every pair to WCAG AA against the worst
+    // backdrop a camera can supply.
+
+    /// The dark plate under every HUD element.
+    public static let hudScrim = ColorToken(0x000000)
+    /// How opaque the plate is. High enough that a white wall behind a
+    /// thin material still leaves a dark ground for light text.
+    public static let hudScrimOpacity = 0.72
+    /// Primary HUD text.
+    public static let hudText = ColorToken(0xFFFFFF)
+    /// Secondary HUD text: quieter than primary, still at least AA.
+    public static let hudTextSecondary = ColorToken(0xD2D8DF)
+    /// Text-grade siblings of the three shot-tier colours.
+    public static let easyText = ColorToken(0x5FE3A1)
+    public static let fairText = ColorToken(0xFFC247)
+    public static let hardText = ColorToken(0xFFA595)
+
+    /// Every (text colour, what it is) the HUD draws over the scrim. The
+    /// contrast test walks this list, so a new text colour has to be added
+    /// here to be used and is checked the moment it is.
+    public static let hudTextColors: [(name: String, token: ColorToken)] = [
+        ("primary", hudText), ("secondary", hudTextSecondary),
+        ("easy", easyText), ("fair", fairText), ("hard", hardText)
+    ]
 }
 
 #if canImport(SwiftUI)

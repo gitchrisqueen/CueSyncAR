@@ -698,6 +698,14 @@ public final class OverlayRenderer {
     /// The markers of the layout most recently rendered, in placement
     /// order — what a projection snapshot asks `arView.project` about.
     public private(set) var renderedMarkers: [RenderedMarker] = []
+    /// How much of the overlay layer shows, 0...1 (`HUDStatus.overlayOpacity`:
+    /// 05-UX-DESIGN "confidence honesty"). Applied to the whole layer, so a
+    /// guide on a table ARKit has lost fades instead of staying at full
+    /// strength. Ignored while recording, where the metric palette must stay
+    /// opaque to be colour-keyable.
+    public var overlayOpacity: Double = 1 {
+        didSet { if overlayOpacity != oldValue { applyLayerOpacity() } }
+    }
 
     /// Root under the table's ARAnchor when one exists — anchored content
     /// follows ARKit's refinements; identity-world content drifts (anchor
@@ -732,10 +740,16 @@ public final class OverlayRenderer {
         entity.setPosition(world, relativeTo: nil)
     }
 
+    private func applyLayerOpacity() {
+        let value = paletteMode == .metric ? 1 : OverlayStyle.layerOpacity(confidence: overlayOpacity)
+        root.components.set(OpacityComponent(opacity: Float(value)))
+    }
+
     public func render(_ layout: OverlayLayout, planeNormalUp: Bool = true) {
         root.children.removeAll()
         renderedMarkers = layout.renderedMarkers
         let metric = paletteMode == .metric
+        applyLayerOpacity()
 
         // Tracked-ball rings first (visually lowest): flat rings on the
         // cloth at each tracked ball, the cue ball's filled + white so the
@@ -746,21 +760,25 @@ public final class OverlayRenderer {
             let mesh = MeshResource.generateCylinder(
                 height: Float(Self.stripWidth / 2),
                 radius: Float(ringRadius))
-            let color: UIColor = ball.isCue ? .white : uiColor(from: 0xF5A623)
+            // Quiet grey-white rings, not amber: amber means "where you are
+            // aiming" and nothing else (OverlayStyle).
+            let color: UIColor = ball.isCue ? .white : uiColor(from: OverlayStyle.ballRingColor)
             var material = UnlitMaterial(color: metric
                 ? uiColor(from: MetricPalette.color(for: ball.isCue ? .cueBall : .ball)) : color)
-            material.blending = metric ? .opaque : .transparent(opacity: ball.isCue ? 0.9 : 0.45)
+            material.blending = metric ? .opaque
+                : .transparent(opacity: .init(floatLiteral: Float(ball.isCue ? 0.9 : OverlayStyle.ballRingOpacity)))
             let entity = ModelEntity(mesh: mesh, materials: [material])
             place(entity, at: worldPoint(ball.position, lift: Self.stripLift))
         }
 
-        // The recommended shot is drawn UNDER the live aim, thinner and
-        // fainter. Same colour language, different weight: a plan reads as
-        // a plan, and the live line stays the one the eye follows.
+        // Three weights (OverlayStyle): the recommended shot is the hero,
+        // the thickest and fully opaque; the live aim and the cue ball
+        // after contact are thinner and dimmer. The hero is drawn last so
+        // it is never buried under the lines it crosses.
         func renderStrips(_ strips: [OverlayLayout.Strip]) {
             for strip in strips {
-                let plan = strip.role == .plan
-                let width = Self.stripWidth * (plan ? 0.5 : 1)
+                let tier = OverlayStyle.tier(role: strip.role, dashed: strip.dashed)
+                let width = OverlayStyle.width(tier)
                 let mesh = MeshResource.generateBox(
                     width: Float(strip.length),
                     height: Float(width / 2),
@@ -769,12 +787,11 @@ public final class OverlayRenderer {
                     ? MetricPalette.color(for: MetricPalette.stripMarker(forDesignColor: strip.color))
                     : strip.color
                 var material = UnlitMaterial(color: uiColor(from: stripColor))
-                let opacity: Float = plan ? 0.4 : (strip.dashed ? 0.7 : 0.95)
+                let opacity = Float(OverlayStyle.opacity(tier))
                 material.blending = metric ? .opaque
                     : .transparent(opacity: .init(floatLiteral: opacity))
                 let entity = ModelEntity(mesh: mesh, materials: [material])
-                place(entity, at: worldPoint(strip.midpoint,
-                                             lift: Self.stripLift * (plan ? 0.6 : 1)))
+                place(entity, at: worldPoint(strip.midpoint, lift: OverlayStyle.lift(tier)))
                 // Orientation in WORLD space, the same frame as the position
                 // set by `place` above.
                 //
@@ -808,8 +825,8 @@ public final class OverlayRenderer {
             }
         }
 
-        renderStrips(layout.targetStrips)
         renderStrips(layout.strips)
+        renderStrips(layout.targetStrips)
 
         if let ghost = layout.ghostBall {
             let mesh = MeshResource.generateSphere(radius: Float(ghost.radius))
@@ -869,8 +886,10 @@ public final class OverlayRenderer {
         if let ghost = layout.targetGhostBall {
             let mesh = MeshResource.generateSphere(radius: Float(ghost.radius))
             var material = UnlitMaterial(color: metric
-                ? uiColor(from: MetricPalette.color(for: .ghostBall)) : uiColor(from: 0x2FA36B))
-            material.blending = metric ? .opaque : .transparent(opacity: 0.25)
+                ? uiColor(from: MetricPalette.color(for: .ghostBall))
+                : uiColor(from: OverlayStyle.shotColor))
+            material.blending = metric ? .opaque
+                : .transparent(opacity: .init(floatLiteral: Float(OverlayStyle.targetGhostOpacity)))
             let entity = ModelEntity(mesh: mesh, materials: [material])
             place(entity, at: worldPoint(ghost.position, lift: ghost.radius))
         }

@@ -197,6 +197,7 @@ final class SessionModel {
     /// and tested, and this property only holds it. Read it through the
     /// accessors in SessionModel+Ranking.
     var shotSelection = ShotSelection()
+    let presentation = ShotPresentation() // how the shot reads: SessionModel+ShotPresentation
 
     /// The recommended shot, solved and ready for the overlay: how to make
     /// the ball the player picked. Nil when there is nothing to show.

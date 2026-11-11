@@ -211,15 +211,20 @@ public struct SpokenGuidance: Sendable, Equatable {
         public var chosenByPlayer: Bool
         /// The live aim correction, when the player is aiming at all.
         public var nudge: AimNudge?
+        /// `shot` in the player's words (ball, and pocket as seen from
+        /// where they stand), the same ones the card shows.
+        public var call: ShotCall?
 
         public init(stage: GuidanceStage,
                     shot: ShotRating? = nil,
                     chosenByPlayer: Bool = false,
-                    nudge: AimNudge? = nil) {
+                    nudge: AimNudge? = nil,
+                    call: ShotCall? = nil) {
             self.stage = stage
             self.shot = shot
             self.chosenByPlayer = chosenByPlayer
             self.nudge = nudge
+            self.call = call
         }
     }
 
@@ -428,7 +433,8 @@ public struct SpokenGuidance: Sendable, Equatable {
         guard case .tracking = situation.stage, let shot = situation.shot else { return nil }
         let id = "shot.\(shot.ball.rawValue).\(shot.pocket.rawValue)"
             + ".\(Self.blockerKey(shot.blocker)).\(situation.chosenByPlayer)"
-        return moment(id, shot.spokenLine(chosenByPlayer: situation.chosenByPlayer))
+        return moment(id, shot.spokenLine(chosenByPlayer: situation.chosenByPlayer,
+                                          call: situation.call))
     }
 
     /// "On line" is a state change, not a nudge: it is the one thing the
@@ -484,7 +490,14 @@ extension ShotRating {
     /// - Parameter chosenByPlayer: whether this is the player's own pick,
     ///   which changes the lead-in. A suggestion should never be read out
     ///   as though the player made it.
-    public func spokenLine(chosenByPlayer: Bool) -> String {
+    ///
+    /// - Parameter call: the ball and pocket in the player's words, the
+    ///   same ones the card shows. Without it the line says only how hard
+    ///   the shot is, never the table-axis pocket name, which from the
+    ///   player's side of the table can point the wrong way. The difficulty
+    ///   is a word, not a percentage, for the same reason the card shows a
+    ///   word: the number moves with calibration drift.
+    public func spokenLine(chosenByPlayer: Bool, call: ShotCall? = nil) -> String {
         switch blocker {
         case .cuePath:
             return "That one is blocked. A ball is in the cue ball's way."
@@ -500,7 +513,9 @@ extension ShotRating {
             return "That one is blocked. It would drop in another pocket."
         case nil:
             let lead = chosenByPlayer ? "Your ball" : "Best shot"
-            return "\(lead), \(percentage) percent into the \(pocket.spokenName)."
+            let tier = "It looks \(difficulty.spokenTier)."
+            guard let call else { return "\(lead). \(tier)" }
+            return "\(lead), \(call.spoken). \(tier)"
         }
     }
 }
