@@ -204,6 +204,11 @@ extension SessionModel {
             // A one-pocket fit reproduces its single point exactly, so
             // its residual is meaningless and must not be printed as if
             // it were evidence.
+            // The size check: balls as a ruler against the pocket rays
+            // (SessionModel+DriftDiagnostics). Reported, never applied.
+            noteSizeFromBalls(rays: sightings.compactMap { pocket, point in
+                coordinator.worldRay(through: point).map { (pocket: pocket, ray: $0) }
+            })
             let source = planeHeight != nil ? "given"
                 : (solvedHeight != nil ? "from the taps" : "from the balls")
             let line = placed.count == 1

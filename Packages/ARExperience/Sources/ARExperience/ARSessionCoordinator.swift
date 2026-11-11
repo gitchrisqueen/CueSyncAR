@@ -51,6 +51,11 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
     /// Viewport facts the delegate needs to compute a display transform,
     /// refreshed from the main actor by `refreshViewportInfo()`.
     let viewportBox = ViewportInfoBox()
+    /// Parked-device pose hold (ParkedPoseCorrection.swift): IMU stillness
+    /// plus the correction that cancels ARKit's camera-pose drift on a
+    /// device that is not moving. Identity until armed, so nothing changes
+    /// for a hand-held session.
+    public let parkedHold = ParkedHoldBox()
     /// Human-readable session health (errors, interruptions, tracking
     /// limits) for the HUD. Nil when everything is nominal.
     public private(set) var sessionEvent: String?
@@ -83,6 +88,7 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
         arView.environment.background = .cameraFeed()
         super.init()
         arView.session.delegate = self
+        parkedHold.startMotion()
     }
 
     /// Enable horizontal plane detection on top of RealityKit's automatic
@@ -175,7 +181,7 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
             if let result = arView.raycast(from: screenPoint, allowing: target,
                                            alignment: .horizontal).first {
                 let t = result.worldTransform.columns.3
-                hit = Vec3(Double(t.x), Double(t.y), Double(t.z))
+                hit = parkedHold.current.fromARKit(Vec3(Double(t.x), Double(t.y), Double(t.z)))
                 break
             }
         }
@@ -206,19 +212,20 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
     /// quad slide across the table as the camera moves.
     public func worldRay(through screenPoint: CGPoint) -> TapRay? {
         guard let ray = arView.ray(through: screenPoint) else { return nil }
-        return TapRay(origin: Vec3(Double(ray.origin.x), Double(ray.origin.y),
-                                   Double(ray.origin.z)),
-                      direction: Vec3(Double(ray.direction.x), Double(ray.direction.y),
-                                      Double(ray.direction.z)))
+        // In the parked-hold corrected world (identity when not armed).
+        let hold = parkedHold.current
+        return TapRay(origin: hold.fromARKit(Vec3(Double(ray.origin.x), Double(ray.origin.y),
+                                                  Double(ray.origin.z))),
+                      direction: hold.fromARKit(direction: Vec3(Double(ray.direction.x),
+                                                                Double(ray.direction.y),
+                                                                Double(ray.direction.z))))
     }
 
     /// Ray/horizontal-plane intersection at a known height.
     private func intersect(screenPoint: CGPoint, planeHeight: Double) -> Vec3? {
-        guard let ray = arView.ray(through: screenPoint) else { return nil }
-        let origin = Vec3(Double(ray.origin.x), Double(ray.origin.y),
-                          Double(ray.origin.z))
-        let direction = Vec3(Double(ray.direction.x), Double(ray.direction.y),
-                             Double(ray.direction.z))
+        guard let ray = worldRay(through: screenPoint) else { return nil }
+        let origin = ray.origin
+        let direction = ray.direction
         guard abs(direction.y) > 1e-6 else { return nil }
         let t = (planeHeight - origin.y) / direction.y
         guard t > 0 else { return nil }
@@ -233,7 +240,8 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
     /// Project a world point into the ARView's screen space (nil when the
     /// point is behind the camera).
     public func projectToScreen(_ world: Vec3) -> CGPoint? {
-        arView.project(SIMD3<Float>(Float(world.x), Float(world.y), Float(world.z)))
+        let world = parkedHold.current.toARKit(world)
+        return arView.project(SIMD3<Float>(Float(world.x), Float(world.y), Float(world.z)))
     }
 
     /// Drop the named world anchor for a locked calibration at the table
@@ -246,12 +254,14 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
             arView.session.remove(anchor: anchor)
         }
         var transform = matrix_identity_float4x4
+        let origin = parkedHold.current.toARKit(origin)
         transform.columns.3 = SIMD4<Float>(Float(origin.x), Float(origin.y),
                                            Float(origin.z), 1)
         let anchor = ARAnchor(name: Self.tableAnchorName, transform: transform)
         arView.session.add(anchor: anchor)
         tableAnchor = anchor
-        return Self.transform3D(from: transform)
+        // Reported in the corrected world, like every other pose handed out.
+        return parkedHold.current.corrected(Self.transform3D(from: transform))
     }
 
     // MARK: - Calibration cluster anchor (pre-lock corner stability)
@@ -321,6 +331,18 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
         try data.write(to: url, options: .atomic)
     }
 
+    /// Record ARKit's world-mapping status for the drift diagnostics.
+    private nonisolated func noteWorldMapping(_ status: ARFrame.WorldMappingStatus) {
+        let name = switch status {
+        case .notAvailable: "notAvailable"
+        case .limited: "limited"
+        case .extending: "extending"
+        case .mapped: "mapped"
+        @unknown default: "unknown"
+        }
+        parkedHold.noteWorldMapping(name)
+    }
+
     nonisolated static func transform3D(from m: simd_float4x4) -> Transform3D {
         Transform3D(columns: (0..<4).map { column in
             let c = [m.columns.0, m.columns.1, m.columns.2, m.columns.3][column]
@@ -353,12 +375,12 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
     public nonisolated func session(_ session: ARSession, didUpdate frame: ARFrame) {
         diagnostics.add(\.framesSeen)
         // No pending request → drop the frame without touching its buffers.
+        // Every frame feeds the parked hold (cheap: a few matrix products),
+        // so the correction tracks ARKit's drift even between pulls.
+        let rawTransform = Self.transform3D(from: frame.camera.transform)
+        let transform = parkedHold.update(cameraPose: rawTransform, at: frame.timestamp)
+        noteWorldMapping(frame.worldMappingStatus)
         guard let continuation = pendingRequest.take() else { return }
-        let transform = Transform3D(columns: (0..<4).map { column in
-            let c = frame.camera.transform.columns
-            let v = [c.0, c.1, c.2, c.3][column]
-            return SIMD4<Double>(Double(v.x), Double(v.y), Double(v.z), Double(v.w))
-        })
         // Hand consumers a DEEP COPY of the camera pixel buffer, never the
         // ARKit-owned one: anything downstream that outlives this callback
         // (JPEG encode, CIContext texture caches) would otherwise pin one of
@@ -444,7 +466,7 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
         guard let transform = arView.session.currentFrame?.camera.transform else {
             return nil
         }
-        return Self.transform3D(from: transform)
+        return parkedHold.current.corrected(Self.transform3D(from: transform))
     }
 
     /// Byte-for-byte copy of a pixel buffer into freshly allocated storage.
@@ -688,6 +710,13 @@ public struct ARKitPlaneRaycaster {
 @MainActor
 public final class OverlayRenderer {
     private let root: AnchorEntity
+    /// Parked-hold mode: content hangs off this entity, whose WORLD
+    /// transform is the hold's correction, so layout points (in the
+    /// corrected world) render where ARKit's drifted camera sees the cloth.
+    /// Nil in the normal anchored mode.
+    private let corrected: Entity?
+    /// Whether this renderer was built for the parked-hold corrected world.
+    public var isWorldCorrected: Bool { corrected != nil }
     /// Strip thickness (m) and lift above the cloth to avoid z-fighting.
     private static let stripWidth = 0.008
     private static let stripLift = 0.002
@@ -710,13 +739,33 @@ public final class OverlayRenderer {
     /// Root under the table's ARAnchor when one exists — anchored content
     /// follows ARKit's refinements; identity-world content drifts (anchor
     /// best practice). Falls back to a world-fixed root without one.
-    public init(arView: ARView, tableAnchor: ARAnchor? = nil) {
-        if let tableAnchor {
+    public init(arView: ARView, tableAnchor: ARAnchor? = nil, worldCorrected: Bool = false) {
+        if let tableAnchor, !worldCorrected {
             root = AnchorEntity(anchor: tableAnchor)
         } else {
             root = AnchorEntity(world: matrix_identity_float4x4)
         }
+        if worldCorrected {
+            let frame = Entity()
+            root.addChild(frame)
+            corrected = frame
+        } else {
+            corrected = nil
+        }
         arView.scene.addAnchor(root)
+    }
+
+    /// Parked hold: set the corrected frame's world transform (the hold's
+    /// correction, corrected world -> ARKit world). Call every tick; cheap.
+    public func applyWorldCorrection(_ correction: Transform3D) {
+        guard let corrected else { return }
+        let c = correction.columns
+        let matrix = simd_float4x4(columns: (
+            SIMD4<Float>(Float(c[0].x), Float(c[0].y), Float(c[0].z), Float(c[0].w)),
+            SIMD4<Float>(Float(c[1].x), Float(c[1].y), Float(c[1].z), Float(c[1].w)),
+            SIMD4<Float>(Float(c[2].x), Float(c[2].y), Float(c[2].z), Float(c[2].w)),
+            SIMD4<Float>(Float(c[3].x), Float(c[3].y), Float(c[3].z), Float(c[3].w))))
+        corrected.setTransformMatrix(matrix, relativeTo: nil)
     }
 
     /// A layout world point lifted off the cloth. Entities are positioned in
@@ -736,8 +785,10 @@ public final class OverlayRenderer {
     /// first lets RealityKit resolve world→anchor-local against the current
     /// anchor transform.
     private func place(_ entity: ModelEntity, at world: SIMD3<Float>) {
-        root.addChild(entity)
-        entity.setPosition(world, relativeTo: nil)
+        // Parked hold: positions are in the corrected world, i.e. relative
+        // to the corrected frame entity.
+        (corrected ?? root).addChild(entity)
+        entity.setPosition(world, relativeTo: corrected)
     }
 
     private func applyLayerOpacity() {
@@ -746,7 +797,7 @@ public final class OverlayRenderer {
     }
 
     public func render(_ layout: OverlayLayout, planeNormalUp: Bool = true) {
-        root.children.removeAll()
+        (corrected ?? root).children.removeAll()
         renderedMarkers = layout.renderedMarkers
         let metric = paletteMode == .metric
         applyLayerOpacity()
@@ -820,7 +871,7 @@ public final class OverlayRenderer {
                     let yaw = atan2(simd_dot(simd_cross(reference, d), axis),
                                     simd_dot(reference, d))
                     entity.setOrientation(simd_quatf(angle: yaw, axis: axis),
-                                          relativeTo: nil)
+                                          relativeTo: corrected)
                 }
             }
         }
@@ -896,7 +947,7 @@ public final class OverlayRenderer {
     }
 
     public func clear() {
-        root.children.removeAll()
+        (corrected ?? root).children.removeAll()
         renderedMarkers = []
     }
 

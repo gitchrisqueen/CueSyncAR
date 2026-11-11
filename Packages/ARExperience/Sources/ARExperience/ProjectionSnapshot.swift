@@ -152,10 +152,12 @@ extension ARSessionCoordinator {
     public func projectionSnapshot(markers: [RenderedMarker],
                                    paletteMode: OverlayPaletteMode) -> ProjectionSnapshot? {
         guard let before = poseSample() else { return nil }
+        let hold = parkedHold.current
         let projected = markers.map { marker -> ProjectedMarker in
-            let point = arView.project(SIMD3<Float>(Float(marker.world.x),
-                                                    Float(marker.world.y),
-                                                    Float(marker.world.z)))
+            let world = hold.toARKit(marker.world)
+            let point = arView.project(SIMD3<Float>(Float(world.x),
+                                                    Float(world.y),
+                                                    Float(world.z)))
             return ProjectedMarker(marker: marker,
                                    screen: point.map { Vec2(Double($0.x), Double($0.y)) })
         }

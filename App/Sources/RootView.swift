@@ -495,6 +495,11 @@ struct ARCameraView: View {
                         anchorTransform: anchorTransform)
                 }
             }
+            // Parked hold (docs/plans/2026-11-11-calibration-drift-plan.md):
+            // armed while a table is locked on a parked device; it cancels
+            // ARKit's camera-pose drift whenever the IMU says the device is
+            // still. Disarmed (identity) otherwise.
+            coordinator.parkedHold.setArmed(model.calibration.isLocked && model.settings.deviceParked)
             if model.calibration.isLocked {
                 // M3-05 live loop: frames → pipeline → TableState; device
                 // pose → aim → solver; layout → RealityKit overlays.
@@ -509,7 +514,13 @@ struct ARCameraView: View {
                         // the same transform for the same frame; the
                         // current-frame lookup is the fallback only.
                         let anchorTransform: Transform3D?
-                        if let delivered = coordinator.deliveredFrameMeta(at: frame.timestamp) {
+                        if coordinator.parkedHold.isArmed {
+                            // The hold keeps the camera where it was, so the
+                            // table stays where it was locked. Following an
+                            // anchor ARKit did not move would re-apply the
+                            // drift the hold just took out.
+                            anchorTransform = nil
+                        } else if let delivered = coordinator.deliveredFrameMeta(at: frame.timestamp) {
                             anchorTransform = delivered.tableAnchorTransform
                         } else {
                             anchorTransform = coordinator.currentTableAnchorTransform
@@ -524,13 +535,22 @@ struct ARCameraView: View {
                     // off them (SessionModel+ShotPresentation).
                     model.noteTableOnScreen(project: { coordinator.projectToScreen($0) },
                                             viewport: coordinator.arView.bounds.size)
+                    if let renderer = overlayRenderer,
+                       renderer.isWorldCorrected != coordinator.parkedHold.isArmed {
+                        renderer.clear()
+                        overlayRenderer = nil
+                        lastRenderedLayout = nil
+                    }
                     if overlayRenderer == nil {
                         // Root the overlays under the table's ARAnchor so
-                        // ARKit's refinements carry them (drift fix).
+                        // ARKit's refinements carry them (drift fix), or,
+                        // when parked, under the hold's corrected frame.
                         overlayRenderer = OverlayRenderer(
                             arView: coordinator.arView,
-                            tableAnchor: coordinator.tableAnchor)
+                            tableAnchor: coordinator.tableAnchor,
+                            worldCorrected: coordinator.parkedHold.isArmed)
                     }
+                    overlayRenderer?.applyWorldCorrection(coordinator.parkedHold.current.correction)
                     if syncPalette(model.overlayPaletteMode) {
                         lastRenderedLayout = nil // re-render in the new palette now
                     }

@@ -216,6 +216,9 @@ extension SessionModel {
         switch params["action"] {
         case "resetComputeProbe":
             resetDetectorComputeProbe()
+        case "parkedHold":
+            guard let v = params["v"].flatMap(Int.init) else { return }
+            setParkedHoldEnabled(v != 0)
         default:
             Self.log.info("mirror command ignored: \(String(describing: params), privacy: .public)")
         }

@@ -66,6 +66,11 @@ final class CalibrationPlacement {
 
     func noteProbe(_ text: String) { lastProbe = text }
 
+    /// The table size the balls measure, from the last pocket calibration
+    /// (TableSpace.TableSizeFromBalls). Kept here because SessionModel has
+    /// no room for another stored property.
+    var sizeFromBalls: TableSizeFromBalls?
+
     /// The cloth height every corner in the current flow was placed
     /// against, frozen at the first tap.
     ///

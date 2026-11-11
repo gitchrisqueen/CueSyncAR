@@ -161,6 +161,7 @@ extension SessionModel {
         if let anchorDriftMillimeters {
             state["anchorDriftMm"] = (anchorDriftMillimeters * 10).rounded() / 10
         }
+        state["pose"] = driftMirrorState()
         state["mode"] = practiceMode.rawValue
         state["settings"] = settingsMirrorState()
         state["hasPrediction"] = shotPrediction != nil
