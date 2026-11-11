@@ -58,7 +58,13 @@ final class SeededHUDUITests: XCTestCase {
         XCTAssertTrue(card.waitForExistence(timeout: 10),
                       "no shot card: the seed did not reach the ranking")
         XCTAssertTrue(card.label.hasPrefix("Suggested shot:"), card.label)
-        XCTAssertTrue(card.label.contains("per cent into the"), card.label)
+        // A named ball into a pocket seen from the player's side, and a
+        // difficulty word: never the percentage.
+        XCTAssertTrue(card.label.contains(" into the "), card.label)
+        let tiers = ["easy", "fair", "hard"]
+        XCTAssertTrue(tiers.contains { card.label.hasSuffix(", \($0)") }, card.label)
+        XCTAssertFalse(card.label.contains("per cent"), card.label)
+        XCTAssertFalse(card.label.contains("%"), card.label)
 
         // The rest of the HUD a player has in front of them.
         XCTAssertTrue(element(app, "ball-group-button").exists, "no group button")
@@ -108,5 +114,33 @@ final class SeededHUDUITests: XCTestCase {
         XCTAssertFalse(element(app, "shot-card").exists,
                        "a blocked table was offered as a shot")
         XCTAssertTrue(element(app, "ball-group-button").exists)
+        // ...and says why, instead of leaving the player wondering.
+        XCTAssertTrue(element(app, "shot-empty").waitForExistence(timeout: 10),
+                      "no 'No clean shot' capsule on a blocked table")
+    }
+
+    /// A full rack has nothing to rank: the card area says to break.
+    func testFullRackSaysBreakTheRack() {
+        let app = launchSeeded("rack")
+        waitForCapsule(app, containing: "Tracking 16 balls")
+        XCTAssertTrue(element(app, "shot-empty").waitForExistence(timeout: 10),
+                      "no 'Break the rack' capsule on a full rack")
+        XCTAssertFalse(element(app, "shot-card").exists)
+    }
+
+    /// Players never see developer instruments (build badge, mirror
+    /// address, detector rows): the Simulator debug build unlocks them by
+    /// default, so this pins the locked state explicitly.
+    func testPlayerSeesNoDeveloperControlsInMore() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-seedTable", "open", "-developerModeUnlocked", "NO"]
+        app.launch()
+        waitForCapsule(app, containing: "Tracking 5 balls")
+        let more = app.buttons["more-button"]
+        XCTAssertTrue(more.waitForExistence(timeout: 10))
+        more.tap()
+        XCTAssertTrue(app.buttons["more-settings"].waitForExistence(timeout: 10))
+        XCTAssertFalse(element(app, "more-debug-mirror").exists, "debug mirror toggle visible to a player")
+        XCTAssertFalse(app.staticTexts["Address"].exists, "mirror address visible to a player")
     }
 }
