@@ -86,6 +86,15 @@ public struct WhiteReference: Sendable, Equatable {
         guard let gains else { return nil }
         return Vec3(min(1, rgb.x * gains.x), min(1, rgb.y * gains.y), min(1, rgb.z * gains.z))
     }
+
+    /// The reference's own brightness once white-balanced (its largest
+    /// channel, which is its green: the gains are normalised on green).
+    /// The yardstick every relative feature divides by. Nil when the
+    /// reference is too dark to balance.
+    public var balancedValue: Double? {
+        guard let reference = balanced(meanRGB) else { return nil }
+        return Swift.max(reference.x, Swift.max(reference.y, reference.z))
+    }
 }
 
 /// The colours a standard set uses, one per number within a group.
@@ -150,24 +159,58 @@ public enum BallAppearance {
     public struct Config: Sendable, Equatable {
         /// Below this many pixels a patch is not classified at all.
         public var minimumSamples: Int
-        /// Chroma below this, with a dark surface, is the eight.
+        /// Fraction of individually chromatic pixels at or below which a
+        /// patch counts as neutral for the WHITE route (see
+        /// `whiteFractionFloor`). It no longer decides the eight: counting
+        /// single pixels is exactly what named a dark blue ball the
+        /// eight, see `blackMeanChromaCeiling`.
         public var blackChromaCeiling: Double
-        public var blackValueCeiling: Double
         /// Mostly neutral and bright is the cue ball.
         public var whiteFractionFloor: Double
         /// Degrees of hue error at which a family's fit falls to zero.
         public var hueTolerance: Double
+        /// A ball whose AVERAGE colour, white-balanced on the cue ball,
+        /// has chroma (max minus min channel) below this fraction of the
+        /// cue ball's brightness is neutral: the eight if dark, white if
+        /// not.
+        ///
+        /// Measured on the owner's table (research 2026-11-10, 160 labelled
+        /// balls over 31 frames): the dark blue ball scores 0.236-0.313
+        /// and the eight-ball samples score 0.020-0.079, so 0.15 sits
+        /// about 3x from each side. The per-pixel route it replaces called
+        /// that blue ball black at 0.9 confidence in 17 of 22 frames,
+        /// because H.264 noise pushed its per-pixel chroma fraction under
+        /// 0.15; averaging hundreds of pixels removes the noise, and
+        /// dividing by the cue ball rather than by the ball's own value
+        /// keeps a dim blue's colour from vanishing under an absolute
+        /// floor. Fitted on three distinct eight-balls and one blue ball.
+        public var blackMeanChromaCeiling: Double
+        /// Of the neutral balls, one dimmer than this fraction of the cue
+        /// ball is the eight. Measured eights: 0.18-0.52 of the cue ball.
+        public var blackRelativeValueCeiling: Double
+        /// A red-hued ball dimmer than this fraction of the cue ball is
+        /// the maroon, otherwise the red. Relative to the cue ball
+        /// because absolute brightness moves with the room: it fixed
+        /// red-read-as-maroon in 15 of 22 iPad frames. Not separable by
+        /// brightness across lights (red 0.72-0.92 against maroon
+        /// 0.78-0.90 on two clips), so the answer is only ever a vote
+        /// input: `BallIdentity` commits it after several agreeing looks.
+        public var maroonRelativeValueCeiling: Double
 
         public init(minimumSamples: Int = 40,
                     blackChromaCeiling: Double = 0.15,
-                    blackValueCeiling: Double = 0.45,
                     whiteFractionFloor: Double = 0.55,
-                    hueTolerance: Double = 40) {
+                    hueTolerance: Double = 40,
+                    blackMeanChromaCeiling: Double = 0.15,
+                    blackRelativeValueCeiling: Double = 0.6,
+                    maroonRelativeValueCeiling: Double = 0.75) {
             self.minimumSamples = minimumSamples
             self.blackChromaCeiling = blackChromaCeiling
-            self.blackValueCeiling = blackValueCeiling
             self.whiteFractionFloor = whiteFractionFloor
             self.hueTolerance = hueTolerance
+            self.blackMeanChromaCeiling = blackMeanChromaCeiling
+            self.blackRelativeValueCeiling = blackRelativeValueCeiling
+            self.maroonRelativeValueCeiling = maroonRelativeValueCeiling
         }
 
         public static let `default` = Config()
@@ -183,8 +226,10 @@ public enum BallAppearance {
     public static func classify(_ patch: BallPatch, reference: WhiteReference?,
                                 config: Config = .default) -> AppearanceObservation? {
         guard patch.sampleCount >= config.minimumSamples,
-              let reference, let balanced = reference.balanced(patch.meanRGB) else { return nil }
-        let value = Swift.max(balanced.x, Swift.max(balanced.y, balanced.z))
+              let reference, let balanced = reference.balanced(patch.meanRGB),
+              let relative = Self.relativeColour(of: patch, reference: reference) else { return nil }
+        let meanChromaRelative = relative.chroma
+        let valueRelative = relative.value
 
         if patch.whiteFraction >= config.whiteFractionFloor,
            patch.chromaFraction <= config.blackChromaCeiling {
@@ -192,11 +237,15 @@ public enum BallAppearance {
                                          whiteFraction: patch.whiteFraction,
                                          hueSpread: patch.hueSpread)
         }
-        if patch.chromaFraction <= config.blackChromaCeiling,
-           value <= config.blackValueCeiling {
-            // The eight is the one ball that must never be wrong: in
-            // eight-ball, shooting it early is the game.
-            return AppearanceObservation(family: .black, confidence: 0.9,
+        if meanChromaRelative < config.blackMeanChromaCeiling {
+            // Neutral on average. The eight is the one ball that must
+            // never be wrong: in eight-ball, shooting it early is the
+            // game, so it is decided on the mean colour (3x margin each
+            // side, see `blackMeanChromaCeiling`) and never on a count of
+            // single pixels that looked coloured.
+            let family: ColorFamily = valueRelative < config.blackRelativeValueCeiling
+                ? .black : .white
+            return AppearanceObservation(family: family, confidence: 0.9,
                                          whiteFraction: patch.whiteFraction,
                                          hueSpread: patch.hueSpread)
         }
@@ -216,10 +265,11 @@ public enum BallAppearance {
         guard let best = scored.first, best.fit > 0 else { return nil }
         let runnerUp = scored.dropFirst().first?.fit ?? 0
         // Red and maroon are the same hue at different brightness, so the
-        // hue margin alone cannot separate them; brightness does.
+        // hue margin alone cannot separate them; brightness relative to
+        // the cue ball does, as far as anything single-frame can.
         var family = best.family
         if family == .red || family == .maroon {
-            family = value < 0.55 ? .maroon : .red
+            family = valueRelative < config.maroonRelativeValueCeiling ? .maroon : .red
         }
         // How much better the winner fits than the next best. A colour
         // with no near neighbour keeps its fit; one sitting between two
@@ -229,6 +279,23 @@ public enum BallAppearance {
         return AppearanceObservation(family: family, confidence: confidence,
                                      whiteFraction: patch.whiteFraction,
                                      hueSpread: patch.hueSpread)
+    }
+
+    /// How coloured (max minus min channel) and how bright (max channel)
+    /// the patch's AVERAGE colour is once white-balanced on `reference`,
+    /// each as a fraction of the reference's own brightness. Nil when the
+    /// reference is too dark to balance.
+    ///
+    /// This is the feature the eight is decided on: a dark blue ball
+    /// measures chroma 0.24-0.31 and the true eights 0.02-0.08, where a
+    /// count of individually coloured pixels put the blue under the line.
+    static func relativeColour(of patch: BallPatch, reference: WhiteReference)
+        -> (chroma: Double, value: Double)? {
+        guard let balanced = reference.balanced(patch.meanRGB),
+              let referenceValue = reference.balancedValue, referenceValue > 0 else { return nil }
+        let high = Swift.max(balanced.x, Swift.max(balanced.y, balanced.z))
+        let low = Swift.min(balanced.x, Swift.min(balanced.y, balanced.z))
+        return ((high - low) / referenceValue, high / referenceValue)
     }
 
     /// Hue in degrees of a linear RGB triple, or nil when it is neutral.
