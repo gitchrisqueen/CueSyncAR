@@ -150,6 +150,7 @@ extension SessionModel {
     /// Publish the newest rendered frame + a state snapshot (~1 Hz).
     func publishMirrorFrame(_ jpeg: Data?) {
         guard let server = debugMirror else { return }
-        server.update(jpeg: jpeg, stateJSON: mirrorStateJSON())
+        server.update(jpeg: jpeg, stateJSON: mirrorStateJSON(),
+                      uiJPEG: server.wantsUISnapshot ? MirrorUISnapshot.jpeg() : nil)
     }
 }

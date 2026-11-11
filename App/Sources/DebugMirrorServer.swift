@@ -16,6 +16,8 @@
 //    GET /state.json  tracking/calibration/guide state + live settings
 //    GET /cmd?action= remote commands (incl. startRecording/stopRecording)
 //    GET /sessions    recorded session bundles (DebugMirrorServer+Sessions)
+//    GET /ui.jpg      the whole window incl. SwiftUI HUD (MirrorUISnapshot);
+//                     404 on the first call, then ~1 Hz while polled
 //    GET /logs        recent os.Logger lines as text (MirrorLogReader);
 //                     ?n=&since=&category=&level=
 //
@@ -41,6 +43,8 @@ final class DebugMirrorServer: @unchecked Sendable {
     private let lock = NSLock()
     private var latestJPEG: Data?
     private var latestStateJSON: Data?
+    private var latestUIJPEG: Data?
+    private var uiWantedUntil = Date.distantPast
     private var commandHandler: CommandHandler?
     private var sessionsRootValue: URL?
     private var activeSessionValue: String?
@@ -111,11 +115,19 @@ final class DebugMirrorServer: @unchecked Sendable {
     }
 
     /// Publish the newest snapshot + state (called ~1 Hz from the app).
-    func update(jpeg: Data?, stateJSON: Data?) {
+    func update(jpeg: Data?, stateJSON: Data?, uiJPEG: Data? = nil) {
         lock.lock()
         if let jpeg { latestJPEG = jpeg }
         if let stateJSON { latestStateJSON = stateJSON }
+        if let uiJPEG { latestUIJPEG = uiJPEG }
         lock.unlock()
+    }
+
+    /// True while a client has requested `/ui.jpg` in the last 15 s, so the
+    /// app renders its window only when someone is looking.
+    var wantsUISnapshot: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return Date() < uiWantedUntil
     }
 
     /// Best-effort LAN address for showing the URL in the HUD (en0 = Wi-Fi).
@@ -213,6 +225,16 @@ final class DebugMirrorServer: @unchecked Sendable {
             lock.lock(); let jpeg = latestJPEG; lock.unlock()
             guard let jpeg else { return Self.httpResponse(status: "404 Not Found") }
             return Self.httpResponse(body: jpeg, contentType: "image/jpeg")
+        case "/ui.jpg":
+            lock.lock()
+            uiWantedUntil = Date().addingTimeInterval(15)
+            let ui = latestUIJPEG
+            lock.unlock()
+            guard let ui else {
+                return Self.httpResponse(status: "404 Not Found",
+                                         body: Data("rendering: retry in 2 s\n".utf8))
+            }
+            return Self.httpResponse(body: ui, contentType: "image/jpeg")
         case "/state.json":
             lock.lock(); let json = latestStateJSON; lock.unlock()
             return Self.httpResponse(body: json ?? Data("{}".utf8),
