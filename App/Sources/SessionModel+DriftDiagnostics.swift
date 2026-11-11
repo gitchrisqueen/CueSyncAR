@@ -62,7 +62,8 @@ extension SessionModel {
             state["ballsWorld"] = balls.map { ball -> [String: Any] in
                 let world = calibration.tableToWorld(ball.position)
                 let raw = hold.toARKit(world)
-                return ["id": ball.id, "x": r(world.x), "z": r(world.z),
+                // rawValue: JSONSerialization aborts the app on a BallID.
+                return ["id": ball.id.rawValue, "x": r(world.x), "z": r(world.z),
                         "rawX": r(raw.x), "rawZ": r(raw.z)]
             }
         }
