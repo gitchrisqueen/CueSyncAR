@@ -128,6 +128,8 @@ extension SessionModel {
         // the last line said. Without the last line there is no way to tell
         // "the voice is off" from "the voice is on and had nothing to say".
         state["speech"] = speechMirrorState()
+        // The arcade layer: the last twenty feedback events and the score.
+        state["feedback"] = feedbackMirrorState()
         // B3 anchor following: the A/B switch and how far the table anchor
         // has moved since lock — the measurement the next table run reads.
         state["followsTableAnchor"] = followsTableAnchor

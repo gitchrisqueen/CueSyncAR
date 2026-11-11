@@ -230,6 +230,9 @@ struct SettingsModelTests {
         settings.skillLevel = .advanced
         settings.speechVerbosity = .keyMoments
         settings.sessionPreset = .withFriends
+        settings.soundsEnabled = false
+        settings.hapticsEnabled = false
+        settings.showScoreboard = true
 
         let snapshot = settings.snapshot
         #expect(snapshot[SettingsKey.detectorPinnedToCPU] == .bool(true))
@@ -246,7 +249,10 @@ struct SettingsModelTests {
         #expect(snapshot[SettingsKey.sessionPreset] == .string("withFriends"))
         // Every setting is in the snapshot: the mirror is how the owner
         // confirms a change took effect without touching the device.
-        #expect(snapshot.count == 12)
+        #expect(snapshot[SettingsKey.soundsEnabled] == .bool(false))
+        #expect(snapshot[SettingsKey.hapticsEnabled] == .bool(false))
+        #expect(snapshot[SettingsKey.showScoreboard] == .bool(true))
+        #expect(snapshot.count == 15)
     }
 
     // MARK: Pipeline restart hints

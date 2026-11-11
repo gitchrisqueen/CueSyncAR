@@ -58,6 +58,7 @@ struct SettingsView: View {
                 guidesSection
                 trackingSection
                 practiceSection
+                FeedbackSettingsSection()
                 voiceSection
                 aboutSection
                 if developerMode.isUnlocked { developerSection }

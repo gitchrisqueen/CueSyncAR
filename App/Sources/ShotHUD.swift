@@ -26,15 +26,33 @@ struct ShotAdviceCluster: View {
     @Environment(SessionModel.self) private var model
     @Environment(\.hudBottomInset) private var bottomInset
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Points reserved at the top for the status capsule, a recording badge
-    /// and one toast, below the safe area.
-    private static let topReserve = 124.0
+    /// and one toast, below the safe area, plus the scoreboard chip when on.
+    private static let baseTopReserve = 124.0
+    private static let scoreChipReserve = 38.0
+    private var topReserve: Double {
+        Self.baseTopReserve + (model.settings.showScoreboard ? Self.scoreChipReserve : 0)
+    }
     private static let sideInset = 16.0
 
     var body: some View {
+        // The cluster fades in and out instead of popping (Reduce Motion:
+        // opacity only, no scale).
+        ZStack { clusterIfAny }
+            .animation(reduceMotion ? .easeInOut(duration: 0.15) : .easeInOut(duration: 0.22), value: isShowing)
+    }
+
+    private var isShowing: Bool {
+        model.isLiveTracking
+            && (model.shotGuide != nil || model.activeShot != nil || model.shotEmptyState != nil)
+    }
+
+    @ViewBuilder
+    private var clusterIfAny: some View {
         let empty = model.shotEmptyState
-        if model.isLiveTracking, model.shotGuide != nil || model.activeShot != nil || empty != nil {
+        if isShowing {
             // The outer reader respects the safe area, so it can report it;
             // the inner one ignores it, so its size is the whole screen,
             // the space the table's projected corners are in.
@@ -42,7 +60,7 @@ struct ShotAdviceCluster: View {
               GeometryReader { proxy in
                 let size = Vec2(Double(proxy.size.width), Double(proxy.size.height))
                 let insets = HUDClusterInsets(
-                    top: Double(outer.safeAreaInsets.top) + Self.topReserve,
+                    top: Double(outer.safeAreaInsets.top) + topReserve,
                     bottom: Double(outer.safeAreaInsets.bottom + bottomInset) + 8,
                     side: Self.sideInset)
                 let plan = model.presentation.clusterPlan(
@@ -55,6 +73,7 @@ struct ShotAdviceCluster: View {
                            alignment: alignment(plan.anchor))
                     .animation(.easeInOut(duration: 0.2), value: plan.anchor)
                     .animation(.easeInOut(duration: 0.2), value: plan.style)
+                    .animation(.easeInOut(duration: 0.2), value: shotKey)
               }
               .ignoresSafeArea()
             }
@@ -109,9 +128,24 @@ struct ShotAdviceCluster: View {
             // vanishing and the player wondering if the app has stopped. A
             // rack outranks any shot rated into it.
             ShotEmptyCapsule(state: empty)
+                .transition(cardTransition)
         } else if let shot = model.activeShot {
+            // Keyed on the shot, so a new suggestion cross-fades (~200 ms)
+            // from the old card rather than the text changing under the
+            // player's eyes.
             card(for: shot, style: style)
+                .successPulse(model.feedback.madePulseCount)
+                .id(shotKey)
+                .transition(cardTransition)
         }
+    }
+
+    private var shotKey: String {
+        model.activeShot.map { "\($0.ball.rawValue).\($0.pocket.rawValue)" } ?? "none"
+    }
+
+    private var cardTransition: AnyTransition {
+        reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96))
     }
 
     // MARK: Sizes the plan reasons with

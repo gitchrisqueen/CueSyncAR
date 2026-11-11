@@ -198,6 +198,7 @@ final class SessionModel {
     /// accessors in SessionModel+Ranking.
     var shotSelection = ShotSelection()
     let presentation = ShotPresentation() // how the shot reads: SessionModel+ShotPresentation
+    let feedback = FeedbackCenter() // haptics, sounds, banners, made/missed: SessionModel+Feedback
 
     /// The recommended shot, solved and ready for the overlay: how to make
     /// the ball the player picked. Nil when there is nothing to show.
@@ -691,8 +692,7 @@ final class SessionModel {
     /// layout actually changed. The same value type runs under
     /// SessionReplay, so what the replay judges is what ships. Guide speed
     /// is pushed in by `applySettings` (SessionModel+Settings).
-    @ObservationIgnored var shotPlanner = ShotPlanner(solver: AnalyticSolver(),
-                                                      guideSpeed: SettingsModel.defaultGuideSpeed)
+    @ObservationIgnored var shotPlanner = ShotPlanner(solver: AnalyticSolver(), guideSpeed: SettingsModel.defaultGuideSpeed)
     /// Monotonic seconds for the stick-aim hold — the same time base as
     /// ARFrame.timestamp (system uptime). Injectable so a test or replay
     /// harness can drive the hold from recorded time instead of the wall.
@@ -879,7 +879,7 @@ extension SessionModel {
         // at SwiftLint's cyclomatic ceiling, and every new command set
         // added as another branch pushes it further past.
         let handlers = [handleCalibrationMirrorCommand, handleShotSelectionMirrorCommand,
-                        handleSpeechMirrorCommand, handleUIMirrorCommand]
+                        handleSpeechMirrorCommand, handleUIMirrorCommand, handleFeedbackMirrorCommand]
         for handler in handlers where handler(params) { return }
         switch params["action"] {
         case "resetTracking":

@@ -51,12 +51,16 @@ extension SessionModel {
                              config: settings.skillLevel.rankingConfig)
         presentation.noteShot(activeShot, at: clock())
         refreshTargetOverlay()
+        // Every tracked frame goes past the made / missed detector
+        // (SessionModel+Feedback).
+        noteShotFrame(state)
         // The offered shot may have changed, which is the one thing the
         // voice most wants to announce (SessionModel+Speech).
         narrateIfNeeded()
     }
 
     func clearRanking() {
+        feedback.resetShotTracking()
         shotSelection.clear()
         presentation.noteShot(nil, at: clock())
         targetOverlay = nil

@@ -90,7 +90,8 @@ struct CalibrationOverlayView: View {
                 // sat underneath the toolbar and could not be tapped.
                 .padding(.bottom, hudBottomInset + 16)
         }
-        .sensoryFeedback(.success, trigger: model.calibration.isLocked)
+        // The lock haptic lives in FeedbackCenter: this overlay unmounts at
+        // the moment of locking, so a modifier here never got to fire it.
     }
 
     // MARK: - Input
