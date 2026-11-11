@@ -67,6 +67,9 @@ extension SessionModel {
                         "rawX": r(raw.x), "rawZ": r(raw.z)]
             }
         }
+        if placement.sizeFromBalls == nil, !placement.sizeCheckRays.isEmpty {
+            noteSizeFromBalls(rays: placement.sizeCheckRays)
+        }
         if let verdict = placement.sizeFromBalls {
             state["sizeFromBalls"] = verdict.summary
         }
@@ -84,6 +87,7 @@ extension SessionModel {
     /// calibration: the pocket rays give the cloth depth each standard size
     /// implies; the balls' apparent size gives the real depth.
     func noteSizeFromBalls(rays: [(pocket: PocketID, ray: TapRay)]) {
+        placement.sizeCheckRays = rays
         guard let plane = estimateClothPlane(), let camera = rays.first?.ray.origin else {
             placement.sizeFromBalls = nil
             return

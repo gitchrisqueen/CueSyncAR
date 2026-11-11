@@ -70,6 +70,10 @@ final class CalibrationPlacement {
     /// (TableSpace.TableSizeFromBalls). Kept here because SessionModel has
     /// no room for another stored property.
     var sizeFromBalls: TableSizeFromBalls?
+    /// The pocket rays that check was (or will be) made against: kept so
+    /// it can run once balls have been seen, which on a fresh launch is
+    /// usually a few seconds AFTER the lock.
+    var sizeCheckRays: [(pocket: PocketID, ray: TapRay)] = []
 
     /// The cloth height every corner in the current flow was placed
     /// against, frozen at the first tap.
