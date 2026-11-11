@@ -51,14 +51,21 @@ public struct TableSizeFromBalls: Sendable, Equatable {
     ///   - ballSpread: spread (half IQR) of that measurement, metres.
     ///   - solvedHeights: cloth height the pocket rays imply for each
     ///     candidate size (`PocketCalibration.solveHeight`).
+    ///   - sightingsAboveCloth: how far above the cloth the sighted points
+    ///     lie. `solvedHeights` are the heights of the plane through the
+    ///     SIGHTINGS, so the balls must be compared at that same level:
+    ///     cushion-nose sightings (PocketSnap) sit 36.3 mm above the cloth,
+    ///     and comparing them with the cloth itself biased the implied
+    ///     length about 6 % large at this table's 0.58 m depth.
     /// - Returns: nil when there is nothing to compare (no candidates, or
     ///   a cloth that is not below the camera).
     public static func classify(cameraHeight: Double,
                                 ballClothHeight: Double,
                                 ballSpread: Double,
-                                solvedHeights: [(size: TableSize, height: Double)])
+                                solvedHeights: [(size: TableSize, height: Double)],
+                                sightingsAboveCloth: Double = 0)
     -> TableSizeFromBalls? {
-        let ballDepth = cameraHeight - ballClothHeight
+        let ballDepth = cameraHeight - (ballClothHeight + sightingsAboveCloth)
         guard ballDepth > 0.05 else { return nil }
         let implied = solvedHeights.compactMap { entry -> Double? in
             let depth = cameraHeight - entry.height

@@ -193,7 +193,12 @@ public struct PocketSightingFlow: Sendable, Equatable {
                 : "Tap the middle of the table so it knows which side the cloth is"
         case .ready:
             let named = sightings.map(\.pocket.rawValue).joined(separator: ", ")
-            return "Ready — \(sightings.count) pocket\(sightings.count == 1 ? "" : "s") (\(named))"
+            let ready = "Ready — \(sightings.count) pocket\(sightings.count == 1 ? "" : "s") (\(named))"
+            // All six is the accurate setup: the side pockets let a bad
+            // tap be found and left out, and the table's tilt be measured.
+            let distinct = Set(sightings.map(\.pocket)).count
+            return distinct >= Self.minimumPockets && distinct < PocketID.allCases.count
+                ? ready + ". Tap all six for the best fit." : ready
         }
     }
 }

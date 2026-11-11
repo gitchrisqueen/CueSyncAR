@@ -61,6 +61,15 @@ extension SessionModel {
             showTapFeedback("No AR session to calibrate in")
             return false
         }
+        // Four or more pockets: snapped to the cushion noses in the camera
+        // image, fitted with the plane's tilt free, and sized from the
+        // image (SessionModel+PocketSnap). The flat path below stays for
+        // an explicit `h`, the one-pocket-and-rail fallback and two or
+        // three pockets, which may all lie on one rail.
+        if planeHeight == nil, alongRail == nil, Set(sightings.map(\.0)).count >= 4 {
+            return calibrateFromPocketRays(sightings, size: size, coordinator: coordinator,
+                                           lockAfterProposing: lockAfterProposing)
+        }
         // THE TAPS DECIDE THE HEIGHT, not the balls.
         //
         // Two or more pockets and a known table size determine the plane
@@ -151,52 +160,13 @@ extension SessionModel {
                 notePocketFit(refusal)
                 return false
             }
-            // Propose, do not restore. `.cornersProposed` only fires from
-            // `.planeFound`, so the reset has to walk back through it.
-            // `preferredSize` is set FIRST because `.lockRequested`
-            // re-derives the size from these corners and would otherwise be
-            // free to snap to a different standard one.
-            calibration.handle(.resetRequested)
-            calibration.handle(.planeDetected)
-            calibration.preferredSize = size
-            // Record where the height came from BEFORE proposing, so a
-            // calibration built on 7 mm of pocket geometry never again
-            // reads the same as one built on nothing.
-            placement.adopt(height: height, source: solvedHeight.map {
+            let heightSource: CalibrationHeightSource = solvedHeight.map {
                 .pocketGeometry(spans: $0.spanCount,
                                 residualMillimetres: Int(($0.residual * 1000).rounded()))
-            } ?? (ballHeight != nil ? currentClothHeight().source : .unconstrained))
-            calibration.handle(.cornersProposed(solution.calibration.worldCorners))
-            if lockAfterProposing {
-                guard requestCalibrationLock(), let locked = tableCalibration else {
-                    let reason = calibration.lastError
-                        .map { Self.lockRefusalText($0) } ?? "unknown reason"
-                    showRemoteFeedback("Pocket fit would not lock — \(reason)")
-                    return false
-                }
-                // `requestCalibrationLock` deliberately does not anchor or
-                // persist — the AR layer owns that, because it is the one
-                // holding the coordinator. The mirror route has no AR layer
-                // above it, so it does the same work here.
-                if let anchorTransform = lockAnchorTransform {
-                    persistCalibration(locked, anchorTransform: anchorTransform)
-                }
-                restartPipelineForCalibrationChange()
-                startLiveTrackingIfReady()
-            } else {
-                // Leave it in `.adjusting` with the overlay up: four
-                // draggable handles over a table the solver already found,
-                // which is the correction step the old route skipped.
-                // CHECK that the propose actually landed. The transition
-                // walks three events, and if any is refused the user is left
-                // staring at an unchanged screen with a success toast --
-                // which is what "Find my table does not work" looked like.
-                guard case .adjusting = calibration.state else {
-                    showRemoteFeedback("The fit did not take - the flow was not "
-                                       + "ready. Tap Set up table first.")
-                    return false
-                }
-                calibrationVisible = true
+            } ?? (ballHeight != nil ? currentClothHeight().source : .unconstrained)
+            guard commitPocketTable(solution.calibration.worldCorners, size: size, height: height,
+                                    source: heightSource, lockAfterProposing: lockAfterProposing) else {
+                return false
             }
             // The residual is the whole point of reporting rather than
             // just succeeding: a rigid fit always returns a table, and
@@ -231,6 +201,57 @@ extension SessionModel {
 }
 
 extension SessionModel {
+
+    /// Propose (and with `lockAfterProposing`, lock) a table fitted from
+    /// pockets. Shared by the flat and the snapped-and-tilted paths.
+    func commitPocketTable(_ corners: [Vec3], size: TableSize, height: Double,
+                           source: CalibrationHeightSource, lockAfterProposing: Bool) -> Bool {
+        // Propose, do not restore. `.cornersProposed` only fires from
+        // `.planeFound`, so the reset has to walk back through it.
+        // `preferredSize` is set FIRST because `.lockRequested`
+        // re-derives the size from these corners and would otherwise be
+        // free to snap to a different standard one.
+        calibration.handle(.resetRequested)
+        calibration.handle(.planeDetected)
+        calibration.preferredSize = size
+        // Record where the height came from BEFORE proposing, so a
+        // calibration built on 7 mm of pocket geometry never again
+        // reads the same as one built on nothing.
+        placement.adopt(height: height, source: source)
+        calibration.handle(.cornersProposed(corners))
+        if lockAfterProposing {
+            guard requestCalibrationLock(), let locked = tableCalibration else {
+                let reason = calibration.lastError
+                    .map { Self.lockRefusalText($0) } ?? "unknown reason"
+                showRemoteFeedback("Pocket fit would not lock — \(reason)")
+                return false
+            }
+            // `requestCalibrationLock` deliberately does not anchor or
+            // persist — the AR layer owns that, because it is the one
+            // holding the coordinator. The mirror route has no AR layer
+            // above it, so it does the same work here.
+            if let anchorTransform = lockAnchorTransform {
+                persistCalibration(locked, anchorTransform: anchorTransform)
+            }
+            restartPipelineForCalibrationChange()
+            startLiveTrackingIfReady()
+        } else {
+            // Leave it in `.adjusting` with the overlay up: four
+            // draggable handles over a table the solver already found,
+            // which is the correction step the old route skipped.
+            // CHECK that the propose actually landed. The transition
+            // walks three events, and if any is refused the user is left
+            // staring at an unchanged screen with a success toast --
+            // which is what "Find my table does not work" looked like.
+            guard case .adjusting = calibration.state else {
+                showRemoteFeedback("The fit did not take - the flow was not "
+                                   + "ready. Tap Set up table first.")
+                return false
+            }
+            calibrationVisible = true
+        }
+        return true
+    }
 
     /// The cloth height the tapped pockets imply, or nil when they cannot
     /// say (fewer than two distinct pockets, or rays too alike to pin a
@@ -420,8 +441,14 @@ extension SessionModel {
             }
             rail = (CGPoint(x: parts[0], y: parts[1]), CGPoint(x: parts[2], y: parts[3]))
         }
-        calibrateFromPockets(sightings, towards: towards, alongRail: rail, size: size,
-                             planeHeight: params["h"].flatMap(Double.init))
+        // A fresh camera frame first, so the taps can be snapped in it.
+        Task { [weak self] in
+            await self?.prefetchSnapFrame()
+            self?.calibrateFromPockets(sightings, towards: towards, alongRail: rail, size: size,
+                                       planeHeight: params["h"].flatMap(Double.init))
+            // Tracking resumes on the old table if this one was refused.
+            self?.startLiveTrackingIfReady()
+        }
         return true
     }
 
@@ -460,11 +487,15 @@ extension SessionModel {
         calibrationVisible = true
         noteCalibrationStarted()
         showTapFeedback(pocketFlow.prompt)
+        // A camera frame to snap the taps in, ready by the time they are made.
+        Task { [weak self] in await self?.prefetchSnapFrame() }
     }
 
     func cancelPocketSighting() {
         pocketSightingActive = false
         pocketFlow.reset()
+        // Sighting stopped the pipeline to read a camera frame.
+        startLiveTrackingIfReady()
     }
 
     /// Arm which pocket the next tap means. The user names the pocket

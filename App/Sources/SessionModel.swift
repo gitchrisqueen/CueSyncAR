@@ -514,7 +514,7 @@ final class SessionModel {
     @ObservationIgnored private var statesTask: Task<Void, Never>?
     /// Bundled on-device detector (M2-01/02); nil when the compiled model
     /// resource is missing (e.g. simulator-only CI builds).
-    @ObservationIgnored private var onDeviceProvider: (any DetectionProviding)?
+    @ObservationIgnored var onDeviceProvider: (any DetectionProviding)?
     /// True when live tracking runs on the bundled Core ML model rather
     /// than the hosted evaluation API.
     private(set) var usingOnDeviceDetection = false

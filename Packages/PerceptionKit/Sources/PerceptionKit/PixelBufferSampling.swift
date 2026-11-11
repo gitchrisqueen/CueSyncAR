@@ -22,6 +22,7 @@
 
 import CueSyncCore
 import Foundation
+import TableSpace
 
 #if canImport(CoreVideo)
 @preconcurrency import CoreVideo
@@ -42,6 +43,44 @@ extension PixelBufferImage {
         defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
         guard let reader = PixelBufferReader(locked: pixelBuffer) else { return nil }
         return try body(reader)
+    }
+}
+
+extension PixelBufferImage {
+    /// The buffer's luminance as a plain 8-bit image (TableSpace.LumaImage),
+    /// for the pure image analysis that refines pocket taps. The Y plane is
+    /// copied row by row; BGRA is converted with BT.601 weights. Nil for
+    /// formats this does not understand.
+    public func lumaImage() -> LumaImage? {
+        let format = CVPixelBufferGetPixelFormatType(pixelBuffer)
+        guard PixelBufferReader.supports(format) else { return nil }
+        CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        guard width > 0, height > 0 else { return nil }
+        var pixels = [UInt8](repeating: 0, count: width * height)
+        if format == kCVPixelFormatType_32BGRA {
+            guard let base = CVPixelBufferGetBaseAddress(pixelBuffer) else { return nil }
+            let row = CVPixelBufferGetBytesPerRow(pixelBuffer)
+            for y in 0..<height {
+                let line = base.advanced(by: y * row).assumingMemoryBound(to: UInt8.self)
+                for x in 0..<width {
+                    let b = Double(line[x * 4]), g = Double(line[x * 4 + 1]), r = Double(line[x * 4 + 2])
+                    pixels[y * width + x] = UInt8(min(255, (0.299 * r + 0.587 * g + 0.114 * b).rounded()))
+                }
+            }
+        } else {
+            guard let luma = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0) else { return nil }
+            let row = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0)
+            pixels.withUnsafeMutableBytes { destination in
+                for y in 0..<height {
+                    destination.baseAddress!.advanced(by: y * width)
+                        .copyMemory(from: luma.advanced(by: y * row), byteCount: width)
+                }
+            }
+        }
+        return LumaImage(width: width, height: height, pixels: pixels)
     }
 }
 

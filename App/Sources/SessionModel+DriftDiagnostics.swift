@@ -68,11 +68,17 @@ extension SessionModel {
             }
         }
         if placement.sizeFromBalls == nil, !placement.sizeCheckRays.isEmpty {
-            noteSizeFromBalls(rays: placement.sizeCheckRays)
+            noteSizeFromBalls(rays: placement.sizeCheckRays, sightingsAboveCloth: placement.sizeCheckAboveCloth)
         }
         if let verdict = placement.sizeFromBalls {
             state["sizeFromBalls"] = verdict.summary
         }
+        // The size check that decides (TableSizeFromImage), what was done
+        // with it, and how each pocket tap was refined (PocketSnap).
+        if let estimate = placement.sizeFromImage { state["sizeFromImage"] = estimate.summary }
+        if let status = placement.sizeStatus { state["sizeStatus"] = status }
+        if !placement.pocketSnap.isEmpty { state["pocketSnap"] = placement.pocketSnap }
+        if let detail = placement.pocketFitDetail { state["pocketFitDetail"] = detail }
         return state
     }
 
@@ -86,8 +92,9 @@ extension SessionModel {
     /// Measure the table size with the balls as a ruler, after a pocket
     /// calibration: the pocket rays give the cloth depth each standard size
     /// implies; the balls' apparent size gives the real depth.
-    func noteSizeFromBalls(rays: [(pocket: PocketID, ray: TapRay)]) {
+    func noteSizeFromBalls(rays: [(pocket: PocketID, ray: TapRay)], sightingsAboveCloth: Double = 0) {
         placement.sizeCheckRays = rays
+        placement.sizeCheckAboveCloth = sightingsAboveCloth
         guard let plane = estimateClothPlane(), let camera = rays.first?.ray.origin else {
             placement.sizeFromBalls = nil
             return
@@ -97,7 +104,7 @@ extension SessionModel {
         }
         placement.sizeFromBalls = TableSizeFromBalls.classify(
             cameraHeight: camera.y, ballClothHeight: plane.height,
-            ballSpread: plane.spread, solvedHeights: solved)
+            ballSpread: plane.spread, solvedHeights: solved, sightingsAboveCloth: sightingsAboveCloth)
         if let verdict = placement.sizeFromBalls {
             Self.log.notice("table size: \(verdict.summary, privacy: .public)")
         }

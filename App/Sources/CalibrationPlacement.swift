@@ -74,6 +74,19 @@ final class CalibrationPlacement {
     /// it can run once balls have been seen, which on a fresh launch is
     /// usually a few seconds AFTER the lock.
     var sizeCheckRays: [(pocket: PocketID, ray: TapRay)] = []
+    /// How far above the cloth those rays' sightings were: 0 for the flat
+    /// path, the cushion-nose height for snapped pockets.
+    var sizeCheckAboveCloth = 0.0
+    /// The table size measured in the image with the balls laid across the
+    /// table (TableSpace.TableSizeFromImage), from the last pocket fit.
+    var sizeFromImage: TableSizeFromImage.Estimate?
+    /// What the last pocket fit decided about the size: measured and
+    /// applied, or the user's setting kept and unverified.
+    var sizeStatus: String?
+    /// How each pocket tap was refined in the image (PocketSnap).
+    var pocketSnap: [String: String] = [:]
+    /// The last tilted pocket fit in full: rms, worst, leave-one-out, tilt.
+    var pocketFitDetail: String?
 
     /// The cloth height every corner in the current flow was placed
     /// against, frozen at the first tap.
