@@ -127,6 +127,19 @@ struct TiltedPocketFitTests {
         #expect(pinned.residual > 0.015)
     }
 
+    @Test func noPocketIsDroppedWhenTooLittleWouldBeLeftToCheckIt() throws {
+        // Two along-free near corners: dropping a far corner would leave
+        // eight measured coordinates for six unknowns, so nothing is dropped
+        // even with a far corner 7 cm off. The bad pocket shows in the rms.
+        let table = Self.truth(slopeX: 0.003)
+        let rays = Self.rays(table, offsets: [.cornerBottomRight: Vec2(0.07, -0.04)])
+        let free: Set<PocketID> = [.cornerTopLeft, .cornerBottomLeft]
+        let fit = try PocketCalibration.solveTilted(rays: rays, size: .eightFoot, alongFree: free)
+        #expect(fit.dropped == nil)
+        #expect(fit.pocketCount == 6)
+        #expect(fit.residual > 0.01)
+    }
+
     @Test func rigidFitSlidesOnlyFlaggedPoints() {
         let model = [Vec2(-1, 0.5), Vec2(1, 0.5), Vec2(1, -0.5), Vec2(-1, -0.5)]
         var observed = model

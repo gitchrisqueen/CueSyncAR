@@ -84,8 +84,18 @@ extension PocketCalibration {
         guard unique.count >= 2 else { throw Failure.needTwoPockets }
         var fit = try bestFit(unique, size: size, alongFree: alongFree)
         fit.leaveOneOut = leaveOneOut(unique, size: size, around: fit, alongFree: alongFree)
+        // Dropping needs redundancy left over: after the drop, at least
+        // three more measured coordinates than the six unknowns (heading,
+        // two position, height, two tilts). An along-free pocket measures
+        // one coordinate, a full one two. Without that margin a dropped
+        // pocket just leaves the rest fitting each other trivially: on
+        // device, five pockets with two along-free "fitted" to 1.2 mm after
+        // dropping a far corner that was in fact fine.
         guard dropOutlier, unique.count >= 6,
               let suspect = fit.leaveOneOut.max(by: { $0.value < $1.value })?.key else { return fit }
+        let measured = unique.filter { $0.pocket != suspect }
+            .reduce(0) { $0 + (alongFree.contains($1.pocket) ? 1 : 2) }
+        guard measured - 6 >= 3 else { return fit }
         // Drop the worst pocket only when the other five then agree far
         // better than the six did, and it is centimetres off their table.
         let rest = unique.filter { $0.pocket != suspect }
