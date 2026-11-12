@@ -137,6 +137,14 @@ public enum OverlayStyle {
 
     /// The ghost ball of the recommended shot.
     public static let targetGhostOpacity = 0.5
+    /// Opacity of the live aim's ghost ball, and of the pockets it ends in.
+    public static let liveGhostOpacity = 0.35
+    public static let liveFlatMarkerOpacity = 0.5
+
+    /// How far a flat marker (ring, called pocket) floats above the cloth,
+    /// and how thick a called-pocket disc is.
+    public static let markerLift = 0.002
+    public static let markerThickness = 0.004
 
     /// The opacity of the whole overlay layer given the HUD's confidence
     /// (`HUDStatus.overlayOpacity`): clamped, so a stray value can neither

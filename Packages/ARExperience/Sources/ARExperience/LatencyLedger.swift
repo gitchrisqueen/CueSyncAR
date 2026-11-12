@@ -10,7 +10,9 @@
 //    captured  the camera's own timestamp for the frame
 //    delivered ARKit called the session delegate with it
 //    received  the AR loop got it back from `nextFrame()` on the main actor
+//    ingested  the task that hands it to the pipeline began to run
 //    produced  the perception pipeline yielded the output for it
+//    consumed  the task reading the pipeline's output stream got it
 //    arrived   the main actor began handling that output
 //    drawn     the overlay for it was composed and handed to the renderer
 //
@@ -19,13 +21,22 @@
 //    deliver   captured  -> delivered   ARKit's own delay; not ours to change
 //    resume    delivered -> received    waiting for the main actor to resume
 //                                       the loop
-//    pipeline  received  -> produced    queueing + detect + project + track
-//    hop       produced  -> arrived     waiting for the main actor to start
+//    ingest    received  -> ingested    the frame waiting for the main actor
+//                                       to run the loop's tail and then the
+//                                       ingest task (0 when ingest does not
+//                                       use the main actor)
+//    pipeline  ingested  -> produced    the pipeline actor's wait, the
+//                                       change gate, detect, project, track,
+//                                       appearance
+//    stream    produced  -> consumed    the output stream's hand-over to the
+//                                       task that reads it (off the main
+//                                       actor)
+//    hop       consumed  -> arrived     waiting for the main actor to start
 //                                       the output handler
 //    wait      arrived   -> drawn start the handler's own work, then waiting
 //                                       for the draw to run
-//    render    drawn start -> drawn end composing the layout and the entity
-//                                       swap (RealityKit's display frame
+//    render    drawn start -> drawn end composing the layout and the scene
+//                                       update (RealityKit's display frame
 //                                       after that is not visible to the app)
 //
 //  They sum to `total` exactly, by construction, so a stage cannot be
@@ -40,23 +51,25 @@
 import Foundation
 
 public struct LatencyStages: Sendable, Equatable {
-    public static let names = ["deliver", "resume", "pipeline", "hop", "wait", "render"]
+    public static let names = ["deliver", "resume", "ingest", "pipeline", "stream", "hop", "wait", "render"]
 
     /// Milliseconds.
     public var deliver: Double
     public var resume: Double
+    public var ingest: Double
     public var pipeline: Double
+    public var stream: Double
     public var hop: Double
     public var wait: Double
     public var render: Double
 
     /// Camera timestamp to the end of the draw, in milliseconds: the sum of
     /// the stages, which is also `drawnEnd - captured`.
-    public var total: Double { deliver + resume + pipeline + hop + wait + render }
+    public var total: Double { deliver + resume + ingest + pipeline + stream + hop + wait + render }
 
     public var byName: [String: Double] {
-        ["deliver": deliver, "resume": resume, "pipeline": pipeline,
-         "hop": hop, "wait": wait, "render": render, "total": total]
+        ["deliver": deliver, "resume": resume, "ingest": ingest, "pipeline": pipeline,
+         "stream": stream, "hop": hop, "wait": wait, "render": render, "total": total]
     }
 
     /// The stages for one frame, from its stamps in seconds.
@@ -65,16 +78,19 @@ public struct LatencyStages: Sendable, Equatable {
     /// clocks, a stamp from another frame, or a clock that stepped. A wrong
     /// number is worse than none, because someone will quote it.
     public init?(captured: TimeInterval, delivered: TimeInterval, received: TimeInterval,
-                 produced: TimeInterval, arrived: TimeInterval,
-                 drawStart: TimeInterval, drawEnd: TimeInterval) {
-        let stamps = [captured, delivered, received, produced, arrived, drawStart, drawEnd]
+                 ingested: TimeInterval, produced: TimeInterval, consumed: TimeInterval,
+                 arrived: TimeInterval, drawStart: TimeInterval, drawEnd: TimeInterval) {
+        let stamps = [captured, delivered, received, ingested, produced, consumed,
+                      arrived, drawStart, drawEnd]
         guard stamps.allSatisfy(\.isFinite) else { return nil }
         for (earlier, later) in zip(stamps, stamps.dropFirst()) where later < earlier { return nil }
         guard drawEnd - captured < 10 else { return nil }
         deliver = (delivered - captured) * 1000
         resume = (received - delivered) * 1000
-        pipeline = (produced - received) * 1000
-        hop = (arrived - produced) * 1000
+        ingest = (ingested - received) * 1000
+        pipeline = (produced - ingested) * 1000
+        stream = (consumed - produced) * 1000
+        hop = (arrived - consumed) * 1000
         wait = (drawStart - arrived) * 1000
         render = (drawEnd - drawStart) * 1000
     }
@@ -97,13 +113,17 @@ public final class LatencyLedger: @unchecked Sendable {
         var captured: TimeInterval
         var delivered: TimeInterval?
         var received: TimeInterval?
+        var ingested: TimeInterval?
+        var consumed: TimeInterval?
     }
 
     private struct Arrival {
         var captured: TimeInterval
         var delivered: TimeInterval
         var received: TimeInterval
+        var ingested: TimeInterval
         var produced: TimeInterval
+        var consumed: TimeInterval
         var arrived: TimeInterval
     }
 
@@ -132,6 +152,22 @@ public final class LatencyLedger: @unchecked Sendable {
         }
     }
 
+    /// The task that hands the frame to the pipeline began to run.
+    public func noteIngested(captured: TimeInterval, at now: TimeInterval) {
+        lock.lock(); defer { lock.unlock() }
+        if let index = inFlight.lastIndex(where: { $0.captured == captured }) {
+            inFlight[index].ingested = now
+        }
+    }
+
+    /// The task reading the pipeline's output stream got the output.
+    public func noteConsumed(captured: TimeInterval, at now: TimeInterval) {
+        lock.lock(); defer { lock.unlock() }
+        if let index = inFlight.lastIndex(where: { $0.captured == captured }) {
+            inFlight[index].consumed = now
+        }
+    }
+
     /// The main actor began handling the pipeline's output for the frame.
     /// `produced` is the pipeline's own stamp for yielding it; nil (a replay,
     /// an older pipeline) counts the frame as incomplete.
@@ -139,7 +175,8 @@ public final class LatencyLedger: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         guard let produced,
               let entry = inFlight.last(where: { $0.captured == captured }),
-              let delivered = entry.delivered, let received = entry.received else {
+              let delivered = entry.delivered, let received = entry.received,
+              let ingested = entry.ingested, let consumed = entry.consumed else {
             incompleteCount += 1
             return
         }
@@ -148,7 +185,7 @@ public final class LatencyLedger: @unchecked Sendable {
         // honest about what the player actually saw.
         if latest != nil { supersededCount += 1 }
         latest = Arrival(captured: captured, delivered: delivered, received: received,
-                         produced: produced, arrived: now)
+                         ingested: ingested, produced: produced, consumed: consumed, arrived: now)
     }
 
     /// The overlay for the newest arrived output was drawn (or found to need
@@ -158,7 +195,8 @@ public final class LatencyLedger: @unchecked Sendable {
         guard let arrival = latest else { return }
         latest = nil
         guard let stages = LatencyStages(captured: arrival.captured, delivered: arrival.delivered,
-                                         received: arrival.received, produced: arrival.produced,
+                                         received: arrival.received, ingested: arrival.ingested,
+                                         produced: arrival.produced, consumed: arrival.consumed,
                                          arrived: arrival.arrived, drawStart: start, drawEnd: end) else {
             rejectedCount += 1
             return

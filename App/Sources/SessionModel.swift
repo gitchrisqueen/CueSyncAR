@@ -579,12 +579,12 @@ final class SessionModel {
         // Spatial overlays take over — stale 2D preview boxes would linger
         // frozen over the camera otherwise.
         detectionPreview.clearPreviewOutput()
-        statesTask = Task { [weak self] in
+        statesTask = Task.detached { [weak self] in
             var outputCount = 0
             for await output in await newPipeline.outputs {
-                outputCount += 1
+                outputCount += 1; Self.noteConsumed(output)
                 let count = outputCount
-                await MainActor.run {
+                await MainActor.run { [weak self] in
                     guard let self else { return }; Self.noteArrival(output)
                     // Colour first, cue designation last: the player's
                     // tap and the detector's own white-ball class both
@@ -670,7 +670,7 @@ final class SessionModel {
         if !usingOnDeviceDetection {
             guard trackingIngestThrottle.admit(at: frame.timestamp) else { return }
         }
-        Task { await pipeline.ingest(frame, tableAnchorTransform: tableAnchorTransform) }
+        Self.handToPipeline(pipeline, frame: frame, anchor: tableAnchorTransform)
     }
 
     /// Recompute the aim ray + shot prediction + coaching guide (called at

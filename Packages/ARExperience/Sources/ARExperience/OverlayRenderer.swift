@@ -20,15 +20,20 @@ import UIKit
 import os
 
 /// Renders OverlayLayout as RealityKit entities under a single root anchor.
-/// Entities are rebuilt per prediction update; strip/marker counts are small
-/// (≤ maxEvents), so churn is negligible.
+///
+/// The scene is a POOL, not a rebuild. `layout.primitives` is diffed against
+/// what is already drawn (`OverlayDiff`): a primitive that is the same thing
+/// in nearly the same place is left alone, one that moved gets its transform
+/// set, and only a new one or one that looks different is built. Meshes are
+/// unit shapes shared by every entity and sized by scale, so no render
+/// generates a mesh except the first of each ring radius. A render of a layout
+/// that differs from the last only by sub-millimetre jitter touches nothing.
 ///
 /// Content lives in three groups under that root so the suggested shot can
 /// cross-fade without disturbing anything else:
-///   - `staticGroup`: rings, the live aim, the called pocket. Rebuilt on
-///     every layout change.
+///   - `staticGroup`: rings, the live aim, the called pocket.
 ///   - `heroGroup`: the suggested shot (hero line, pocket ring, target ghost,
-///     the ring on the target ball). Rebuilt in place while the suggestion
+///     the ring on the target ball). Updated in place while the suggestion
 ///     is the same, retired to `outgoingGroup` when it changes.
 ///   - `outgoingGroup`: the previous suggestion, fading out.
 /// The timing is `HeroTransition`'s; this class only applies it.
@@ -42,9 +47,6 @@ public final class OverlayRenderer {
     private let corrected: Entity?
     /// Whether this renderer was built for the parked-hold corrected world.
     public var isWorldCorrected: Bool { corrected != nil }
-    /// Strip thickness (m) and lift above the cloth to avoid z-fighting.
-    private static let stripWidth = 0.008
-    private static let stripLift = 0.002
     private static let log = Logger(subsystem: "com.cuesync.ar", category: "overlay")
     /// Design palette for people; the metric palette (opaque, colour-
     /// keyable — see MetricPalette) while a session is being recorded.
@@ -53,6 +55,8 @@ public final class OverlayRenderer {
     /// The markers of the layout most recently rendered, in placement
     /// order — what a projection snapshot asks `arView.project` about.
     public private(set) var renderedMarkers: [RenderedMarker] = []
+    /// What the renders have done to the scene, for the mirror.
+    public private(set) var stats = OverlayRenderStats()
     /// How much of the overlay layer shows, 0...1 (`HUDStatus.overlayOpacity`:
     /// 05-UX-DESIGN "confidence honesty"). Applied to the whole layer, so a
     /// guide on a table ARKit has lost fades instead of staying at full
@@ -70,25 +74,21 @@ public final class OverlayRenderer {
     private var transition = HeroTransition()
     private var pocketRing: ModelEntity?
     private var animationTask: Task<Void, Never>?
-    /// Ring meshes by (inner, outer) radius in micrometres: the same few
-    /// sizes are needed on every render.
-    private var ringMeshes: [RingKey: MeshResource] = [:]
-    private var failedRings: Set<RingKey> = []
 
-    private struct RingKey: Hashable {
-        var inner: Int
-        var outer: Int
+    /// One drawn primitive: its entity, and the primitive it was last set to.
+    /// A kept primitive keeps its OLD value, so the tolerance is measured
+    /// against what is on screen and a slow drift adds up.
+    private struct Drawn {
+        var entity: ModelEntity
+        var primitive: OverlayPrimitive
     }
 
-    /// Everything a ring needs: its radii (m), colour token, opacity, and the
-    /// colour it takes in the metric palette.
-    private struct RingStyle {
-        var inner: Double
-        var outer: Double
-        var color: UInt32
-        var opacity: Double
-        var metricMarker: MetricPalette.Marker
-    }
+    private var drawn: [String: Drawn] = [:]
+    /// Whether what is drawn was built for the metric palette.
+    private var drawnMetric = false
+    /// Unit meshes by shape, built once and shared.
+    private var meshes: [OverlayPrimitive.Shape: MeshResource] = [:]
+    private var failedShapes: Set<OverlayPrimitive.Shape> = []
 
     /// Root under the table's ARAnchor when one exists — anchored content
     /// follows ARKit's refinements; identity-world content drifts (anchor
@@ -107,7 +107,7 @@ public final class OverlayRenderer {
             corrected = nil
         }
         // The groups carry no transform of their own, so a child's world
-        // position is the one `place` set, whichever group holds it.
+        // position is the one set on it, whichever group holds it.
         for group in [staticGroup, heroGroup, outgoingGroup] {
             (corrected ?? root).addChild(group)
         }
@@ -127,224 +127,145 @@ public final class OverlayRenderer {
         corrected.setTransformMatrix(matrix, relativeTo: nil)
     }
 
-    /// A layout world point lifted off the cloth. Entities are positioned in
-    /// true WORLD space (`setPosition(relativeTo: nil)`), so RealityKit
-    /// resolves the anchor-local transform itself — correct for ANY anchor
-    /// rotation. The old `world − rootOrigin` translation shortcut assumed
-    /// the anchor had identity yaw; that holds at a fresh corner-lock but
-    /// NOT after relocalization, where the restored anchor carries the
-    /// session's arbitrary yaw and RealityKit re-applied it to every child,
-    /// rotating the whole overlay about the table center (the "floating off
-    /// the cloth after relaunch" bug).
-    private func worldPoint(_ world: Vec3, lift: Double) -> SIMD3<Float> {
-        SIMD3<Float>(Float(world.x), Float(world.y + lift), Float(world.z))
-    }
-
-    /// Parent to a group under the anchored root, THEN set the world
-    /// position — parenting first lets RealityKit resolve world→anchor-local
-    /// against the current anchor transform.
-    private func place(_ entity: Entity, at world: SIMD3<Float>, in group: Entity) {
-        // Parked hold: positions are in the corrected world, i.e. relative
-        // to the corrected frame entity.
-        group.addChild(entity)
-        entity.setPosition(world, relativeTo: corrected)
-    }
-
     private func applyLayerOpacity() {
         let value = paletteMode == .metric ? 1 : OverlayStyle.layerOpacity(confidence: overlayOpacity)
         root.components.set(OpacityComponent(opacity: Float(value)))
     }
 
-    /// A flat ring around `position`: the shape every marker on the cloth
-    /// uses now, in place of the filled discs that covered the balls.
-    private func ringEntity(_ style: RingStyle, metric: Bool) -> ModelEntity? {
-        guard let mesh = ringMesh(inner: style.inner, outer: style.outer) else { return nil }
+    // MARK: Meshes and entities
+
+    /// The unit mesh for a shape, built once. A ring that cannot be built is
+    /// a marker the player asked for and does not get: that is logged, once
+    /// per size, and the ring is left out.
+    private func mesh(for shape: OverlayPrimitive.Shape) -> MeshResource? {
+        if let cached = meshes[shape] { return cached }
+        let built: MeshResource
+        switch shape {
+        case .box:
+            built = MeshResource.generateBox(size: 1)
+        case .sphere:
+            built = MeshResource.generateSphere(radius: 1)
+        case .disc:
+            built = MeshResource.generateCylinder(height: 1, radius: 1)
+        case let .ring(inner, outer):
+            guard !failedShapes.contains(shape) else { return nil }
+            let ring = RingMesh(innerRadius: Double(inner) / 1e6, outerRadius: Double(outer) / 1e6)
+            var descriptor = MeshDescriptor(name: "ring")
+            descriptor.positions = MeshBuffers.Positions(ring.points.map { SIMD3<Float>($0.x, $0.y, $0.z) })
+            descriptor.primitives = .triangles(ring.indices)
+            do {
+                built = try MeshResource.generate(from: [descriptor])
+            } catch {
+                failedShapes.insert(shape)
+                let reason = error.localizedDescription
+                let size = "\(inner)-\(outer) um"
+                Self.log.error("ring \(size, privacy: .public) failed: \(reason, privacy: .public)")
+                return nil
+            }
+        }
+        meshes[shape] = built
+        return built
+    }
+
+    private func makeEntity(_ primitive: OverlayPrimitive, metric: Bool) -> ModelEntity? {
+        guard let mesh = mesh(for: primitive.look.shape) else { return nil }
         var material = UnlitMaterial(color: uiColor(
-            from: metric ? MetricPalette.color(for: style.metricMarker) : style.color))
+            from: metric ? MetricPalette.color(for: primitive.look.metricMarker) : primitive.look.colour))
         material.blending = metric ? .opaque
-            : .transparent(opacity: .init(floatLiteral: Float(style.opacity)))
+            : .transparent(opacity: .init(floatLiteral: Float(primitive.look.opacity)))
         return ModelEntity(mesh: mesh, materials: [material])
     }
 
-    private func ringMesh(inner: Double, outer: Double) -> MeshResource? {
-        let key = RingKey(inner: Int((inner * 1e6).rounded()), outer: Int((outer * 1e6).rounded()))
-        if let cached = ringMeshes[key] { return cached }
-        let ring = RingMesh(innerRadius: inner, outerRadius: outer)
-        var descriptor = MeshDescriptor(name: "ring")
-        descriptor.positions = MeshBuffers.Positions(ring.points.map { SIMD3<Float>($0.x, $0.y, $0.z) })
-        descriptor.primitives = .triangles(ring.indices)
-        do {
-            let mesh = try MeshResource.generate(from: [descriptor])
-            ringMeshes[key] = mesh
-            return mesh
-        } catch {
-            // A ring that cannot be built is a marker the player asked for
-            // and does not get: say so, once per size.
-            if failedRings.insert(key).inserted {
-                let reason = error.localizedDescription
-                Self.log.error("ring \(inner, privacy: .public)-\(outer, privacy: .public) m failed: \(reason, privacy: .public)")
-            }
-            return nil
+    /// Put an entity where its primitive says, changing only what differs
+    /// from `previous` (everything, for a new entity).
+    ///
+    /// Positions are in true WORLD space (`setPosition(relativeTo: corrected)`,
+    /// nil in the anchored mode), so RealityKit resolves the anchor-local
+    /// transform itself — correct for ANY anchor rotation. The old
+    /// `world − rootOrigin` shortcut assumed an identity-yaw anchor, which
+    /// does not hold after relocalization (the "floating off the cloth after
+    /// relaunch" bug). The entity is parented BEFORE this is called, so the
+    /// world → local conversion sees the current anchor transform.
+    ///
+    /// A strip's heading is a yaw about the cloth normal rather than
+    /// `simd_quatf(from:to:)`, which is ambiguous for an exactly reversed
+    /// direction. It is set in WORLD space too (earlier it was a table-space
+    /// heading applied in the anchor's local frame, which pointed every strip
+    /// wrong by the table's yaw).
+    private func applyTransform(_ entity: ModelEntity, _ primitive: OverlayPrimitive,
+                                previous: OverlayPrimitive?, normal: Vec3, normalUp: Bool) {
+        entity.setPosition(SIMD3<Float>(Float(primitive.position.x), Float(primitive.position.y),
+                                        Float(primitive.position.z)), relativeTo: corrected)
+        if previous?.scale != primitive.scale {
+            entity.scale = SIMD3<Float>(Float(primitive.scale.x), Float(primitive.scale.y), Float(primitive.scale.z))
         }
+        guard let direction = primitive.heading, previous?.heading != direction else { return }
+        let d = SIMD3<Float>(Float(direction.x), Float(direction.y), Float(direction.z))
+        let n = SIMD3<Float>(Float(normal.x), Float(normal.y), Float(normal.z))
+        let axis = normalUp ? n : -n
+        let reference = SIMD3<Float>(1, 0, 0)
+        let yaw = atan2(simd_dot(simd_cross(reference, d), axis), simd_dot(reference, d))
+        entity.setOrientation(simd_quatf(angle: yaw, axis: axis), relativeTo: corrected)
     }
 
+    private func group(for primitive: OverlayPrimitive) -> Entity {
+        primitive.group == .hero ? heroGroup : staticGroup
+    }
+
+    // MARK: Render
+
     public func render(_ layout: OverlayLayout, planeNormalUp: Bool = true) {
-        staticGroup.children.removeAll()
         renderedMarkers = layout.renderedMarkers
         let metric = paletteMode == .metric
         applyLayerOpacity()
+
+        // The palette changed: nothing built for the other one survives.
+        if metric != drawnMetric {
+            for (_, item) in drawn { item.entity.removeFromParent() }
+            drawn.removeAll()
+            drawnMetric = metric
+        }
 
         // The suggestion changed: park the old hero for its fade-out and
         // start the new one's. Reduce Motion, and the opaque metric palette
         // of a recording, swap instantly.
         let now = ProcessInfo.processInfo.systemUptime
         let reduceMotion = metric || UIAccessibility.isReduceMotionEnabled
-        if transition.note(shot: layout.shotID, at: now, reduceMotion: reduceMotion) {
+        let suggestionChanged = transition.note(shot: layout.shotID, at: now, reduceMotion: reduceMotion)
+        if suggestionChanged {
             outgoingGroup.children.removeAll()
             for child in Array(heroGroup.children) {
                 outgoingGroup.addChild(child, preservingWorldTransform: true)
             }
-        }
-        heroGroup.children.removeAll()
-        pocketRing = nil
-
-        // Rings, never plates: a thin ring that starts outside the ball's
-        // footprint and covers nothing. While a shot is suggested the layout
-        // carries only the cue ball and the target ball; with none, every
-        // tracked ball, so tap-to-designate has something to aim at. White
-        // is the cue ball's, green the target's (OverlayStyle).
-        for ball in layout.balls {
-            let radii = OverlayStyle.ballRing(ballRadius: ball.radius)
-            let involved = ball.isCue || ball.isTarget
-            let color = ball.isCue ? OverlayStyle.cueRingColor
-                : ball.isTarget ? OverlayStyle.targetRingColor : OverlayStyle.ballRingColor
-            let style = RingStyle(
-                inner: radii.inner, outer: radii.outer, color: color,
-                opacity: involved ? OverlayStyle.involvedRingOpacity : OverlayStyle.ballRingOpacity,
-                metricMarker: ball.isCue ? .cueBall : ball.isTarget ? .pocket : .ball)
-            guard let entity = ringEntity(style, metric: metric) else { continue }
-            place(entity, at: worldPoint(ball.position, lift: Self.stripLift),
-                  in: ball.isTarget ? heroGroup : staticGroup)
+            // Those entities now belong to the fade-out, not to the pool.
+            drawn = drawn.filter { $0.value.primitive.group != .hero }
         }
 
-        // Three weights (OverlayStyle): the recommended shot is the hero,
-        // the thickest and fully opaque; the live aim and the cue ball
-        // after contact are thinner and dimmer. The hero is drawn last so
-        // it is never buried under the lines it crosses.
-        func renderStrips(_ strips: [OverlayLayout.Strip], in group: Entity) {
-            for strip in strips {
-                let tier = OverlayStyle.tier(role: strip.role, dashed: strip.dashed)
-                let width = OverlayStyle.width(tier)
-                let mesh = MeshResource.generateBox(
-                    width: Float(strip.length),
-                    height: Float(width / 2),
-                    depth: Float(width))
-                let stripColor = metric
-                    ? MetricPalette.color(for: MetricPalette.stripMarker(forDesignColor: strip.color))
-                    : strip.color
-                var material = UnlitMaterial(color: uiColor(from: stripColor))
-                let opacity = Float(OverlayStyle.opacity(tier))
-                material.blending = metric ? .opaque
-                    : .transparent(opacity: .init(floatLiteral: opacity))
-                let entity = ModelEntity(mesh: mesh, materials: [material])
-                place(entity, at: worldPoint(strip.midpoint, lift: OverlayStyle.lift(tier)), in: group)
-                // Orientation in WORLD space, the same frame as the position
-                // set by `place` above.
-                //
-                // This previously took a TABLE-space heading and applied it
-                // about the anchor's local Y, on the belief that the table
-                // anchor "rotates with the table". It does not: placeTableAnchor
-                // builds it from matrix_identity_float4x4 plus a translation,
-                // so its rotation is identity and nothing mapped table axes to
-                // world axes. Every strip therefore pointed the wrong way by
-                // the table's yaw — a right angle on a table whose long axis
-                // ran along world +z — while its midpoint stayed correct. It is
-                // also what made mid-session anchor rotation spin the strips
-                // about their own midpoints: position was world, orientation
-                // was local. Both are world now.
-                //
-                // Yaw about the cloth normal rather than simd_quatf(from:to:),
-                // which is ambiguous for an exactly-reversed direction.
-                if let direction = strip.direction {
-                    let d = SIMD3<Float>(Float(direction.x), Float(direction.y),
-                                         Float(direction.z))
-                    let n = SIMD3<Float>(Float(layout.planeNormal.x),
-                                         Float(layout.planeNormal.y),
-                                         Float(layout.planeNormal.z))
-                    let axis = planeNormalUp ? n : -n
-                    let reference = SIMD3<Float>(1, 0, 0)
-                    let yaw = atan2(simd_dot(simd_cross(reference, d), axis),
-                                    simd_dot(reference, d))
-                    entity.setOrientation(simd_quatf(angle: yaw, axis: axis),
-                                          relativeTo: corrected)
-                }
-            }
-        }
+        let plan = OverlayDiff.plan(drawn: drawn.mapValues(\.primitive), wanted: layout.primitives)
 
-        renderStrips(layout.strips, in: staticGroup)
-        renderStrips(layout.targetStrips, in: heroGroup)
-
-        if let ghost = layout.ghostBall {
-            let mesh = MeshResource.generateSphere(radius: Float(ghost.radius))
-            var material = UnlitMaterial(color: metric
-                ? uiColor(from: MetricPalette.color(for: .ghostBall)) : .white)
-            material.blending = metric ? .opaque : .transparent(opacity: 0.35)
-            let entity = ModelEntity(mesh: mesh, materials: [material])
-            place(entity, at: worldPoint(ghost.position, lift: ghost.radius), in: staticGroup)
+        for key in plan.remove {
+            drawn.removeValue(forKey: key)?.entity.removeFromParent()
         }
-
-        // Pockets the live aim ends in: a quiet ring at the capture radius,
-        // not the filled disc that spilled over the rail.
-        for pocket in layout.highlightedPockets {
-            let radii = OverlayStyle.pocketRing(captureRadius: pocket.radius)
-            let style = RingStyle(inner: radii.inner, outer: radii.outer,
-                                  color: OverlayStyle.pocketRingColor, opacity: 0.5,
-                                  metricMarker: .pocket)
-            guard let entity = ringEntity(style, metric: metric) else { continue }
-            place(entity, at: worldPoint(pocket.position, lift: Self.stripLift), in: staticGroup)
+        for primitive in plan.build {
+            // A primitive that looks different is a new entity at the same key.
+            drawn.removeValue(forKey: primitive.key)?.entity.removeFromParent()
+            guard let entity = makeEntity(primitive, metric: metric) else { continue }
+            group(for: primitive).addChild(entity)
+            applyTransform(entity, primitive, previous: nil, normal: layout.planeNormal, normalUp: planeNormalUp)
+            drawn[primitive.key] = Drawn(entity: entity, primitive: primitive)
         }
-
-        // Called pocket (M6-02): amber ring while aiming, felt green when
-        // the prediction is on line into it.
-        if let called = layout.calledPocket {
-            let mesh = MeshResource.generateCylinder(height: Float(Self.stripWidth / 2),
-                                                     radius: Float(called.radius))
-            let satisfied = layout.calledPocketSatisfied
-            let color: UInt32 = metric
-                ? MetricPalette.color(for: satisfied ? .calledPocketOnLine : .calledPocket)
-                : (satisfied ? 0x2FA36B : 0xF5A623)
-            var material = UnlitMaterial(color: uiColor(from: color))
-            material.blending = metric ? .opaque : .transparent(opacity: satisfied ? 0.85 : 0.6)
-            let entity = ModelEntity(mesh: mesh, materials: [material])
-            place(entity, at: worldPoint(called.position, lift: Self.stripLift * 2), in: staticGroup)
+        for primitive in plan.move {
+            guard let item = drawn[primitive.key] else { continue }
+            applyTransform(item.entity, primitive, previous: item.primitive,
+                           normal: layout.planeNormal, normalUp: planeNormalUp)
+            drawn[primitive.key] = Drawn(entity: item.entity, primitive: primitive)
         }
+        pocketRing = drawn["hero.pocket"]?.entity
+        stats.note(built: plan.build.count, moved: plan.move.count, kept: plan.keep, removed: plan.remove.count)
 
-        // The pocket the shot is going into, and where the cue ball has to
-        // arrive to send the ball there. The ball being shot at has its ring
-        // above (it is in `balls`). The pocket gets a ring at the capture
-        // radius centred on the pocket, which is where the hero line ends.
-        if let pocket = layout.targetPocket {
-            let radii = OverlayStyle.pocketRing(captureRadius: pocket.radius)
-            let style = RingStyle(inner: radii.inner, outer: radii.outer,
-                                  color: OverlayStyle.pocketRingColor,
-                                  opacity: OverlayStyle.pocketRingOpacity, metricMarker: .pocket)
-            if let entity = ringEntity(style, metric: metric) {
-                place(entity, at: worldPoint(pocket.position, lift: Self.stripLift * 1.6), in: heroGroup)
-                pocketRing = entity
-            }
+        if suggestionChanged || !transition.isSettled(at: now) {
+            if !applyTransition(), animationTask == nil { startAnimation() }
         }
-        if let ghost = layout.targetGhostBall {
-            let mesh = MeshResource.generateSphere(radius: Float(ghost.radius))
-            var material = UnlitMaterial(color: metric
-                ? uiColor(from: MetricPalette.color(for: .ghostBall))
-                : uiColor(from: OverlayStyle.shotColor))
-            material.blending = metric ? .opaque
-                : .transparent(opacity: .init(floatLiteral: Float(OverlayStyle.targetGhostOpacity)))
-            let entity = ModelEntity(mesh: mesh, materials: [material])
-            place(entity, at: worldPoint(ghost.position, lift: ghost.radius), in: heroGroup)
-        }
-
-        if !applyTransition(), animationTask == nil { startAnimation() }
     }
 
     /// Apply the cross-fade and the pulse for this instant. Returns true
@@ -360,7 +281,7 @@ public final class OverlayRenderer {
         return transition.isSettled(at: now)
     }
 
-    /// Drive the fade at display rate. The session loop ticks every 150 ms,
+    /// Drive the fade at display rate. The session loop ticks every 100 ms,
     /// far too coarse for a 250 ms fade, so the animation has its own timer
     /// and stops the moment it has settled.
     private func startAnimation() {
@@ -379,6 +300,7 @@ public final class OverlayRenderer {
         animationTask?.cancel()
         animationTask = nil
         for group in [staticGroup, heroGroup, outgoingGroup] { group.children.removeAll() }
+        drawn.removeAll()
         pocketRing = nil
         transition = HeroTransition()
         renderedMarkers = []
