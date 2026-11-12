@@ -467,17 +467,16 @@ struct ShotRankingPropertyTests {
         print("JITTER layouts=\(layoutsUsed) frames=\(frames) hysteresis=\(withHysteresis) "
               + "plain-best=\(withoutHysteresis) worst-stable-layout=\(worstStable) worst=\(worst)")
         #expect(layoutsUsed > 50)
-        // Was `<= 2`. Measured on the same seeds: with the over-wide corner
-        // margin, 3 flickers in total and 0 on layouts with a fixed shootable
-        // set; with the margin from the mouth width, 32 in total (against 100
-        // for "always the best") and 4 on a fixed set (seed 28).
-        // That layout holds shots rated 5-23 %, where the aim tolerance is
-        // about 0.1 degrees, so 2 mm of ball jitter swings the number by
-        // 18 points - more than the 0.05 hysteresis margin. The old value
-        // sat on the flat 94 % plateau where jitter could not show. The bound
-        // pins the new behaviour; the margin (ShotSelection) is the place to
-        // tune it. Docs: docs/research/2026-11-12-ranking-audit.md.
-        #expect(worstStable <= 4, "layouts with a fixed shootable set flickered \(worstStable) times")
+        // The bound is unchanged at 2. History, measured on these seeds: with
+        // the old over-wide corner margin, 3 flickers in total and 0 on a
+        // fixed shootable set. With the margin from the mouth width and the
+        // 0.05 margin alone, 32 in total and 4 on a fixed set (seed 28: shots
+        // rated 5-23 %, where 2 mm of jitter swings the number by 18 points,
+        // more than any fixed margin absorbs). `ShotSelection.switchDwell`
+        // fixes the cause: a challenger must lead three updates in a row.
+        // With it, 1 flicker in total and 0 on a fixed set.
+        // Docs: docs/research/2026-11-12-ranking-audit.md.
+        #expect(worstStable <= 2, "layouts with a fixed shootable set flickered \(worstStable) times")
         #expect(withHysteresis <= withoutHysteresis)
     }
 }
