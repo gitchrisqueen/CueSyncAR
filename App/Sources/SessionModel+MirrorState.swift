@@ -60,9 +60,12 @@ extension SessionModel {
             // across a 15-minute session". Battery and thermal state are the
             // 15-minute half; fps and latency are the rest.
             //
-            // `overlayLatencyMs` is the part of end-to-end latency this app
-            // is responsible for: camera capture timestamp to overlay
-            // publish. It is NOT the checklist's row-15 number, which
+            // `overlayLatencyMs` is camera capture timestamp to the moment the
+            // pipeline's output reaches the main actor (just after the
+            // handler's pre-ranking work). It does NOT include the wait to be
+            // drawn or the draw: `health.latency` is the camera-to-drawn
+            // number, split into stages. It is also NOT the checklist's
+            // row-15 number, which
             // 04-TESTING-STRATEGY defines as a slow-motion camera pointed at
             // the screen and therefore includes display pipeline the app
             // cannot see. Quoting this one as that one would overstate it.
@@ -406,6 +409,8 @@ extension SessionModel {
         // pipeline stages plus the app's own ranking and hand-off.
         let stages = perceptionStageMilliseconds()
         if !stages.isEmpty { state["stageMs"] = stages }
+        // Camera to DRAWN overlay, in stages that add up to it.
+        if let latency = latencyMirrorState() { state["latency"] = latency }
         // The change gate's effect, so the saving is measured rather than
         // assumed — and so a stale overlay can be checked against it.
         state["skippedFrames"] = skippedFrames
