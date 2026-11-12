@@ -2,8 +2,10 @@
 
 Replaces goal 13 (done: iPad calibrated, recorded, replayed). Same rules: the
 owner is NOT at the iPad (tripod, other room). Drive it through the debug
-mirror (`http://192.168.50.188:8787`, `/state.json`, `/frame.jpg`, `/ui.jpg`,
-`/logs`, `/cmd`). Install with `Scripts/device-push.sh --device "Christopher’s iPad (2)"`.
+mirror (`http://<ipad-host>:8787`, `/state.json`, `/frame.jpg`, `/ui.jpg`,
+`/logs`, `/cmd`). Install with `Scripts/device-push.sh --device "<iPad name>"`.
+This repo is public: the host and the device name stay out of it. They are in
+the session memory `arcade-pass-branch-map` and in `~/.cuesync/mirrors`.
 No PRs, no media committed, never touch `Packages/CueSyncCore` (contract-change
 PR only), `SessionModel.swift` stays at 1000 lines (new code in extensions).
 Read `CLAUDE.md`, `.claude/rules/dev-environments.md`, memory `arcade-pass-branch-map`.
@@ -24,12 +26,35 @@ rms and max error in cm, free-fit spacing. Every accuracy claim must quote it.
 - Five balls named `eight`; 14 of 15 object balls tracked (one missing).
 - Camera was out of focus for a while (balls blurred).
 
+## Measured after the merge (2026-11-12, iPad still on 564f8b2)
+- `Scripts/grid-truth.py <ipad-host>`: n=14, rms 3.9 cm, max 5.9 cm, mean shift
+  (+2.3, +2.1) cm, free fit x 0.982, y 1.022.
+- Error split over four locks on the 2.34 m model (fit of measured vs grid):
+  raw 3.7-4.9 cm, after a translation 2.4-3.4, similarity 2.0-2.3, affine
+  1.3-1.6, homography 1.1-1.3. So about 1.2 cm is noise (detector jitter plus
+  hand placement) and the rest is a smooth map error. The same in every lock:
+  x scale 0.956-0.982, shear -0.04 to -0.055. The shift moves about 2 cm from
+  lock to lock. Six pockets fit to 3-5 mm, so the pockets and the balls are
+  not being mapped by the same plane. Two cloth heights disagree in the app:
+  -0.620 m (pocket spans) against -0.589 m (ball sizes).
+- The grid test cannot measure table size: diamonds sit at fractions of the
+  table, so a wrong size with a matching plane height scores the same.
+- Camera is about 0.6 m above the cloth, 10.7 degrees above the far row: 1 cm
+  of height error there moves a ball 5.3 cm. A higher mount cuts every error.
+- 4 balls named `eight`, constant for 60 s. Track ids stable for 60 s.
+- Pipeline 2.3 Hz and 330 ms overlay latency with 15 balls (4.6 Hz with 1).
+- With "device is parked" on, `aimSource` is still `devicePose` (3600 s): the
+  thin lines and the second ghost ball are an aim drawn from the tripod.
+- Live log: `detections=18 projected=14 offTable=1`, so one or two ball
+  detections are dropped before the gate (confidence floor or no ray).
+
 ## Tasks (in order; each ends with a grid-truth number or a /ui.jpg still)
-1. Merge the agent branches the owner has approved (each verified clean:
-   `rm -rf Packages/*/.build; Scripts/test-all.sh`, Release iphoneos build,
-   swiftlint): `claude/grid-harness`, `claude/calib-health`,
-   `claude/ball-identity-2`; read `claude/missing-ball-diagnosis` and
-   `claude/ux-rescore` (text only) and act on them.
+1. DONE 2026-11-12: `claude/grid-harness`, `claude/calib-health`,
+   `claude/ball-identity-2`, `claude/missing-ball-diagnosis` and
+   `claude/ux-rescore` merged at `8bd2dbb`. From clean:
+   `Scripts/test-all.sh` exit 0 (11 test runs passed), Release iphoneos
+   `** BUILD SUCCEEDED **`, swiftlint 0 serious, 25 Python tests OK.
+   Not yet on the iPad.
 2. Table size: once the owner confirms the diamond spacing (11.0 in = 88 x 44,
    11.5 in = 92 x 46), add the size via a CueSyncCore contract-change PR
    branch (not merged without the owner) and re-lock; target ball rms <= 2 cm,

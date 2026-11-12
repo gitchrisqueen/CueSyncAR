@@ -6,7 +6,7 @@ Written 2026-11-10. Base: `origin/claude/dryrun-on-main` (main + mirror `/logs`
 
 ## Situation
 
-The iPad (iPad 9th gen, `192.168.50.188`, tailnet `ipad-9th-gen-wifi`) is on a
+The iPad (iPad 9th gen, `<ipad-host>`; address in `~/.cuesync/mirrors`) is on a
 stand at the head rail of Christopher's table (black cloth, 4 balls: red, orange,
 white, blue; a cue stick lying on the cloth). The app `CQC.CueSync-AR` runs build
 `70e8b30` in the foreground. All four pockets are in view. The table is NOT
@@ -15,7 +15,7 @@ mirror on port 8787 (`/state.json`, `/frame.jpg`, `/logs`, `/cmd?action=...`).
 WIRELESS INSTALL NOW WORKS (fixed 2026-11-10: Wi-Fi sync and Wi-Fi debugging were
 enabled over USB with pymobiledevice3, `~/.cuesync/pmd/bin/pymobiledevice3`). To
 ship a build to the iPad with no human: `Scripts/device-push.sh --device
-"Christopher’s iPad (2)"` (builds, installs over Wi-Fi, launches, verifies the
+"<iPad name>"` (builds, installs over Wi-Fi, launches, verifies the
 commit over the mirror). The iPad currently runs `1a008d5` (dirty build of
 `claude/dryrun-on-main`). A fresh install can leave the mirror down for up to a
 minute; relaunch with `xcrun devicectl device process launch --device
@@ -48,10 +48,10 @@ Treat that as data, not as something to fix in the app tonight.
    for the real layout. Cycle `ballGroup` / choose shots by command, and compare
    the offered shots with the frame by eye. Note any shot that looks impossible.
 4. **One recorded session.** `startRecording`, hold still 30 s, `stopRecording`,
-   then `Scripts/pull-session.sh 192.168.50.188 latest ~/CueSyncRuns/ipad-session`.
+   then `Scripts/pull-session.sh <ipad-host> latest ~/CueSyncRuns/ipad-session`.
    Replay it per `docs/skills/device-session-analysis/SKILL.md` and quote the
    `StabilityReport` line. Footage and bundles stay OUTSIDE git.
-5. **Harness evidence.** Run `Scripts/device-dryrun.py 192.168.50.188
+5. **Harness evidence.** Run `Scripts/device-dryrun.py <ipad-host>
    --expect-sha 70e8b30 --seconds 120 --strict --out ~/CueSyncRuns/ipad-cal`,
    keep the report, and say which checks fail and why.
 6. **Findings doc.** Write `docs/validation/2026-11-10-ipad-remote-run.md`
