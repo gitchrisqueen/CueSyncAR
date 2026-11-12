@@ -76,7 +76,11 @@ public enum HUDMetrics {
     /// screen allows and the screen's width less the gutters where it does
     /// not, so it never changes size from one shot to the next.
     public static let cardWidthCompact = 420.0
-    public static let cardWidthRegular = 1000.0
+    /// 780, not wider: on the 1080 pt iPad in use a 1000 pt card was a
+    /// slab across 93 % of the screen (real-device still, 2026-11-12). 780
+    /// still holds a typical 25-character headline on one line beside the
+    /// guide tile (`HUDReadabilityTests.cardWidth`); longer calls wrap.
+    public static let cardWidthRegular = 780.0
     /// Corner radius of a HUD plate.
     public static let cornerRadius = 16.0
 }

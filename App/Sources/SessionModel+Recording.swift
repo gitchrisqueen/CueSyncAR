@@ -33,9 +33,11 @@ extension SessionModel {
         case cap
     }
 
-    /// The AR loop's sleep between ticks (ARCameraView) — recorded in the
-    /// manifest so a replay knows the pull cadence.
-    static let loopTickMilliseconds = 150
+    /// The AR loop's tick PERIOD (ARCameraView): work plus rest, paced by
+    /// `LoopPacing.rest`. Recorded in the manifest so a replay knows the
+    /// pull cadence. It was a fixed 150 ms sleep added after the work
+    /// until 2026-11-12; bundles recorded before then carry 150.
+    static let loopTickMilliseconds = 100
 
     /// Reads the observed shadow, not `recorder != nil`: `recorder` is
     /// `@ObservationIgnored`, so a computed property over it is invisible

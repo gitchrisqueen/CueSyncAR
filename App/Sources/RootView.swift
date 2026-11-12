@@ -479,6 +479,7 @@ struct ARCameraView: View {
         var lastDiagnosticsAt = Date.distantPast
         var lastSnapshotAt = Date.distantPast
         while !Task.isCancelled {
+            let tickStart = ContinuousClock.now
             // A suspended session never delivers a frame, so `nextFrame()`
             // would await forever and the loop would stop servicing
             // everything below it. Idle here until the camera comes back.
@@ -628,7 +629,11 @@ struct ARCameraView: View {
                     model.publishMirrorFrame(nil)
                 }
             }
-            try? await Task.sleep(for: .milliseconds(SessionModel.loopTickMilliseconds))
+            // Rest for what is left of the tick period, not for a fixed time
+            // on top of the work (LoopPacing explains why).
+            try? await Task.sleep(for: LoopPacing.rest(
+                period: .milliseconds(SessionModel.loopTickMilliseconds),
+                elapsed: ContinuousClock.now - tickStart))
         }
     }
 
