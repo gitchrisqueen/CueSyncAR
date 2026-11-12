@@ -38,6 +38,25 @@ public struct ParkedHoldReading: Sendable, Equatable {
     public var correction: PoseDelta
     /// ARKit's raw camera pose (camera-to-world), newest frame.
     public var rawPose: Transform3D?
+    /// A hold session exists, so the lock-time reference is kept and the
+    /// correction stays in force even with the gate (`armed`) closed.
+    public var referenceHeld: Bool = false
+    /// Seconds since that session began (the lock, or the first arming);
+    /// nil without one.
+    public var referenceAge: TimeInterval?
+    /// The IMU saw motion while the gate was closed on a live session.
+    public var motionWhileUnarmed: Bool = false
+    /// Re-arming was refused because of that motion: the table lock must be
+    /// dropped and calibration asked for again.
+    public var lockMustBeDropped: Bool = false
+}
+
+/// What `ParkedHoldBox.sync` asks of the app.
+public enum ParkedHoldSync: Sendable, Equatable {
+    case ok
+    /// The device moved while the hold was off: drop the lock, tell the
+    /// player, log it.
+    case dropLock
 }
 
 /// Thread-safe holder: written from the ARSession delegate and the motion
@@ -47,6 +66,9 @@ public final class ParkedHoldBox: @unchecked Sendable {
     private var hold = ParkedPoseHold()
     private var stillness = StillnessDetector()
     private var enabled = true
+    private var wantArmed = false
+    private var lockedNow = false
+    private var sessionStart: TimeInterval?
     private var lastRotation: Double?
     private var lastAcceleration: Double?
     private var lastIMUTime: TimeInterval?
@@ -78,6 +100,9 @@ public final class ParkedHoldBox: @unchecked Sendable {
 
     func noteIMU(time: TimeInterval, rotationRate: Double, userAcceleration: Double) {
         lock.lock(); defer { lock.unlock() }
+        if stillness.isOverLimit(rotationRate: rotationRate, userAcceleration: userAcceleration) {
+            hold.noteMotion()
+        }
         stillness.add(time: time, rotationRate: rotationRate, userAcceleration: userAcceleration)
         lastRotation = rotationRate
         lastAcceleration = userAcceleration
@@ -94,7 +119,9 @@ public final class ParkedHoldBox: @unchecked Sendable {
     /// Feed ARKit's camera pose for a frame; returns the corrected pose.
     public func update(cameraPose: Transform3D, at time: TimeInterval) -> Transform3D {
         lock.lock(); defer { lock.unlock() }
-        let still = enabled && imuFresh(at: time) && stillness.isStill
+        // Not gated on `enabled`: a session keeps tracking with the gate
+        // closed so no switch moves the locked table (ParkedPoseHold).
+        let still = imuFresh(at: time) && stillness.isStill
         hold.update(cameraPose: cameraPose, still: still)
         return hold.corrected(cameraPose)
     }
@@ -107,20 +134,53 @@ public final class ParkedHoldBox: @unchecked Sendable {
     /// ARKit's `worldMappingStatus` on the newest frame.
     public var worldMappingStatus: String? { lock.lock(); defer { lock.unlock() }; return worldMapping }
 
-    public func setArmed(_ armed: Bool) {
+    /// Open or close the gate (see `ParkedPoseHold.setArmed`). The gate
+    /// stays closed while the feature is disabled.
+    @discardableResult
+    public func setArmed(_ armed: Bool) -> ParkedPoseHold.ArmOutcome {
         lock.lock(); defer { lock.unlock() }
-        hold.setArmed(armed && enabled)
+        wantArmed = armed
+        return applyGate()
     }
 
-    /// A/B switch (mirror `parkedHold`). Off drops any correction.
+    /// The one call the app makes each frame loop: the table lock state and
+    /// the "device is parked" setting. A lock edge (dropped, or a new lock)
+    /// forgets the session, so every lock starts a new reference.
+    public func sync(locked: Bool, parked: Bool) -> ParkedHoldSync {
+        lock.lock(); defer { lock.unlock() }
+        if locked != lockedNow {
+            lockedNow = locked
+            hold.releaseLock()
+            sessionStart = nil
+        }
+        wantArmed = locked && parked
+        _ = applyGate()
+        return hold.lockMustBeDropped ? .dropLock : .ok
+    }
+
+    /// Caller holds `lock`.
+    private func applyGate() -> ParkedPoseHold.ArmOutcome {
+        let outcome = hold.setArmed(wantArmed && enabled)
+        if hold.isActive, sessionStart == nil { sessionStart = ProcessInfo.processInfo.systemUptime }
+        return outcome
+    }
+
+    /// A/B switch (mirror `parkedHold`). Switching never moves a locked
+    /// table: with a session running the correction stays in force, and the
+    /// switch decides only whether a session may start.
     public func setEnabled(_ on: Bool) {
         lock.lock(); defer { lock.unlock() }
         enabled = on
-        if !on { hold.setArmed(false) }
+        _ = applyGate()
     }
 
     public var isEnabled: Bool { lock.lock(); defer { lock.unlock() }; return enabled }
-    public var isArmed: Bool { lock.lock(); defer { lock.unlock() }; return hold.isArmed }
+    /// Whether the correction is in force: a session exists (the locked
+    /// table lives in the corrected world), even with the gate closed.
+    /// Consumers pick their world frame from this.
+    public var isArmed: Bool { lock.lock(); defer { lock.unlock() }; return hold.isActive }
+    /// Whether the gate itself is open.
+    public var isGateOpen: Bool { lock.lock(); defer { lock.unlock() }; return hold.isArmed }
 
     /// Snapshot of the hold (value type, safe to keep).
     public var current: ParkedPoseHold { lock.lock(); defer { lock.unlock() }; return hold }
@@ -128,10 +188,14 @@ public final class ParkedHoldBox: @unchecked Sendable {
     public func reading() -> ParkedHoldReading {
         lock.lock(); defer { lock.unlock() }
         let fresh = lastIMUTime.map { abs(ProcessInfo.processInfo.systemUptime - $0) < 0.5 } ?? false
+        let now = ProcessInfo.processInfo.systemUptime
         return ParkedHoldReading(enabled: enabled, armed: hold.isArmed, holding: hold.isHolding,
                                  still: fresh && stillness.isStill, imuLive: fresh,
                                  rotationRate: lastRotation, userAcceleration: lastAcceleration,
                                  drift: hold.drift, correction: hold.correctionMagnitude,
-                                 rawPose: hold.lastPose)
+                                 rawPose: hold.lastPose, referenceHeld: hold.isActive,
+                                 referenceAge: hold.isActive ? sessionStart.map { now - $0 } : nil,
+                                 motionWhileUnarmed: hold.motionWhileUnarmed,
+                                 lockMustBeDropped: hold.lockMustBeDropped)
     }
 }

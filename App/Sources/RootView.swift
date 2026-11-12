@@ -537,8 +537,9 @@ struct ARCameraView: View {
             // Parked hold (docs/plans/2026-11-11-calibration-drift-plan.md):
             // armed while a table is locked on a parked device; it cancels
             // ARKit's camera-pose drift whenever the IMU says the device is
-            // still. Disarmed (identity) otherwise.
-            coordinator.parkedHold.setArmed(model.calibration.isLocked && model.settings.deviceParked)
+            // still. A session outlives the switches (no switch moves a
+            // locked table) and ends with the lock.
+            model.syncParkedHold(coordinator.parkedHold)
             if model.calibration.isLocked {
                 // M3-05 live loop: frames → pipeline → TableState; device
                 // pose → aim → solver; layout → RealityKit overlays.

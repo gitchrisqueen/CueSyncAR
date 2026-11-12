@@ -144,15 +144,18 @@ private func project(_ world: Vec3, camera: Transform3D) -> Vec2 {
         #expect(abs(hold.correctionMagnitude.translation - 0.3) < 1e-9)
     }
 
-    @Test func disarmingDropsTheCorrection() {
+    /// The lock ending is what drops the correction. (Closing the gate no
+    /// longer does: that moved a locked table, see ParkedPoseHoldRearmTests.)
+    @Test func releasingTheLockDropsTheCorrection() {
         var hold = ParkedPoseHold()
         hold.setArmed(true)
         hold.update(cameraPose: lockPose, still: true)
         hold.update(cameraPose: pose(at: Vec3(1, 0, 0)), still: true)
         #expect(hold.correctionMagnitude.translation > 0.5)
-        hold.setArmed(false)
+        hold.releaseLock()
         #expect(hold.correction == .identity)
         #expect(!hold.isHolding)
+        #expect(!hold.isActive)
     }
 
     @Test func poseDeltaMeasuresRotation() {
