@@ -15,6 +15,56 @@ first. This file remains the running log of how each finding was reached,
 newest first, and is worth reading for the reasoning rather than the
 status.
 
+### 2026-11-12, later — seven more branches merged, build `20eab26` verified on the iPad
+
+Merged into `claude/grid-truth` and gated from clean (`Scripts/test-all.sh`
+exit 0, 11 test runs; Release iphoneos `** BUILD SUCCEEDED **`; swiftlint 0
+serious): `claude/ranking-audit`, `claude/overlay-hero`, `claude/map-error`,
+`claude/hold-rearm`, `claude/pipeline-truth`, `claude/hud-read`,
+`claude/far-recall`.
+
+**Verified on the iPad over the mirror (build `20eab26`):**
+
+| check | result |
+|---|---|
+| phantom aim | `hasPrediction` false at launch with "device is parked" saved; no thin lines |
+| overlay | white cue leg, green object leg ending in a ring on the pocket mouth, no plates under other balls (still `/ui.jpg`); the cross-fade and pulse are not judged |
+| shot percentages | 97 / 93 / 77 / 74 / 69 / 67 on the grid layout (was 93-94 for every shot) |
+| parked hold | with 1.16 degrees of ARKit drift held, `parked` off and on left the grid shift unchanged within 0.3 cm (the old build moved 10-15 cm) |
+| stale-lock banner | still raised by the simulated 0.9 m shift on the earlier build; not repeated here |
+| lock evidence | present under `pose.lockEvidence` after a real lock |
+| HUD | headline, bar and state line read as designed; the card was 93 % of the screen wide and is 780 pt from `20ad8f9` |
+
+**Where the time goes** (`health.stageMs`, 15 balls): detect 27 ms, pipeline
+total 30 ms, ranking 0.6 ms, hand-off to the main actor 35-42 ms. The rate
+was capped by a fixed 150 ms sleep in the AR loop, added on top of the work:
+3.8 ticks a second, 165 ms overlay latency. `20ad8f9` paces the loop to a
+100 ms period (`LoopPacing`). Its effect on the device is not measured yet.
+The CPU detector is not the bottleneck, so the Neural Engine re-export is
+not needed for speed.
+
+**Far tile (`/cmd?action=farTile&v=1`, off by default).** Offline on 50
+recorded frames a zoomed pass over the table finds the dark blue ball in
+98 % (0 % at full frame) and lifts the cue ball from 38 % to 100 % above
+the 0.35 floor. On the iPad the ball is detected (confidence 0.31-0.56) but
+its track restarts every few seconds (ids 47, 51, 55 in 24 s) with the tile
+on every second frame. In flight on `claude/far-recall`: every frame, the
+region from the locked table, and a tracker fix.
+
+**Accuracy.** Ten locks from the recording agree to 0.3 cm and 0.1 degree,
+so the lock is repeatable. What remains is a fixed bias: the pockets and
+rails fit a cloth tilt of about 1.0 degree and the balls need 1.45. Best
+candidate 2.62 cm (not implemented), floor 1.82 cm with the balls on known
+spots, locks on the device 2.6-3.9 cm. A spirit level on the slate, a ball
+on a tape-measured spot, or a higher camera would separate the causes.
+
+**Ball names are wrong in places.** The card called the maroon 7 "Orange".
+In flight on `claude/ball-names`, measured against the recording.
+
+**Confidence floor.** At 0.35 the detector's weak balls drop out on some
+frames (11 below-floor detections in 14 samples); at 0.25 none did and no
+false ball appeared in 30 s. The default is still 0.35.
+
 ### 2026-11-12 — goal 14: five branches merged, merged build verified on the iPad
 
 Integration branch: `claude/grid-truth`. `claude/shot-advisor` is a stale
