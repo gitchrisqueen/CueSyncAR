@@ -52,6 +52,22 @@ the device is still `needs-device-run`.
   lines and the second ghost ball are an aim drawn from the tripod.
 - Every offered shot reads 93-94% "Easy".
 
+**Found while testing, 2026-11-12: re-arming the parked hold moves the table.**
+Sending `/cmd?action=parked&v=0` and then `v=1` on a table locked 30 minutes
+earlier left every ball 10-15 cm sideways: `Scripts/grid-truth.py` went from
+3.1 cm rms to 12.8 cm rms (max 17.8), one grid point claimed twice. The HUD
+still read "Tracking 15 balls", calibration health stayed `healthy`, and the
+card offered a shot at 99%. Cause: turning "device is parked" off drops the
+hold's correction, and turning it on again freezes the camera at ARKit's
+current pose, which has drifted since the lock. The stale-lock monitor only
+sees gross shifts (most balls off the table), so this one is silent. A fresh
+lock repaired it (3.2 cm rms). Until it is fixed: after any `parked` or
+`parkedHold` change, lock again. Not yet fixed in code.
+
+The same test confirmed the phantom aim's cause: once the parked setting was
+applied again, `hasPrediction` went false and the thin lines disappeared. The
+setting stored from the last run is not applied at launch.
+
 **In flight (one branch each, cut from `34acd56`, all on the Mac):**
 `claude/map-error`, `claude/pipeline-truth`, `claude/overlay-hero`,
 `claude/hud-read`, `claude/ranking-audit`.

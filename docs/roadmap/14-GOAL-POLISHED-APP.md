@@ -71,6 +71,13 @@ rms and max error in cm, free-fit spacing. Every accuracy claim must quote it.
 7. Feedback and made/missed detection: still `needs-device-run` until the owner
    shoots; record a session when asked and replay it.
 
+8. Parked hold: turning "device is parked" off and on (or any hold re-arm)
+   on a locked table must not move the table. Measured 2026-11-12: 3.1 cm rms
+   became 12.8 cm with no warning (09-SESSION-STATE has the detail). Either
+   keep the lock-time reference across a re-arm while the IMU says the device
+   has not moved, or drop the lock and ask for a new one. Add a health signal
+   for shifts that leave the balls on the table.
+
 ## Done when
 Grid-truth rms <= 2 cm, 16/16 balls tracked, one eight, stale-lock banner
 verified by moving the view (or simulated), design re-score >= 70/100 by the
