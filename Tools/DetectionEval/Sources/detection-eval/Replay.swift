@@ -158,8 +158,11 @@ func runReplay(_ arguments: ReplayArguments) async throws {
     let raycaster = PlaneGeometryRaycaster(calibration: calibration)
     var perception = PerceptionConfig.default
     perception.confidenceFloor = arguments.floor
+    // As the app does: sparse-detection tolerance whenever the far tile is on.
+    let tracker = arguments.tile == .off ? TrackerConfig.default
+        : TrackerConfig.default.tolerantOfSparseDetection()
     let pipeline = PerceptionPipeline(detector: detector, calibration: calibration, raycaster: raycaster,
-                                      config: perception)
+                                      config: perception, trackerConfig: tracker)
 
     // Truth balls on the table, from the first frame's pose (parked camera).
     var truthTable: [(name: String, position: Vec2)] = []

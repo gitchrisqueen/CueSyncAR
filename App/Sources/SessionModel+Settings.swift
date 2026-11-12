@@ -102,7 +102,9 @@ extension SessionModel {
     func trackerConfigFromSettings() -> TrackerConfig {
         var config = TrackerConfig.default
         config.visibleMissGrace = settings.visibleMissGrace
-        return config
+        // A far-tile pass makes far-row balls sparse detections (seen on some
+        // frames only); the tracker must hold such a ball on one id.
+        return FarTileControl.mode == .off ? config : config.tolerantOfSparseDetection()
     }
 
     /// The settings block served in the mirror's `/state.json`, so the
