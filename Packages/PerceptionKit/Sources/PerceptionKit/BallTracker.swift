@@ -88,6 +88,17 @@ struct BallTrack: Sendable, Equatable {
     /// again.
     var presumedMoved = false
     var confirmed: Bool
+    /// Longest recent seconds between this track's own matches (frame clock,
+    /// in-view time only; 0 until two matches with a clock exist), decaying
+    /// 10 % per match. A mean would understate the tail: after a dense run a
+    /// random gap of a second is routine for a ball seen on 2 frames in 5.
+    /// A sparsely detected ball's miss budget must outlast a few of its own
+    /// longest gaps (`TrackerConfig.gapGraceMultiple`).
+    var hitGap: TimeInterval = 0
+    /// True when this track was born holding a retired track's id. If it
+    /// dies before earning confirmation of its own, that id goes back into
+    /// memory instead of being lost.
+    var reclaimedIdentity = false
 
     var position: Vec2 { Vec2(x.estimate, y.estimate) }
 
@@ -97,8 +108,12 @@ struct BallTrack: Sendable, Equatable {
                         kindVotes: kindVotes, retiredAt: 0)
     }
 
-    var votedKind: Ball.Kind {
-        kindVotes.max { a, b in
+    var votedKind: Ball.Kind { votedKind(allowingCue: true) }
+
+    /// The majority kind, optionally ignoring `.cue` votes: what a track
+    /// reports when another track owns the cue ball.
+    func votedKind(allowingCue: Bool) -> Ball.Kind {
+        kindVotes.filter { allowingCue || $0.key != .cue }.max { a, b in
             a.value != b.value ? a.value < b.value : describe(a.key) < describe(b.key)
         }?.key ?? .unknown
     }
@@ -168,6 +183,17 @@ public struct TrackerConfig: Sendable, Equatable {
     /// the shot origin inside the ~1 s the operator asked for, while
     /// `visibleMissGrace` stays long enough to survive a bridge hand.
     public var strikeMissGrace: TimeInterval
+    /// A track is never retired for missing fewer than this many of its OWN
+    /// typical detection gaps, whatever the budgets above say. A far-row ball
+    /// the detector reports on 2 frames in 5 (confidence hovering at the
+    /// pipeline floor) has a 0.6 s gap at 4 Hz; the 0.75 s strike budget
+    /// would retire it after three misses in a row, about one chance in five
+    /// per sighting. Well-detected balls have a gap of one frame, so for
+    /// them the budgets are unchanged. 0 disables.
+    public var gapGraceMultiple: Double
+    /// Ceiling (seconds) on that gap-scaled budget, so a ball that really
+    /// was struck away cannot leave its phantom ring up indefinitely.
+    public var gapGraceCeiling: TimeInterval
     /// Radius (m) within which a new observation reclaims a RETIRED track's
     /// id instead of being issued a new one.
     ///
@@ -196,6 +222,8 @@ public struct TrackerConfig: Sendable, Equatable {
                 disappearanceFrames: Int = 30,
                 visibleMissGrace: TimeInterval = 2.5,
                 strikeMissGrace: TimeInterval = 0.75,
+                gapGraceMultiple: Double = 6,
+                gapGraceCeiling: TimeInterval = 6,
                 reidentificationDistance: Double = Ball.standardRadius * 1.6,
                 reidentificationMemory: TimeInterval = 120,
                 maxRememberedIdentities: Int = 32,
@@ -207,6 +235,8 @@ public struct TrackerConfig: Sendable, Equatable {
         self.disappearanceFrames = disappearanceFrames
         self.visibleMissGrace = visibleMissGrace
         self.strikeMissGrace = strikeMissGrace
+        self.gapGraceMultiple = gapGraceMultiple
+        self.gapGraceCeiling = gapGraceCeiling
         self.reidentificationDistance = reidentificationDistance
         self.reidentificationMemory = reidentificationMemory
         self.maxRememberedIdentities = maxRememberedIdentities
@@ -230,6 +260,9 @@ public struct BallTracker: Sendable {
     public var tentativeCount: Int { tracks.filter { !$0.confirmed }.count }
     /// Timestamp of the previous `update`, for per-frame elapsed time.
     private var lastTimestamp: TimeInterval?
+    /// Smoothed seconds between updates: what "one frame" means right now.
+    /// A track's detection gap only counts as sparse relative to this.
+    private var frameStep: TimeInterval = 0
     /// Identities of retired tracks, newest last. Only CONFIRMED tracks are
     /// remembered: an unconfirmed track's id was never reported to anyone,
     /// so bringing it back would only let a one-frame phantom keep a name.
@@ -270,6 +303,7 @@ public struct BallTracker: Sendable {
         } else {
             elapsed = 0
         }
+        if elapsed > 0 { frameStep = frameStep == 0 ? elapsed : frameStep + 0.1 * (elapsed - frameStep) }
         lastTimestamp = timestamp ?? lastTimestamp
         if let timestamp { clock = timestamp }
         // Greedy association: consider all (track, observation) pairs within
@@ -301,7 +335,7 @@ public struct BallTracker: Sendable {
                   !usedObs.contains(pair.obsIndex) else { continue }
             usedTracks.insert(pair.trackIndex)
             usedObs.insert(pair.obsIndex)
-            apply(observations[pair.obsIndex], toTrackAt: pair.trackIndex)
+            apply(observations[pair.obsIndex], toTrackAt: pair.trackIndex, elapsed: elapsed)
         }
 
         // Unmatched tracks. A track that lost the competition for a ball to
@@ -365,16 +399,15 @@ public struct BallTracker: Sendable {
         // ring still be drawn here?" and NOT "has this ball ceased to
         // exist?". The same ball re-acquired at this spot reclaims its id.
         var retired: [BallTrack] = []
+        let (config, step) = (self.config, frameStep)
         tracks.removeAll { track in
             let expired: Bool
             if track.consecutiveMisses >= config.disappearanceFrames {
                 expired = true
             } else {
-                let grace = track.presumedMoved
-                    ? config.strikeMissGrace : config.visibleMissGrace
-                expired = grace > 0 && track.visibleMissSeconds >= grace
+                expired = Self.missBudgetSpent(track, config: config, frameStep: step)
             }
-            if expired, track.confirmed { retired.append(track) }
+            if expired, track.confirmed || track.reclaimedIdentity { retired.append(track) }
             return expired
         }
         for track in retired {
@@ -390,6 +423,29 @@ public struct BallTracker: Sendable {
 
         mergePhysicalOverlaps()
         return confirmedBalls()
+    }
+
+    /// Whether a visible-but-unmatched track has been unmatched too long.
+    ///
+    /// The short strike budget exists to clear a struck ball's phantom ring,
+    /// so it applies only to a track that HAS a ring: a confirmed one. An
+    /// unconfirmed track was never drawn; retiring it on the strike budget
+    /// only throws away the sightings it had banked, and a sparse ball then
+    /// never reaches confirmation. Both budgets are floored at a multiple of
+    /// the track's own detection gap (`TrackerConfig.gapGraceMultiple`).
+    private static func missBudgetSpent(_ track: BallTrack, config: TrackerConfig,
+                                        frameStep: TimeInterval) -> Bool {
+        var grace = track.presumedMoved && track.confirmed
+            ? config.strikeMissGrace : config.visibleMissGrace
+        guard grace > 0 else { return false }
+        // Only a track that is sparse BY ITS OWN HISTORY (a gap well over one
+        // frame) gets the scaled budget; a ball seen every frame keeps the
+        // plain ones whatever the tick rate.
+        if config.gapGraceMultiple > 0, track.hitGap > 1.5 * frameStep, frameStep > 0 {
+            let scaled = min(config.gapGraceMultiple * track.hitGap, config.gapGraceCeiling)
+            grace = max(grace, scaled)
+        }
+        return track.visibleMissSeconds >= grace
     }
 
     /// Two ball centers can never sit closer than one ball diameter — a
@@ -423,7 +479,15 @@ public struct BallTracker: Sendable {
         }
     }
 
-    private mutating func apply(_ obs: BallObservation, toTrackAt index: Int) {
+    private mutating func apply(_ obs: BallObservation, toTrackAt index: Int,
+                                elapsed: TimeInterval) {
+        // Time since this track's previous match, counting only the time it
+        // was in view: the misses it has run up plus this frame's step.
+        let interval = tracks[index].visibleMissSeconds + elapsed
+        if interval > 0 {
+            let previous = tracks[index].hitGap
+            tracks[index].hitGap = max(interval, previous * 0.9)
+        }
         tracks[index].x.update(measurement: obs.position.x)
         tracks[index].y.update(measurement: obs.position.y)
         tracks[index].radius = obs.radius
@@ -518,16 +582,36 @@ public struct BallTracker: Sendable {
             hits: 1,
             consecutiveMisses: 0,
             visibleMissSeconds: 0,
-            confirmed: config.appearanceFrames <= 1)
+            confirmed: config.appearanceFrames <= 1,
+            reclaimedIdentity: inherited != nil)
     }
 
+    /// The confirmed balls, with AT MOST ONE reporting `.cue`.
+    ///
+    /// A white-ball box on some other ball (the zoomed far-tile pass can
+    /// label a pale ball that way) votes that track toward `.cue`, and a
+    /// tie goes to `.cue` alphabetically, so for its first frames it can
+    /// look like a second cue ball. `TableState.cueBall` takes the first
+    /// `.cue` by id, so that would hand the cue-ball role (and the aim
+    /// origin) to the wrong ball. Only the track with the strongest claim
+    /// keeps `.cue`: most cue votes, then most hits, then the lower id; the
+    /// others report their best non-cue kind.
     private func confirmedBalls() -> [Ball] {
-        tracks.filter(\.confirmed)
+        let confirmed = tracks.filter(\.confirmed)
             .sorted { $0.id.rawValue < $1.id.rawValue }
-            .map { track in
-                Ball(id: track.id, kind: track.votedKind,
-                     position: track.position, radius: track.radius,
-                     confidence: track.lastConfidence)
-            }
+        let owner = confirmed.filter { $0.votedKind == .cue }
+            .max { a, b in
+                let (ca, cb) = (a.kindVotes[.cue] ?? 0, b.kindVotes[.cue] ?? 0)
+                if ca != cb { return ca < cb }
+                if a.hits != b.hits { return a.hits < b.hits }
+                return a.id.rawValue > b.id.rawValue
+            }?.id
+        return confirmed.map { track in
+            let kind = track.votedKind == .cue && track.id != owner
+                ? track.votedKind(allowingCue: false) : track.votedKind
+            return Ball(id: track.id, kind: kind,
+                        position: track.position, radius: track.radius,
+                        confidence: track.lastConfidence)
+        }
     }
 }

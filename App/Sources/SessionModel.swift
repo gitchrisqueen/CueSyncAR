@@ -843,7 +843,7 @@ final class SessionModel {
         // as evaluation tooling. Loaded OFF the main actor: MLModel init +
         // Neural Engine specialization can take seconds.
         #if canImport(CoreML)
-        onDeviceProvider = await Self.loadBundledDetector()
+        onDeviceProvider = await Self.loadBundledDetector(); followTableForFarTile()
         #endif
         phase = .findingTable
         // The preview loop feeds the same cloth-plane estimator the live

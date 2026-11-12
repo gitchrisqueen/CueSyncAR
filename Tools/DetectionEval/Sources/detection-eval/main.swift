@@ -4,6 +4,7 @@
 //
 //  Usage:
 //    detection-eval --sweep-dir <frames> --out <results.jsonl> ...   (see Sweep.swift)
+//    detection-eval --replay <bundle> --frames-dir <pngs> ...       (see Replay.swift)
 //    detection-eval --model <BallDetector.mlpackage> --image <photo.jpg>
 //                   [--compute cpu|gpu|all] [--json <out.json>]
 //                   [--annotate <out.png>] [--min-confidence 0.25]
@@ -216,6 +217,10 @@ struct EvalReport: Codable {
 // MARK: - Main
 
 do {
+    if CommandLine.arguments.contains("--replay") {
+        try await runReplay(try ReplayArguments.parse(CommandLine.arguments))
+        exit(0)
+    }
     if CommandLine.arguments.contains("--sweep-dir") {
         try await runSweep(try SweepArguments.parse(CommandLine.arguments))
         exit(0)

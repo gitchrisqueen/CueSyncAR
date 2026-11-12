@@ -9,6 +9,7 @@
 import CueSyncCore
 import Foundation
 import Synchronization
+import TableSpace
 import Testing
 @testable import PerceptionKit
 
@@ -290,7 +291,7 @@ struct FarTileDetectorTests {
         let inner = ScriptedDetector(fullWidth: 1440,
                                      full: [detection(x: 0.3, y: 0.5)],
                                      tile: [detection(x: 0.5, y: 0.4)])
-        let wrapped = FarTileDetector(inner: inner, period: 2, enabled: true, cropper: fakeCropper)
+        let wrapped = FarTileDetector(inner: inner, period: 2, mode: .on, cropper: fakeCropper)
         var counts = [Int]()
         for _ in 0..<4 { counts.append(try await wrapped.detect(in: fakeFrame()).count) }
         #expect(counts == [2, 1, 2, 1])
@@ -311,7 +312,7 @@ struct FarTileDetectorTests {
     @Test func aFailingTilePassStillReturnsTheFullFrameResult() async throws {
         let inner = ScriptedDetector(fullWidth: 1440, full: [detection(x: 0.3, y: 0.5)])
         inner.tileError = CropFailure()
-        let wrapped = FarTileDetector(inner: inner, period: 1, enabled: true, cropper: fakeCropper)
+        let wrapped = FarTileDetector(inner: inner, period: 1, mode: .on, cropper: fakeCropper)
         let events = Mutex<[FarTileEvent]>([])
         wrapped.setEventHandler { event in events.withLock { $0.append(event) } }
         let result = try await wrapped.detect(in: fakeFrame())
@@ -324,7 +325,7 @@ struct FarTileDetectorTests {
     @Test func aCropperThatCannotCropMeansNoTilePass() async throws {
         let inner = ScriptedDetector(fullWidth: 1440, full: [detection(x: 0.3, y: 0.5)],
                                      tile: [detection(x: 0.5, y: 0.4)])
-        let wrapped = FarTileDetector(inner: inner, period: 1, enabled: true, cropper: { _, _ in nil })
+        let wrapped = FarTileDetector(inner: inner, period: 1, mode: .on, cropper: { _, _ in nil })
         #expect(try await wrapped.detect(in: fakeFrame()) == inner.full)
         #expect(inner.seenWidths == [1440])
     }
@@ -334,12 +335,134 @@ struct FarTileDetectorTests {
             fullWidth: 1440,
             full: [detection(x: 0.3, y: 0.5)],
             tile: [detection(x: 0.5, y: 0.4), detection(x: 0.2, y: 0.2)])
-        let wrapped = FarTileDetector(inner: inner, period: 1, enabled: true, cropper: fakeCropper)
+        let wrapped = FarTileDetector(inner: inner, period: 1, mode: .on, cropper: fakeCropper)
         let events = Mutex<[FarTileEvent]>([])
         wrapped.setEventHandler { event in events.withLock { $0.append(event) } }
         _ = try await wrapped.detect(in: fakeFrame())
         let event = try #require(events.withLock { $0 }.first)
         #expect(event.frameIndex == 0 && event.tileDetections == 2 && event.added == 2)
         #expect(event.failure == nil)
+    }
+}
+
+// MARK: - Modes, period and placement from the locked table
+
+private final class EventLog: @unchecked Sendable {
+    private let box = Mutex<[FarTileEvent]>([])
+    func append(_ event: FarTileEvent) { box.withLock { $0.append(event) } }
+    var all: [FarTileEvent] { box.withLock { $0 } }
+}
+
+@Suite("FarTileDetector: modes and placement")
+struct FarTileModeTests {
+    private let table = placementCalibration
+    private let farView = placementFrame(camera: Vec3(-2.3, 1.1, 0), target: Vec3(0.3, 0, 0))
+    private let closeView = placementFrame(camera: Vec3(0, 0.5, 0.4), target: Vec3(0.1, 0, 0))
+
+    private func scripted() -> ScriptedDetector {
+        ScriptedDetector(fullWidth: 1440, full: [detection(x: 0.3, y: 0.5)],
+                         tile: [detection(x: 0.5, y: 0.4)])
+    }
+
+    private func events(of wrapped: FarTileDetector) -> EventLog {
+        let log = EventLog()
+        wrapped.setEventHandler { event in log.append(event) }
+        return log
+    }
+
+    @Test func theDefaultIsOffAndEveryFrame() {
+        let wrapped = FarTileDetector(inner: scripted(), cropper: fakeCropper)
+        #expect(wrapped.mode == .off && !wrapped.isEnabled)
+        #expect(wrapped.period == 1)
+    }
+
+    @Test func periodOneRunsOnEveryFrameAndSetPeriodThinsItOut() async throws {
+        let inner = scripted()
+        let wrapped = FarTileDetector(inner: inner, mode: .on, cropper: fakeCropper)
+        for _ in 0..<3 { _ = try await wrapped.detect(in: fakeFrame()) }
+        #expect(inner.seenWidths == [1440, 720, 1440, 720, 1440, 720])
+        wrapped.setPeriod(3)
+        #expect(wrapped.period == 3)
+        let before = inner.seenWidths.count
+        for _ in 0..<3 { _ = try await wrapped.detect(in: fakeFrame()) }
+        // Frame indexes 3, 4, 5 with period 3: only index 3 runs a tile.
+        #expect(inner.seenWidths.count - before == 4)
+    }
+
+    @Test func automaticDoesNothingBeforeATableIsLocked() async throws {
+        let inner = scripted()
+        let wrapped = FarTileDetector(inner: inner, mode: .automatic, tableSource: { nil },
+                                      cropper: { _, _ in
+            Issue.record("no tile pass without a locked table")
+            return nil
+        })
+        for _ in 0..<4 { #expect(try await wrapped.detect(in: farView) == inner.full) }
+        #expect(inner.seenWidths == Array(repeating: 1440, count: 4))
+    }
+
+    @Test func automaticRunsOnceATableIsLockedWithTheWindowPlacedFromIt() async throws {
+        let inner = scripted()
+        let locked = Mutex<TableCalibration?>(nil)
+        let wrapped = FarTileDetector(inner: inner, mode: .automatic, tableSource: { locked.withLock { $0 } },
+                                      cropper: fakeCropper)
+        let log = events(of: wrapped)
+        _ = try await wrapped.detect(in: farView)
+        #expect(inner.seenWidths == [1440])
+        locked.withLock { $0 = table }
+        _ = try await wrapped.detect(in: farView)
+        let plan = try #require(FarTilePlacement.plan(calibration: table, frame: farView))
+        let crop = try #require(plan.region.pixelCrop(frameWidth: 1440, frameHeight: 1080))
+        #expect(inner.seenWidths == [1440, 1440, crop.width])
+        let event = try #require(log.all.first)
+        #expect(event.placedFromTable && event.region == plan.region)
+    }
+
+    @Test func automaticSkipsTheTileWhenNoBallIsNarrowEnoughToNeedIt() async throws {
+        let inner = scripted()
+        let wrapped = FarTileDetector(inner: inner, mode: .automatic, tableSource: { [table] in table },
+                                      cropper: fakeCropper)
+        #expect(try await wrapped.detect(in: closeView) == inner.full)
+        #expect(inner.seenWidths == [1440])
+    }
+
+    @Test func onWithoutATableUsesTheFixedRegion() async throws {
+        let inner = scripted()
+        let wrapped = FarTileDetector(inner: inner, mode: .on, cropper: fakeCropper)
+        let log = events(of: wrapped)
+        _ = try await wrapped.detect(in: farView)
+        #expect(inner.seenWidths == [1440, 720])
+        let event = try #require(log.all.first)
+        #expect(!event.placedFromTable && event.region == .default)
+    }
+
+    @Test func onWithATableButNothingNarrowFallsBackToTheFixedRegion() async throws {
+        let inner = scripted()
+        let wrapped = FarTileDetector(inner: inner, mode: .on, tableSource: { [table] in table },
+                                      cropper: fakeCropper)
+        _ = try await wrapped.detect(in: closeView)
+        #expect(inner.seenWidths == [1440, 720])
+    }
+
+    @Test func offAfterAutomaticStopsTheTileAndSwitchingBackStartsIt() async throws {
+        let inner = scripted()
+        let wrapped = FarTileDetector(inner: inner, mode: .automatic, tableSource: { [table] in table },
+                                      cropper: fakeCropper)
+        _ = try await wrapped.detect(in: farView)
+        #expect(inner.seenWidths.count == 2)
+        wrapped.setMode(.off)
+        #expect(try await wrapped.detect(in: farView) == inner.full)
+        #expect(inner.seenWidths.count == 3)
+        wrapped.setMode(.automatic)
+        _ = try await wrapped.detect(in: farView)
+        #expect(inner.seenWidths.count == 5)
+    }
+
+    @Test func theWindowKeepsTheFrameAspectRatioForAnySize() throws {
+        for size in [0.4, 0.4713, 0.5, 0.6, 0.7499] {
+            let region = try #require(FarTileRegion(x: 0.1, y: 0.1, size: size))
+            let crop = try #require(region.pixelCrop(frameWidth: 1440, frameHeight: 1080))
+            #expect(crop.width * 1080 == crop.height * 1440, "size \(size): \(crop.width) x \(crop.height)")
+            #expect(crop.width % 2 == 0 && crop.height % 2 == 0 && crop.x % 2 == 0 && crop.y % 2 == 0)
+        }
     }
 }
