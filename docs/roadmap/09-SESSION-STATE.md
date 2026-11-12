@@ -39,9 +39,13 @@ serious): `claude/ranking-audit`, `claude/overlay-hero`, `claude/map-error`,
 total 30 ms, ranking 0.6 ms, hand-off to the main actor 35-42 ms. The rate
 was capped by a fixed 150 ms sleep in the AR loop, added on top of the work:
 3.8 ticks a second, 165 ms overlay latency. `20ad8f9` paces the loop to a
-100 ms period (`LoopPacing`). Its effect on the device is not measured yet.
-The CPU detector is not the bottleneck, so the Neural Engine re-export is
-not needed for speed.
+100 ms period (`LoopPacing`). Measured on the iPad on `20e742d`: 8.1-9.0
+ticks a second, thermal nominal, tracking unchanged (15 balls, one eight,
+one cue id over 30 s). Overlay latency did NOT move: 157-207 ms, worst 239.
+A finished result seems to wait for the next loop tick before it is drawn,
+and the mirror's once-a-second JPEG takes 100 ms on the main actor. In
+flight on `claude/overlay-latency`. The CPU detector is not the bottleneck,
+so the Neural Engine re-export is not needed for speed.
 
 **Far tile (`/cmd?action=farTile&v=1`, off by default).** Offline on 50
 recorded frames a zoomed pass over the table finds the dark blue ball in
