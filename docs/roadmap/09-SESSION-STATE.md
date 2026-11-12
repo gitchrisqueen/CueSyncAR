@@ -15,6 +15,36 @@ first. This file remains the running log of how each finding was reached,
 newest first, and is worth reading for the reasoning rather than the
 status.
 
+### 2026-11-12, night — head `e898b55` is NOT green
+
+`claude/far-recall` (tracker fix for sparse balls, tile on every frame),
+`claude/overlay-latency` and `claude/ball-names` were merged at `e898b55`.
+`Scripts/test-all.sh` from clean then exited 1: SessionReplay's golden suite
+fails with 3 issues (`replayMatchesTheCommittedGolden` for
+`device-aimed-cue` and `device-lying-cue`; `stabilityClearsTheBars` for
+`device-aimed-cue`, `planChangedRate` 0.237 against a 0.23 bar). The cause
+is the tracker change in `claude/far-recall` (the suite fails on that branch
+alone and passes on `claude/ball-names`). The other ten packages pass and
+the Release build succeeds.
+
+`e898b55` was pushed and installed on the iPad before that result was read.
+That was the orchestrator's error: the push was chained behind the gate
+command. The fix is in flight on `claude/far-recall`; the stability bar is
+not to be raised. The last green head is `8f1e2d7`.
+
+Provisional numbers from that build on the iPad (to be repeated on a green
+head):
+- 16 of 16 balls tracked, 24 of 24 samples over 60 s, every id present in
+  every sample, one cue id, one eight, no name changes.
+- The card reads "Maroon ball" for the maroon 7 (it said "Orange"). Four
+  balls carry no colour name: both purples (by design), the green 6 and the
+  blue stripe 10 (not expected).
+- Camera to drawn, from the new `health.latency` meter: median 254 ms, worst
+  341. Stages: ARKit delivery 43, resume 3, pipeline 127, hop 26, wait 14,
+  render 49. The tile on every frame took `detect` from 27 ms to 85 ms.
+  `overlayLatencyMs`, quoted until now, stops when the result reaches the
+  main actor and never included the wait or the draw.
+
 ### 2026-11-12, later — seven more branches merged, build `20eab26` verified on the iPad
 
 Merged into `claude/grid-truth` and gated from clean (`Scripts/test-all.sh`
