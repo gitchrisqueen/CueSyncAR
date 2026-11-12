@@ -4,7 +4,9 @@
 (or human) can resume without a prior chat session. Update this file whenever
 a work session ends or a major finding lands.
 
-**Last update: 2026-09-10 — THE PROJECT IS PAUSED HERE.**
+**Last update: 2026-11-12.** Work resumed on 2026-11-09 after the pause of
+2026-09-10. The live brief is [`14-GOAL-POLISHED-APP.md`](14-GOAL-POLISHED-APP.md);
+the newest entry is directly below.
 
 **Read [`docs/HANDOVER.md`](../HANDOVER.md) first.** It supersedes this
 file as the entry point: it says where the project actually stands, the
@@ -12,6 +14,60 @@ four findings worth knowing before touching anything, and what to do
 first. This file remains the running log of how each finding was reached,
 newest first, and is worth reading for the reasoning rather than the
 status.
+
+### 2026-11-12 — goal 14: five branches merged, merged build verified on the iPad
+
+Integration branch: `claude/grid-truth`. `claude/shot-advisor` is a stale
+base; do not build on it.
+
+**Merged at `8bd2dbb`** (from clean: `Scripts/test-all.sh` exit 0, Release
+iphoneos `** BUILD SUCCEEDED **`, swiftlint 0 serious, 25 Python tests OK):
+`claude/grid-harness`, `claude/calib-health`, `claude/ball-identity-2`,
+`claude/missing-ball-diagnosis`, `claude/ux-rescore`.
+
+**Verified on the iPad, build `34acd56`, driven over the mirror:**
+
+| check | result |
+|---|---|
+| six-pocket lock | fit 5.0 mm rms, tilt 0.96 deg, cloth y -0.636 |
+| `Scripts/grid-truth.py` | n=14, rms 3.0-3.1 cm, max 5.8 cm |
+| balls named `eight` | 1 in 24 of 24 samples over 60 s (was 4 on `564f8b2`) |
+| track ids | all 15 present in every sample |
+| colour names | one ball flipped between maroon and orange |
+| stale-lock banner | `/cmd?action=nudgeOrigin&dy=0.9` (table shifted 0.9 m): `suspect` at 1 s, `stale:offTable` at 3.3 s, capsule "Table moved? Re-calibrate", no overlay, no shot card; healthy again after `dy=-0.9` |
+
+The banner is verified against a simulated shift only. A physical bump of
+the device is still `needs-device-run`.
+
+**Not fixed yet (measured on the same build):**
+- Ball error is about 3 cm rms. A fit of measured against grid positions
+  leaves 1.2-1.5 cm after an affine or homography map, so that much is noise
+  and the rest is a smooth map error (x scale 0.956-0.982 in every lock).
+  The pocket fit lands on about 0.9 degrees of tilt whichever table size is
+  used. Diagnosis in flight on `claude/map-error`.
+- 14 of 15 object balls tracked. The missing one is the dark blue ball at
+  the far centre, next to the orange ball in the image.
+- Pipeline 2.3 Hz, overlay latency about 335 ms with 15 balls.
+- "Device is parked" is on, yet `aimSource` stays `devicePose`: the thin
+  lines and the second ghost ball are an aim drawn from the tripod.
+- Every offered shot reads 93-94% "Easy".
+
+**In flight (one branch each, cut from `34acd56`, all on the Mac):**
+`claude/map-error`, `claude/pipeline-truth`, `claude/overlay-hero`,
+`claude/hud-read`, `claude/ranking-audit`.
+
+**QuinVPS was not used.** `delegate_task` to it failed on 2026-11-12 with
+`capability_denied` ("The linked environment no longer accepts this link"),
+so the pure-package task ran on the Mac too. The link needs renewing by the
+owner.
+
+**Owner actions open:** measure the playing surface with a tape (diamond
+spacing 11.0 in means 88 x 44, 11.5 in means 92 x 46); put the iPad on a
+charger (battery 45%, falling about 5 points per 25 minutes); a higher
+camera mount would cut every position error (the camera is about 0.6 m
+above the cloth, and at the far row 1 cm of height error moves a ball 5 cm).
+
+Local evidence, never committed: `~/CueSyncRuns/goal14/`.
 
 ### 2026-09-10 — calibration finished, and the reason it was wrong
 
