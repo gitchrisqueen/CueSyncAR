@@ -88,3 +88,51 @@ public enum PlayerCopyAudit {
         return offenders
     }
 }
+
+// MARK: - Developer strings
+
+extension PlayerCopyAudit {
+
+    /// Terms that belong to a developer surface only. With developer mode
+    /// off, the More and Settings sheets show none of them. Whole words,
+    /// case-insensitive, except "MB" (case-sensitive: "mb" is inside words).
+    static let developerWords: [(pattern: String, caseSensitive: Bool, reason: String)] = [
+        ("debug", false, "a developer surface"),
+        ("mirror", false, "the debug mirror"),
+        ("address", false, "a network address"),
+        ("detector", false, "the detection model, not the player's concern"),
+        ("xcconfig", false, "a build-config file"),
+        ("probe", false, "the Neural Engine probe"),
+        ("frames?", false, "a recording internal"),
+        ("MB", true, "a file size from the recorder"),
+        // A commit hash: 7 to 40 hex digits with at least one digit in it.
+        ("(?=[0-9a-f]*[0-9])[0-9a-f]{7,40}", false, "a commit hash"),
+    ]
+
+    /// Check one string a player can see in the More or Settings sheet
+    /// with developer mode off, for developer vocabulary. A separate rule
+    /// from `violations(in:)`: "Mirror it to a TV over AirPlay" is fine
+    /// elsewhere, but the debug mirror must not show up in a sheet.
+    public static func developerViolations(in text: String) -> [Violation] {
+        var found: [Violation] = []
+        for rule in developerWords {
+            let options: NSRegularExpression.Options = rule.caseSensitive ? [] : [.caseInsensitive]
+            guard let regex = try? NSRegularExpression(pattern: "\\b\(rule.pattern)\\b",
+                                                       options: options) else { continue }
+            let range = NSRange(text.startIndex..., in: text)
+            if let match = regex.firstMatch(in: text, options: [], range: range),
+               let swiftRange = Range(match.range, in: text) {
+                found.append(Violation(text: text, offender: String(text[swiftRange]),
+                                       reason: rule.reason))
+            }
+        }
+        return found
+    }
+
+    /// Whether `text` writes a count of one with a plural noun: "1 balls".
+    /// The nouns are the ones the HUD counts.
+    public static func hasWrongPlural(in text: String) -> Bool {
+        text.range(of: "\\b1 (balls|objects|shots|corners|pockets|tables)\\b",
+                   options: .regularExpression) != nil
+    }
+}

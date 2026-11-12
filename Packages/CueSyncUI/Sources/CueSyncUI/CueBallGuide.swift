@@ -2,10 +2,14 @@
 //  CueBallGuide.swift
 //  CueSyncUI
 //
-//  The cue-ball face widget: a glass card showing where on the cue ball to
-//  strike (tip-contact dot from CoachKit's ShotGuide), with top/bottom/
-//  left/right tick marks and the cut-angle readout. Pure presentation —
-//  all recommendation logic lives (tested) in CoachKit.
+//  The cue-ball guide: a dark tile with the cue ball's face (the tip-contact
+//  dot from CoachKit's ShotGuide) and ONE word under it: "Draw", "Stun",
+//  "Follow", "Left" or "Right". Pure presentation: all recommendation logic
+//  lives (tested) in CoachKit, and the word is chosen by `HUDCopy.guideWord`.
+//
+//  It used to be a white disc with a green dot and no word, the brightest
+//  object on the screen, in a different place in each state. When the
+//  advice is centre ball it is not drawn at all.
 //
 
 import CueSyncCore
@@ -17,79 +21,62 @@ import SwiftUI
 public struct CueBallGuideView: View {
     /// Tip contact: x right, y up, unit = ball radius (−1...1).
     public let tipOffset: Vec2
-    public let headline: String
-    public let cutAngleDegrees: Double?
-    /// Just the face, no words: for the one-line layout, where there is no
-    /// room for the label. The dot still shows where to strike, and the
-    /// accessibility label still carries the headline.
-    public let compact: Bool
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
-    public init(tipOffset: Vec2, headline: String, cutAngleDegrees: Double?,
-                compact: Bool = false) {
-        self.compact = compact
+    public init(tipOffset: Vec2) {
         self.tipOffset = tipOffset
-        self.headline = headline
-        self.cutAngleDegrees = cutAngleDegrees
     }
 
-    /// A dead-centre hit is the default, so it does not earn a big tile:
-    /// the guide collapses to a small chip with the dot and no label, and
-    /// expands only when the advice is to hit somewhere else.
-    var isCentreHit: Bool {
-        abs(tipOffset.x) < 0.05 && abs(tipOffset.y) < 0.05
-    }
+    private var word: HUDCopy.GuideWord? { HUDCopy.guideWord(tipOffset: tipOffset) }
+    private var faceDiameter: CGFloat { sizeClass == .regular ? 64 : 48 }
 
-    /// The small, label-free form.
-    private var isSmall: Bool { isCentreHit || compact }
-
-    private var faceDiameter: CGFloat { isSmall ? 52 : 74 }
-
+    /// Nothing for a centre hit: the default does not earn a tile.
     public var body: some View {
-        VStack(spacing: 6) {
-            face
-            if !isSmall {
-                Text(headline)
-                    .hudFont(.caption, weight: .semibold)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                if let cut = cutAngleDegrees {
-                    Text("cut \(Int(cut.rounded()))°")
-                        .hudFont(.caption)
-                        .monospacedDigit()
-                        .foregroundStyle(Theme.hudTextSecondary.color)
-                }
+        if let word {
+            VStack(spacing: 4) {
+                face
+                Text(word.rawValue)
+                    .hudFont(.body, weight: .bold)
+                    .lineLimit(1)
+                    .fixedSize()
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius - 4,
+                                         style: .continuous)
+                .fill(Color(red: 0.10, green: 0.11, blue: 0.13)))
+            .overlay(RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius - 4,
+                                      style: .continuous)
+                .stroke(Theme.hudTextSecondary.color.opacity(0.5), lineWidth: 1))
+            .foregroundStyle(Theme.hudText.color)
+            .environment(\.colorScheme, .dark)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Cue ball: hit \(word.rawValue.lowercased())")
+            .accessibilityIdentifier("cue-ball-guide")
         }
-        .padding(isSmall ? 6 : 10)
-        .frame(width: isSmall ? nil : 130)
-        .hudPlate(RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius, style: .continuous))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Cue ball strike guide: \(headline)")
-        .accessibilityIdentifier("cue-ball-guide")
     }
 
     private var face: some View {
         ZStack {
+            // A dark disc: a white one was the loudest thing on screen.
             Circle()
-                .fill(.white.opacity(0.95))
-                .overlay(Circle().stroke(.black.opacity(0.35), lineWidth: 1))
-            // Crosshair + edge ticks (top/bottom/left/right).
+                .fill(Color(red: 0.20, green: 0.22, blue: 0.25))
+                .overlay(Circle().stroke(Theme.hudTextSecondary.color.opacity(0.8), lineWidth: 2))
+            // Edge ticks (top/bottom/left/right).
             Path { path in
                 let c = faceDiameter / 2
                 for (dx, dy) in [(0.0, 1.0), (0.0, -1.0), (1.0, 0.0), (-1.0, 0.0)] {
                     path.move(to: CGPoint(x: c + dx * (c - 8), y: c - dy * (c - 8)))
-                    path.addLine(to: CGPoint(x: c + dx * (c - 2), y: c - dy * (c - 2)))
+                    path.addLine(to: CGPoint(x: c + dx * (c - 3), y: c - dy * (c - 3)))
                 }
             }
-            .stroke(.black.opacity(0.45), lineWidth: 2)
+            .stroke(Theme.hudTextSecondary.color.opacity(0.7), lineWidth: 2)
             // Recommended tip contact (screen y is down; offset y is up).
             Circle()
-                .fill(Theme.feltGreen.color)
+                .fill(Theme.easyText.color)
                 .frame(width: 14, height: 14)
                 .offset(x: CGFloat(tipOffset.x) * (faceDiameter / 2 - 10),
                         y: CGFloat(-tipOffset.y) * (faceDiameter / 2 - 10))
-                .animation(.snappy, value: tipOffset.x)
-                .animation(.snappy, value: tipOffset.y)
         }
         .frame(width: faceDiameter, height: faceDiameter)
     }

@@ -67,13 +67,13 @@ struct SettingsView: View {
                 refreshComputeSnapshot()
                 reloadSavedTables()
             }
-            .navigationTitle("Settings")
+            .navigationTitle(SheetCopy.Settings.title)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button(SheetCopy.Settings.done) { dismiss() }
                         .accessibilityIdentifier("settings-done-button")
                 }
             }
@@ -84,20 +84,16 @@ struct SettingsView: View {
 
     private var tableSection: some View {
         Section {
-            Picker("Table size", selection: binding(\.tableSize)) {
+            Picker(SheetCopy.Settings.tableSize, selection: binding(\.tableSize)) {
                 ForEach(TableSizeSetting.selectable, id: \.self) { size in
                     Text(size.title).tag(size)
                 }
             }
             .accessibilityIdentifier("settings-table-size")
         } header: {
-            Text("Table")
+            Text(SheetCopy.Settings.tableHeader)
         } footer: {
-            Text("""
-                “Use measured” keeps whatever calibration measures (snapped \
-                to your remembered table when there is one). Pick a size to \
-                force it — takes effect the next time you calibrate.
-                """)
+            Text(SheetCopy.Settings.tableFooter)
         }
     }
 
@@ -121,7 +117,7 @@ struct SettingsView: View {
                         }
                         Spacer()
                         if table.id == activeTableID {
-                            Text("In use")
+                            Text(SheetCopy.Settings.savedInUse)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -133,13 +129,11 @@ struct SettingsView: View {
                     reloadSavedTables()
                 }
             } header: {
-                Text("Saved tables")
+                Text(SheetCopy.Settings.savedHeader)
             } footer: {
                 Text(savedTables.count >= SavedTableIndex.capacity
-                     ? "This is as many tables as the app keeps. Delete one to "
-                       + "make room before calibrating somewhere new."
-                     : "Each table keeps its own map of the room. Swipe to delete "
-                       + "one you no longer play on.")
+                     ? SheetCopy.Settings.savedFooterFull
+                     : SheetCopy.Settings.savedFooter)
             }
         }
     }
@@ -215,28 +209,18 @@ struct SettingsView: View {
 
     private var guidesSection: some View {
         Section {
-            Toggle("Device is parked", isOn: binding(\.deviceParked))
+            Toggle(SheetCopy.Settings.deviceParked, isOn: binding(\.deviceParked))
                 .accessibilityIdentifier("settings-device-parked")
             slider(binding(\.guideSpeed),
                    range: SettingsModel.guideSpeedRange,
                    step: 0.1,
-                   label: "Guide speed",
+                   label: SheetCopy.Settings.guideSpeed,
                    value: String(format: "%.1f m/s", model.settings.guideSpeed))
                 .accessibilityIdentifier("settings-guide-speed")
         } header: {
-            Text("Guides")
+            Text(SheetCopy.Settings.guidesHeader)
         } footer: {
-            Text("""
-                Turn "device is parked" on whenever the phone or iPad is on \
-                a tripod or propped on a rail. Held in the hand, the app can \
-                aim from where the camera looks; parked, that becomes a \
-                fixed line to wherever the mount happens to face, so it \
-                aims from the cue only and tells you when it cannot see one.
-
-                Guide speed is how hard the predicted shot is struck. Slower \
-                lines die mid-table; faster ones spend the path budget on \
-                ricochets.
-                """)
+            Text(SheetCopy.Settings.guidesFooter)
         }
     }
 
@@ -245,26 +229,19 @@ struct SettingsView: View {
             slider(binding(\.visibleMissGrace),
                    range: SettingsModel.visibleMissGraceRange,
                    step: 0.05,
-                   label: "Visible-miss grace",
+                   label: SheetCopy.Settings.missGrace,
                    value: String(format: "%.2f s", model.settings.visibleMissGrace))
                 .accessibilityIdentifier("settings-visible-miss-grace")
         } header: {
-            Text("Tracking")
+            Text(SheetCopy.Settings.trackingHeader)
         } footer: {
-            Text("""
-                How long a ball that is in view but undetected keeps its \
-                track — a ball hidden behind your bridge hand while you \
-                aim, for instance. Longer survives that; shorter clears \
-                stray balls sooner. A ball that vanishes while another \
-                appears is treated as struck and always gives up its ring \
-                quickly, whatever this is set to.
-                """)
+            Text(SheetCopy.Settings.trackingFooter)
         }
     }
 
     private var practiceSection: some View {
-        Section("Practice") {
-            Picker("Mode", selection: binding(\.practiceMode)) {
+        Section(SheetCopy.Settings.practiceHeader) {
+            Picker(SheetCopy.Settings.practiceMode, selection: binding(\.practiceMode)) {
                 ForEach(PracticeMode.allCases, id: \.self) { mode in
                     Text(mode.title).tag(mode)
                 }
@@ -274,7 +251,7 @@ struct SettingsView: View {
             // this is the group's permanent home — and it makes true what
             // `cycleBallGroup`'s comment has always claimed, that the eight
             // is reachable "from Settings" and never by a stray tap.
-            Picker("Ball group", selection: binding(\.ballGroup)) {
+            Picker(SheetCopy.Settings.ballGroup, selection: binding(\.ballGroup)) {
                 ForEach(BallGroup.allCases, id: \.self) { group in
                     Text(group.label).tag(group)
                 }
@@ -297,7 +274,7 @@ struct SettingsView: View {
     /// indistinguishable from a broken build.
     private var voiceSection: some View {
         Section {
-            Picker("Spoken guidance", selection: Binding(
+            Picker(SheetCopy.Settings.spokenGuidance, selection: Binding(
                 get: { model.settings.speechVerbosity },
                 set: { model.setSpeechVerbosity($0) })) {
                     ForEach(SpeechVerbosity.allCases, id: \.self) { level in
@@ -306,23 +283,18 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("settings-speech-verbosity")
             if model.settings.speechVerbosity.isOn {
-                Button("Say something now") {
-                    model.narrator.say(
-                        "Voice check. Best shot, 62 percent into the top-left corner.")
+                Button(SheetCopy.Settings.sayNow) {
+                    model.narrator.say(SheetCopy.Settings.voiceCheck)
                 }
                 .accessibilityIdentifier("settings-speech-test")
             }
         } header: {
-            Text("Voice")
+            Text(SheetCopy.Settings.voiceHeader)
         } footer: {
             Text("""
                 \(model.settings.speechVerbosity.detail)
 
-                Off unless you turn it on. The voice is the one already on \
-                this device — nothing is sent anywhere and it works with no \
-                signal. Music in the room dips for a prompt rather than \
-                stopping; like a navigation app, it speaks even when the \
-                ring switch is set to silent.
+                \(SheetCopy.Settings.voiceFooterTail)
                 """)
         }
     }
@@ -340,7 +312,7 @@ struct SettingsView: View {
     /// idiom iOS itself taught everyone.
     private var aboutSection: some View {
         Section {
-            LabeledContent("Version", value: AppBuild.identity.versionLabel)
+            LabeledContent(SheetCopy.Settings.version, value: AppBuild.identity.versionLabel)
                 .contentShape(Rectangle())
                 .onTapGesture { developerMode.noteVersionTap() }
                 .accessibilityIdentifier("settings-version")
@@ -352,7 +324,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings-lock-developer")
             }
         } header: {
-            Text("About")
+            Text(SheetCopy.Settings.aboutHeader)
         }
     }
 

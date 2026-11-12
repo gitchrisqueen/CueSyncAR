@@ -35,13 +35,13 @@ struct MoreSheet: View {
                 settingsSection
                 if developerMode.isUnlocked { buildSection }
             }
-            .navigationTitle("More")
+            .navigationTitle(SheetCopy.More.title)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button(SheetCopy.More.done) { dismiss() }
                         .accessibilityIdentifier("more-done-button")
                 }
             }
@@ -56,7 +56,7 @@ struct MoreSheet: View {
             LabeledContent {
                 RecordButton()
             } label: {
-                Text(model.isRecording ? "Stop recording" : "Record session")
+                Text(model.isRecording ? SheetCopy.More.stopRecording : SheetCopy.More.record)
             }
             .accessibilityIdentifier("more-record")
             if developerMode.isUnlocked {
@@ -71,7 +71,7 @@ struct MoreSheet: View {
                 }
             }
         } header: {
-            Text("At the table")
+            Text(SheetCopy.More.tableHeader)
         } footer: {
             Text(developerMode.isUnlocked
                  ? """
@@ -79,7 +79,7 @@ struct MoreSheet: View {
                    browser on this Wi-Fi. The recorder writes a replayable \
                    session bundle — pull it from the Files app, or over the debug mirror.
                    """
-                 : "The recorder saves a session you can replay later.")
+                 : SheetCopy.More.recordFooter)
         }
     }
 
@@ -89,11 +89,11 @@ struct MoreSheet: View {
                 dismiss()
                 onOpenSettings()
             } label: {
-                Label("Settings", systemImage: "gearshape")
+                Label(SheetCopy.More.settings, systemImage: "gearshape")
             }
             .accessibilityIdentifier("more-settings")
         } footer: {
-            Text("Table size, guides and practice mode.")
+            Text(SheetCopy.More.settingsFooter)
         }
     }
 

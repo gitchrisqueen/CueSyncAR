@@ -57,16 +57,18 @@ final class LaunchSmokeUITests: XCTestCase {
                       "no status capsule — the app launched but never got to a HUD")
     }
 
-    /// The three controls the HUD rewrite settled on. A fourth appearing
-    /// in a Release build would mean a developer surface escaped its gate.
+    /// The controls the HUD rewrite settled on: "Set up table" until a table
+    /// is locked, the state line (a menu), and "More". Anything else
+    /// appearing in a Release build would mean a developer surface escaped
+    /// its gate.
     func testControlBarHasTheExpectedControls() {
         let app = launch()
-        // By identifier, not by label: the practice-mode control is a Menu,
-        // whose accessibility label is the SELECTED mode and therefore
-        // changes as soon as anyone picks a different one.
+        // By identifier, not by label: the state line is a Menu, whose
+        // accessibility label is the CURRENT table, mode and group and
+        // therefore changes as soon as anyone picks a different one.
         XCTAssertTrue(app.buttons["calibrate-button"].waitForExistence(timeout: 20),
                       "no Set up table control")
-        XCTAssertTrue(app.buttons["practice-mode-menu"].exists, "no practice-mode control")
+        XCTAssertTrue(app.buttons["hud-state-menu"].exists, "no state line")
         XCTAssertTrue(app.buttons["more-button"].exists, "no More control")
     }
 

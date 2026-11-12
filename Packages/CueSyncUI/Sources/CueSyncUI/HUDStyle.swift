@@ -20,29 +20,51 @@ import Foundation
 
 /// The type roles the HUD uses. Roles, not point sizes, so a view says
 /// what the text IS and the scale decides how big that is here.
+///
+/// The sizes are set for the way the iPad is used: parked on a tripod and
+/// read from 1.5 to 3 m. A review measured the old 29 pt headline at 5.3
+/// arcminutes from 2 m, at the floor of what an eye resolves, so every
+/// regular-width size below is chosen to be read at a glance from there.
 public enum HUDTextRole: CaseIterable, Sendable {
-    /// The shot call: "Blue ball → right side pocket".
+    /// The shot call: "BLUE → RIGHT SIDE".
     case headline
-    /// The status capsule, the bar, the tier word.
+    /// The tier word in its chip: "EASY".
+    case tier
+    /// The status capsule, the bar buttons, the card's one-line labels.
     case body
-    /// Secondary lines: advice, hints, chips.
+    /// Quiet secondary lines: the bar's state line, hints.
     case caption
 
     /// Point size on a compact-width screen (a phone) at the default
-    /// Dynamic Type size.
-    public var baseSize: Double {
+    /// Dynamic Type size. Never below 17 pt: a phone is held, but it is
+    /// held at arm's length over a table, not at reading distance.
+    public var compactSize: Double {
         switch self {
         case .headline: 20
-        case .body: 16
-        case .caption: 14
+        case .tier: 17
+        case .body: 17
+        case .caption: 17
         }
     }
 
-    /// How much bigger the HUD is on a regular-width screen (an iPad).
-    /// The iPad is read from the shooting position, 1.5 to 3 m from a
-    /// parked screen, where 14 pt secondary text is 1.4 mm tall on the
-    /// glass. 1.45 puts secondary text at about 20 pt.
-    public static let regularWidthScale = 1.45
+    /// Point size on a regular-width screen (an iPad) at the default
+    /// Dynamic Type size: headline at least 36 pt, tier chip at least 28,
+    /// everything else at least 22.
+    public var regularSize: Double {
+        switch self {
+        case .headline: 36
+        case .tier: 28
+        case .body: 22
+        case .caption: 22
+        }
+    }
+
+    /// The compact size, kept under its old name.
+    public var baseSize: Double { compactSize }
+
+    public func size(regularWidth: Bool) -> Double {
+        regularWidth ? regularSize : compactSize
+    }
 }
 
 public enum HUDMetrics {
@@ -50,9 +72,11 @@ public enum HUDMetrics {
     public static let minimumTarget = 44.0
     /// Space between two bar controls, so a fat thumb hits one of them.
     public static let barSpacing = 12.0
-    /// Widest a card gets, compact and regular width.
-    public static let cardWidthCompact = 300.0
-    public static let cardWidthRegular = 440.0
+    /// Widest the shot card gets. The card is always this wide where the
+    /// screen allows and the screen's width less the gutters where it does
+    /// not, so it never changes size from one shot to the next.
+    public static let cardWidthCompact = 420.0
+    public static let cardWidthRegular = 1000.0
     /// Corner radius of a HUD plate.
     public static let cornerRadius = 16.0
 }
@@ -62,38 +86,42 @@ import SwiftUI
 
 private struct HUDFontModifier: ViewModifier {
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @ScaledMetric private var size: CGFloat
+    @ScaledMetric private var compact: CGFloat
+    @ScaledMetric private var regular: CGFloat
     private let weight: Font.Weight
 
     init(_ role: HUDTextRole, weight: Font.Weight) {
         // `relativeTo` picks the Dynamic Type curve the size follows.
         let style: Font.TextStyle = switch role {
         case .headline: .title3
+        case .tier: .headline
         case .body: .callout
         case .caption: .footnote
         }
-        _size = ScaledMetric(wrappedValue: CGFloat(role.baseSize), relativeTo: style)
+        _compact = ScaledMetric(wrappedValue: CGFloat(role.compactSize), relativeTo: style)
+        _regular = ScaledMetric(wrappedValue: CGFloat(role.regularSize), relativeTo: style)
         self.weight = weight
     }
 
     func body(content: Content) -> some View {
-        let scale = sizeClass == .regular ? CGFloat(HUDTextRole.regularWidthScale) : 1
-        return content.font(.system(size: size * scale, weight: weight))
+        content.font(.system(size: sizeClass == .regular ? regular : compact, weight: weight))
     }
 }
 
 private struct HUDCardWidthModifier: ViewModifier {
     @Environment(\.horizontalSizeClass) private var sizeClass
 
+    /// Fills the width it is offered up to the card width, so the card is
+    /// the same width in every state.
     func body(content: Content) -> some View {
         content.frame(maxWidth: sizeClass == .regular ? HUDMetrics.cardWidthRegular
-                                                      : HUDMetrics.cardWidthCompact,
-                      alignment: .leading)
+                                                      : HUDMetrics.cardWidthCompact)
     }
 }
 
 extension View {
     /// A card's widest extent: wider on an iPad, where the text is bigger.
+    /// Pair with `frame(maxWidth: .infinity)` inside to fill it.
     public func hudCardWidth() -> some View {
         modifier(HUDCardWidthModifier())
     }

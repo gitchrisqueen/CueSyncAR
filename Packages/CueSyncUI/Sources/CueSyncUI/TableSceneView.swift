@@ -37,7 +37,7 @@ public struct TableSceneView: View {
 
     private var accessibilitySummary: String {
         let pocketed = prediction?.pocketedBalls.count ?? 0
-        let base = "Table view, \(state.balls.count) balls"
+        let base = "Table view, \(HUDCopy.count(state.balls.count, "ball"))"
         return pocketed > 0 ? "\(base), \(pocketed) predicted to pocket" : base
     }
 
