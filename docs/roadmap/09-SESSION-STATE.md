@@ -15,6 +15,25 @@ first. This file remains the running log of how each finding was reached,
 newest first, and is worth reading for the reasoning rather than the
 status.
 
+### 2026-11-12, 03:00 — green again at `1509e4a`, installed on the iPad
+
+`claude/far-recall` (`3ba1522`) put the sparse-track behaviour behind
+`TrackerConfig.gapGraceMultiple`: 0 by default, 6 when the far tile is in
+use. The committed recordings have no tile, so the golden replays match
+again without being regenerated and the stability bar holds. It also paces
+the tile to a 45 ms detection budget. `claude/overlay-latency` (`c86c9c7`)
+added a pooled renderer, a detached frame hand-in and more latency stages.
+
+Merged at `1509e4a`. From clean: `Scripts/test-all.sh` exit 0 (11 test
+runs), Release iphoneos `** BUILD SUCCEEDED **`, swiftlint 16 violations, 0
+serious. Pushed, then installed on the iPad (the room is dark, so nothing
+on it is verified: it shows "Tap anywhere to calibrate the table"). The
+iPad is on a charger (battery rose from 35 to 40).
+
+Not measured on a device yet: the pooled renderer's cost, the detached
+hand-in, the tile's real period and detection time, and whether 16 of 16
+still holds with the tile on every fourth frame.
+
 ### 2026-11-12, night — head `e898b55` is NOT green
 
 `claude/far-recall` (tracker fix for sparse balls, tile on every frame),
