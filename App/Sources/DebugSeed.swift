@@ -26,7 +26,8 @@ import Foundation
 import TableSpace
 
 enum DebugSeed {
-    static let layoutNames = ["open", "blocked", "rack", "straight"]
+    static let layoutNames = ["open", "blocked", "rack", "straight", "fair", "pickblock", "nocue",
+                              "scratch", "oneball"]
 
     /// Table-space metres on a nine-foot table (x along the long rail).
     static func state(named name: String) -> TableState? {
@@ -53,6 +54,37 @@ enum DebugSeed {
             ])
         case "rack":
             return eightBallRack(table: table)
+        case "fair":
+            // A mid-length cut with the eight to spare: the best shot is
+            // rated Fair.
+            return TableState(table: table, balls: [
+                ball(0, .cue, -1.00, -0.40),
+                ball(4, .solid(4), -0.20, 0.30),
+                ball(8, .eight, 0.90, -0.40)
+            ])
+        case "pickblock":
+            // The second ball sits behind the first: picking it is picking
+            // a blocked shot.
+            return TableState(table: table, balls: [
+                ball(0, .cue, -0.90, 0.0),
+                ball(2, .solid(2), -0.50, 0.0),
+                ball(4, .solid(4), 0.20, 0.05)
+            ])
+        case "nocue":
+            return TableState(table: table, balls: [
+                ball(3, .solid(3), 0.25, 0.30),
+                ball(5, .solid(5), 0.55, -0.25),
+                ball(9, .stripe(9), -0.10, 0.38)
+            ])
+        case "scratch":
+            // A thin cut near the head rail: the cue ball follows on into
+            // the corner, which the guide calls a scratch.
+            return TableState(table: table, balls: [
+                ball(0, .cue, -1.00, -0.50),
+                ball(4, .solid(4), -0.80, 0.30)
+            ])
+        case "oneball":
+            return TableState(table: table, balls: [ball(0, .cue, -0.30, 0.10)])
         case "straight":
             // Cue ball, object ball and the far-right corner pocket on one
             // line: a near-straight shot, which the guide answers with a
@@ -92,6 +124,15 @@ enum DebugSeed {
 extension SessionModel {
     /// Seeds the layout named by `-seedTable <name>`, if present.
     func applyLaunchSeedIfRequested() {
+        // `-seedScene <name>`: a whole HUD state (DebugScenes.swift).
+        if let name = UserDefaults.standard.string(forKey: "seedScene") {
+            guard let scene = DebugScenes.scene(named: name) else {
+                showTapFeedback("Unknown scene '\(name)'")
+                return
+            }
+            Task { @MainActor in await scene.run(self) }
+            return
+        }
         guard let name = UserDefaults.standard.string(forKey: "seedTable") else { return }
         seedSyntheticTable(named: name)
     }
@@ -179,8 +220,10 @@ extension SessionModel {
     }
 
     /// Returns false (and tells the player) for an unknown layout name.
+    /// `quiet` skips the "Seeded table" toast, which no player build shows
+    /// (the state gallery photographs the HUD as the app draws it).
     @discardableResult
-    func seedSyntheticTable(named name: String) -> Bool {
+    func seedSyntheticTable(named name: String, quiet: Bool = false) -> Bool {
         guard let state = DebugSeed.state(named: name) else {
             showTapFeedback("Unknown seed '\(name)' (\(DebugSeed.layoutNames.joined(separator: ", ")))")
             return false
@@ -200,7 +243,7 @@ extension SessionModel {
         presentation.setView(names: PocketViewNaming.names(for: state.table, frame: .identity),
                              footprint: presentation.footprint)
         recomputeRanking()
-        showTapFeedback("Seeded table: \(name)")
+        if !quiet { showTapFeedback("Seeded table: \(name)") }
         publishMirrorFrame(nil)
         return true
     }
