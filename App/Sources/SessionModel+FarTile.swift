@@ -8,10 +8,13 @@
 //  merges the result, to recover small far-row balls and lift the cue ball
 //  over the confidence floor.
 //
-//  Default: AUTOMATIC. The tile runs on every frame once a table is locked,
-//  with its window placed from the locked table and the frame's pose, and
-//  does nothing before that. `/cmd?action=farTile&v=0|1|auto` and
-//  `period=N` switch it, so the modes can be compared on the device.
+//  Default: AUTOMATIC with a detect-time budget. The tile runs once a table
+//  is locked, with its window placed from the locked table and the frame's
+//  pose, and does nothing before that; how OFTEN it runs follows a budget
+//  (45 ms average detect time) from the measured pass times, so it costs the
+//  same on any device. `/cmd?action=farTile&v=0|1|auto` and
+//  `period=N|auto` switch it, so the modes can be compared on the device:
+//  `period=1` pins every frame, `period=auto` goes back to the budget.
 //  SessionModel.swift is at its line cap, so the process-wide handle lives
 //  here (same pattern as `DetectorCompute`).
 //
@@ -25,9 +28,11 @@ import TableSpace
 import os
 
 enum FarTileControl {
-    /// A tile pass on every frame. Measured on the iPad: `detect` 26.9 ms with
-    /// the tile off, 39.8 ms on, so a pass costs about 13 ms.
-    static let defaultPeriod = 1
+    /// Average detect time the tile may cost, milliseconds. Measured on the
+    /// iPad: the full-frame pass is 27-30 ms and a tile pass about 57 ms, so
+    /// the tile on every frame gave 84.6 ms; this budget gives period 4,
+    /// about 41 ms.
+    static let detectBudgetMilliseconds = 45.0
 
     private static let detector = Mutex<FarTileDetector?>(nil)
     private static let table = Mutex<TableCalibration?>(nil)
@@ -39,7 +44,8 @@ enum FarTileControl {
     /// command controls.
     static func install(around inner: any DetectionProviding) -> any DetectionProviding {
         #if canImport(CoreML) && canImport(Vision)
-        let wrapper = FarTileDetector(inner: inner, period: defaultPeriod, mode: .automatic,
+        let wrapper = FarTileDetector(inner: inner, budgetMilliseconds: detectBudgetMilliseconds,
+                                      mode: .automatic,
                                       tableSource: { table.withLock { $0 } },
                                       cropper: FarTileDetector.pixelBufferCropper)
         wrapper.setEventHandler { event in
@@ -49,6 +55,8 @@ enum FarTileControl {
             }
             let region = String(format: "x%.3f y%.3f size%.3f %@", event.region.x, event.region.y,
                                 event.region.size, event.placedFromTable ? "placed" : "fixed")
+            let times = String(format: "full %.1f ms tile %.1f ms period %d", event.fullSeconds * 1000,
+                               event.seconds * 1000, event.period)
             let moved = lastRegion.withLock { last -> Bool in
                 defer { last = region }
                 return last != region
@@ -60,7 +68,7 @@ enum FarTileControl {
                 log.notice("""
                     far tile: pass \(count) frame \(event.frameIndex) \
                     tile=\(event.tileDetections) added=\(event.added) \
-                    \(event.seconds, format: .fixed(precision: 3)) s window \(region, privacy: .public)
+                    \(times, privacy: .public) window \(region, privacy: .public)
                     """)
             }
         }
@@ -76,18 +84,32 @@ enum FarTileControl {
         table.withLock { $0 = calibration }
     }
 
+    /// How the period is set from the command.
+    enum PeriodSetting {
+        case fixed(Int)
+        case budget
+    }
+
     /// False when no on-device detector is loaded (hosted-only session).
     @discardableResult
-    static func apply(mode: FarTileMode?, period: Int?) -> Bool {
+    static func apply(mode: FarTileMode?, period: PeriodSetting?) -> Bool {
         guard let wrapper = detector.withLock({ $0 }) else { return false }
         if let mode { wrapper.setMode(mode) }
-        if let period { wrapper.setPeriod(period) }
+        switch period {
+        case .fixed(let value): wrapper.setPeriod(value)
+        case .budget: wrapper.setBudget(milliseconds: detectBudgetMilliseconds)
+        case nil: break
+        }
         passes.withLock { $0 = 0 }
         return true
     }
 
     static var mode: FarTileMode { detector.withLock { $0 }?.mode ?? .off }
-    static var period: Int { detector.withLock { $0 }?.period ?? defaultPeriod }
+    static var period: Int { detector.withLock { $0 }?.period ?? 1 }
+    static var periodDescription: String {
+        let wrapper = detector.withLock { $0 }
+        return wrapper?.budget != nil ? "auto (\(period))" : "\(period)"
+    }
 
     /// Block for the mirror's `/state.json` (`farTile`).
     static var mirrorState: [String: Any] {
@@ -96,8 +118,15 @@ enum FarTileControl {
             "enabled": mode != .off,
             "mode": mode.rawValue,
             "period": period,
+            "periodSetting": detector.withLock { $0 }?.budget != nil ? "auto" : "fixed",
+            "budgetMs": detectBudgetMilliseconds,
             "tableLocked": table.withLock { $0 } != nil
         ]
+        if let budget = detector.withLock({ $0 })?.budget {
+            if let full = budget.fullMilliseconds { state["fullPassMs"] = (full * 10).rounded() / 10 }
+            if let tile = budget.tileMilliseconds { state["tilePassMs"] = (tile * 10).rounded() / 10 }
+            if let expected = budget.expectedMilliseconds { state["expectedDetectMs"] = (expected * 10).rounded() / 10 }
+        }
         if let region = lastRegion.withLock({ $0 }) { state["window"] = region }
         return state
     }
@@ -116,9 +145,21 @@ extension SessionModel {
         }
     }
 
-    /// `/cmd?action=farTile&v=0|1|auto&period=N`: the A/B switch for the
+    /// `/cmd?action=farTile&v=0|1|auto&period=N|auto`: the A/B switch for the
     /// far-tile pass. `v` and `period` are each optional.
-    func setFarTile(value: String?, period: Int?) {
+    func setFarTile(value: String?, period periodText: String?) {
+        let period: FarTileControl.PeriodSetting?
+        switch periodText {
+        case nil: period = nil
+        case "auto": period = .budget
+        default:
+            guard let count = periodText.flatMap(Int.init), count >= 1 else {
+                Self.log.error("far tile: ignored period=\(periodText ?? "", privacy: .public) (use N >= 1 or auto)")
+                showRemoteFeedback("Far tile: period must be N or auto")
+                return
+            }
+            period = .fixed(count)
+        }
         let mode: FarTileMode?
         switch value {
         case nil: mode = nil
@@ -135,7 +176,7 @@ extension SessionModel {
             showRemoteFeedback("Far tile unavailable: no on-device detector")
             return
         }
-        let summary = "\(FarTileControl.mode.rawValue), every \(FarTileControl.period) frame(s)"
+        let summary = "\(FarTileControl.mode.rawValue), period \(FarTileControl.periodDescription)"
         Self.log.notice("far tile \(summary, privacy: .public) (remote)")
         showRemoteFeedback("Far tile: \(summary)")
     }

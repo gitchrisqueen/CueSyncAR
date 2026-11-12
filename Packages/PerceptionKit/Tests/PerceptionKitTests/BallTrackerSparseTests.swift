@@ -29,7 +29,7 @@ private struct SparseScene {
         Vec2(-0.85 + 0.12 * Double($0), -0.3 + 0.04 * Double($0 % 3))
     }
 
-    init(config: TrackerConfig = .default, seed: UInt64) {
+    init(config: TrackerConfig = TrackerConfig().tolerantOfSparseDetection(), seed: UInt64) {
         tracker = BallTracker(config: config)
         rng = SplitMix64(seed: seed)
     }
@@ -137,7 +137,7 @@ struct BallTrackerSparseTests {
     }
 
     @Test func aTrackThatNeverConfirmedIsNotRetiredOnTheStrikeBudget() {
-        var tracker = BallTracker()
+        var tracker = BallTracker(config: TrackerConfig().tolerantOfSparseDetection())
         let spot = Vec2(0.5, 0.0)
         // One sighting, then a stray every frame so the track is "presumed
         // moved", then silence for 1.5 s: past the 0.75 s strike budget, well
@@ -160,9 +160,41 @@ struct BallTrackerSparseTests {
         #expect(tracker.nextTrackID == idBefore)
     }
 
+    /// The tolerance is OFF unless asked for: the recorded aiming clips replay
+    /// byte-for-byte on the default configuration (the goldens), and the
+    /// stricter budgets change which intermittent detections earn a track.
+    @Test func theToleranceIsOffByDefaultAndOnThroughItsPreset() {
+        #expect(TrackerConfig.default.gapGraceMultiple == 0)
+        #expect(TrackerConfig.default.tolerantOfSparseDetection().gapGraceMultiple == 6)
+        #expect(TrackerConfig.default.tolerantOfSparseDetection().strikeMissGrace
+                == TrackerConfig.default.strikeMissGrace)
+    }
+
+    @Test func withoutTheToleranceAnUnconfirmedTrackStillDiesOnTheStrikeBudget() {
+        var tracker = BallTracker()
+        let spot = Vec2(0.5, 0.0)
+        _ = tracker.update(observations: [BallObservation(kind: .unknown, position: spot, confidence: 0.5)],
+                           timestamp: 1)
+        // A stray every frame marks the track presumed moved; 1.5 s of silence
+        // is past the 0.75 s strike budget.
+        for step in 1...6 {
+            _ = tracker.update(observations: [BallObservation(kind: .unknown, position: Vec2(-0.5, 0.2),
+                                                              confidence: 0.5)],
+                               timestamp: 1 + Double(step) * 0.25)
+        }
+        #expect(!tracker.tracks.contains { $0.position.distance(to: spot) < 0.05 })
+    }
+
+    @Test func aSparseBallStillKeepsOneIdWithoutTheToleranceThanksToIdentityMemory() {
+        // Blinks, but never a new id once it has been confirmed once.
+        var scene = SparseScene(config: .default, seed: 7)
+        var dice = SplitMix64(seed: 1007)
+        let outcome = scene.run(seconds: 60, dt: 0.25) { _ in Double.random(in: 0..<1, using: &dice) < 0.6 }
+        #expect(outcome.ids.count == 1, "ids \(outcome.ids.sorted())")
+    }
+
     @Test func aReclaimedIdentityReturnsToMemoryWhenItsTrackDiesUnconfirmed() {
-        let config = TrackerConfig(appearanceFrames: 3, visibleMissGrace: 1, strikeMissGrace: 0.5,
-                                   gapGraceMultiple: 0)
+        let config = TrackerConfig(appearanceFrames: 3, visibleMissGrace: 1, strikeMissGrace: 0.5)
         var tracker = BallTracker(config: config)
         let spot = Vec2(0.5, 0.0)
         func see(at time: TimeInterval) {
@@ -190,7 +222,7 @@ struct BallTrackerSparseTests {
 
     @Test(arguments: [0.125, 0.25])
     func aWellDetectedBallStillClearsItsRingWithinTheStrikeBudget(step: Double) {
-        var tracker = BallTracker()
+        var tracker = BallTracker(config: TrackerConfig().tolerantOfSparseDetection())
         let spot = Vec2(0.0, 0.0)
         // Seen every frame (at 8 Hz and at 4 Hz), then struck: it vanishes and a ball shows
         // up elsewhere. The gap-scaled budget must not stretch for a ball

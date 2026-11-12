@@ -23,10 +23,97 @@ public enum PixelBufferCropError: Error, Equatable {
     case allocationFailed(Int32)
 }
 
+/// Where the crop's destination buffer comes from. The attributes matter to
+/// Vision: a buffer without IOSurface backing (and, on device, Metal
+/// compatibility) can take a slower preprocessing path than the camera's own
+/// buffers, and a fresh allocation every frame costs time of its own.
+public struct PixelBufferAllocator: Sendable {
+    let make: @Sendable (_ width: Int, _ height: Int, _ format: OSType) throws -> CVPixelBuffer
+
+    public init(make: @escaping @Sendable (Int, Int, OSType) throws -> CVPixelBuffer) {
+        self.make = make
+    }
+
+    private static func create(_ width: Int, _ height: Int, _ format: OSType,
+                               attributes: [CFString: Any]) throws -> CVPixelBuffer {
+        var created: CVPixelBuffer?
+        let status = CVPixelBufferCreate(kCFAllocatorDefault, width, height, format,
+                                         attributes as CFDictionary, &created)
+        guard status == kCVReturnSuccess, let buffer = created else {
+            throw PixelBufferCropError.allocationFailed(status)
+        }
+        return buffer
+    }
+
+    /// A new IOSurface-backed buffer per call.
+    public static let ioSurface = PixelBufferAllocator { w, h, f in
+        try create(w, h, f, attributes: [kCVPixelBufferIOSurfacePropertiesKey: [String: Any]()])
+    }
+
+    /// A new IOSurface-backed, Metal-compatible buffer per call: the
+    /// attributes ARKit's capture buffers carry.
+    public static let ioSurfaceMetal = PixelBufferAllocator { w, h, f in
+        try create(w, h, f, attributes: [kCVPixelBufferIOSurfacePropertiesKey: [String: Any](),
+                                         kCVPixelBufferMetalCompatibilityKey: true])
+    }
+
+    /// A new plain buffer per call (no IOSurface).
+    public static let plain = PixelBufferAllocator { w, h, f in
+        try create(w, h, f, attributes: [:])
+    }
+
+    /// Buffers recycled through a `CVPixelBufferPool` (IOSurface-backed,
+    /// Metal-compatible): no allocation per frame. A buffer returns to the
+    /// pool when the last reference to it goes, so one handed to Vision and
+    /// released after the inference is reused by the next frame.
+    public static func pooled() -> PixelBufferAllocator {
+        let pools = PoolBox()
+        return PixelBufferAllocator { w, h, f in try pools.buffer(width: w, height: h, format: f) }
+    }
+
+    private final class PoolBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var key: [Int] = []
+        private var pool: CVPixelBufferPool?
+
+        func buffer(width: Int, height: Int, format: OSType) throws -> CVPixelBuffer {
+            lock.lock()
+            defer { lock.unlock() }
+            let wanted = [width, height, Int(format)]
+            if key != wanted || pool == nil {
+                var created: CVPixelBufferPool?
+                let attributes: [CFString: Any] = [
+                    kCVPixelBufferWidthKey: width, kCVPixelBufferHeightKey: height,
+                    kCVPixelBufferPixelFormatTypeKey: Int(format),
+                    kCVPixelBufferIOSurfacePropertiesKey: [String: Any](),
+                    kCVPixelBufferMetalCompatibilityKey: true
+                ]
+                let status = CVPixelBufferPoolCreate(
+                    kCFAllocatorDefault,
+                    [kCVPixelBufferPoolMinimumBufferCountKey: 2] as CFDictionary,
+                    attributes as CFDictionary, &created)
+                guard status == kCVReturnSuccess, let created else {
+                    throw PixelBufferCropError.allocationFailed(status)
+                }
+                pool = created
+                key = wanted
+            }
+            var buffer: CVPixelBuffer?
+            let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool!, &buffer)
+            guard status == kCVReturnSuccess, let buffer else {
+                throw PixelBufferCropError.allocationFailed(status)
+            }
+            return buffer
+        }
+    }
+}
+
 public enum PixelBufferCropper {
-    /// A new buffer holding `crop` of `source`. The source is not retained.
+    /// A buffer holding `crop` of `source`, from `allocator`. The source is
+    /// not retained.
     public static func crop(_ source: CVPixelBuffer,
-                            to crop: FarTilePixelCrop) throws -> CVPixelBuffer {
+                            to crop: FarTilePixelCrop,
+                            allocator: PixelBufferAllocator = .ioSurface) throws -> CVPixelBuffer {
         let format = CVPixelBufferGetPixelFormatType(source)
         let sourceWidth = CVPixelBufferGetWidth(source)
         let sourceHeight = CVPixelBufferGetHeight(source)
@@ -49,13 +136,7 @@ public enum PixelBufferCropper {
             throw PixelBufferCropError.unsupportedFormat(format)
         }
 
-        var created: CVPixelBuffer?
-        let status = CVPixelBufferCreate(
-            kCFAllocatorDefault, crop.width, crop.height, format,
-            [kCVPixelBufferIOSurfacePropertiesKey: [String: Any]()] as CFDictionary, &created)
-        guard status == kCVReturnSuccess, let destination = created else {
-            throw PixelBufferCropError.allocationFailed(status)
-        }
+        let destination = try allocator.make(crop.width, crop.height, format)
 
         CVPixelBufferLockBaseAddress(source, .readOnly)
         CVPixelBufferLockBaseAddress(destination, [])
@@ -126,15 +207,22 @@ public enum PixelBufferCropper {
 
 #if canImport(Vision) && canImport(CoreML)
 extension FarTileDetector {
-    /// The shipped cropper: Apple pixel buffers via `PixelBufferCropper`.
+    /// The shipped cropper: Apple pixel buffers via `PixelBufferCropper`, into
+    /// pooled IOSurface, Metal-compatible buffers (the attributes of the
+    /// camera's own buffers, no allocation per frame).
     /// Frames that are not `PixelBufferImage` (fixtures) get no tile pass.
-    public static let pixelBufferCropper: Cropper = { frame, crop in
-        guard let image = frame.image as? PixelBufferImage else { return nil }
-        let cropped = try PixelBufferCropper.crop(image.pixelBuffer, to: crop)
-        return CapturedFrame(timestamp: frame.timestamp,
-                             cameraTransform: frame.cameraTransform,
-                             image: PixelBufferImage(pixelBuffer: cropped),
-                             intrinsics: nil)
+    public static let pixelBufferCropper: Cropper = makePixelBufferCropper(allocator: .pooled())
+
+    /// A cropper that takes its destination buffers from `allocator`.
+    public static func makePixelBufferCropper(allocator: PixelBufferAllocator) -> Cropper {
+        { frame, crop in
+            guard let image = frame.image as? PixelBufferImage else { return nil }
+            let cropped = try PixelBufferCropper.crop(image.pixelBuffer, to: crop, allocator: allocator)
+            return CapturedFrame(timestamp: frame.timestamp,
+                                 cameraTransform: frame.cameraTransform,
+                                 image: PixelBufferImage(pixelBuffer: cropped),
+                                 intrinsics: nil)
+        }
     }
 }
 #endif

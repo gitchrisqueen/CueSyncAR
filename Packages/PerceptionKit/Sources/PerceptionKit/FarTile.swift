@@ -211,3 +211,65 @@ public struct FarTileSchedule: Sendable, Equatable {
         return enabled && frameIndex % period == 0
     }
 }
+
+/// Picks the tile period from MEASURED pass times so the average detect time
+/// stays inside a budget.
+///
+/// The average per frame is `full + tile / period`, so the smallest period
+/// that meets `budget` is `ceil(tile / (budget - full))`. On the iPad the
+/// full pass is about 27 ms and the tile pass about 57 ms: a 45 ms budget
+/// gives period 4 (27 + 14 = 41 ms), where period 1 gives 84 ms. Measuring
+/// rather than hard-coding means a faster device (or a cheaper tile) gets
+/// more tile passes for the same budget.
+public struct FarTileBudget: Sendable, Equatable {
+    public let budgetMilliseconds: Double
+    public let maxPeriod: Int
+    /// Samples ignored before averaging: the first inferences include model
+    /// specialization (seconds) and would swamp the average.
+    public static let warmupSamples = 2
+    /// Smoothing of the running averages (weight of the newest sample).
+    public static let smoothing = 0.2
+    /// Period used until both passes have been measured.
+    public static let startingPeriod = 2
+
+    public private(set) var fullMilliseconds: Double?
+    public private(set) var tileMilliseconds: Double?
+    private var fullSeen = 0
+    private var tileSeen = 0
+
+    public init(budgetMilliseconds: Double = 45, maxPeriod: Int = 8) {
+        self.budgetMilliseconds = max(1, budgetMilliseconds)
+        self.maxPeriod = max(1, maxPeriod)
+    }
+
+    public mutating func noteFullPass(milliseconds: Double) {
+        guard milliseconds.isFinite, milliseconds >= 0 else { return }
+        fullSeen += 1
+        if fullSeen > Self.warmupSamples { fullMilliseconds = smoothed(fullMilliseconds, milliseconds) }
+    }
+
+    public mutating func noteTilePass(milliseconds: Double) {
+        guard milliseconds.isFinite, milliseconds >= 0 else { return }
+        tileSeen += 1
+        if tileSeen > Self.warmupSamples { tileMilliseconds = smoothed(tileMilliseconds, milliseconds) }
+    }
+
+    private func smoothed(_ current: Double?, _ sample: Double) -> Double {
+        current.map { $0 + Self.smoothing * (sample - $0) } ?? sample
+    }
+
+    /// The period to use now.
+    public var period: Int {
+        guard let full = fullMilliseconds, let tile = tileMilliseconds else { return Self.startingPeriod }
+        let room = budgetMilliseconds - full
+        // No room at all: the tile cannot fit; run it as rarely as allowed.
+        guard room > 0 else { return maxPeriod }
+        return min(maxPeriod, max(1, Int((tile / room).rounded(.up))))
+    }
+
+    /// Expected average detect time per frame at `period`, once measured.
+    public var expectedMilliseconds: Double? {
+        guard let full = fullMilliseconds, let tile = tileMilliseconds else { return nil }
+        return full + tile / Double(period)
+    }
+}
