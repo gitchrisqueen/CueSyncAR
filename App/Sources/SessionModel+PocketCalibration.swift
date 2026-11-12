@@ -430,6 +430,10 @@ extension SessionModel {
         switch params["v"] ?? "eightFoot" {
         case "sevenFoot": size = .sevenFoot
         case "nineFoot": size = .nineFoot
+        case let raw where raw.contains(","):
+            // "length,width" in metres, e.g. v=2.235,1.118 for an 88 x 44 in table.
+            let parts = raw.split(separator: ",").compactMap { Double($0) }
+            size = parts.count == 2 ? .custom(width: parts[0], height: parts[1]) : .eightFoot
         default: size = .eightFoot
         }
         var rail: (CGPoint, CGPoint)?

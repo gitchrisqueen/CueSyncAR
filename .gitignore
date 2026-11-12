@@ -45,3 +45,6 @@ App/Config/Secrets.xcconfig
 # Xcode derivedDataPath output from scripted builds (contains resolved
 # xcconfig values, including secrets, in XCBuildData manifests)
 build/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
