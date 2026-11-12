@@ -226,11 +226,16 @@ struct BallPatchSamplerTests {
     @Test("The owner's six balls classify correctly through the whole chain")
     func realTableBallsClassify() throws {
         // Measured on Sessions/device-20260909T190855Z, frames 0-20.
-        let table: [(name: String, body: Vec3, band: Vec3?, expected: BallGrouping)] = [
+        let table: [(name: String, body: Vec3, band: Vec3?, expected: BallGrouping?)] = [
             ("eight", Vec3(0.24, 0.20, 0.24), nil, .eight),
             ("cue", Vec3(0.70, 0.69, 0.65), nil, .cue),
             ("blue solid", Vec3(0.13, 0.27, 0.40), nil, .solid),
-            ("orange solid", Vec3(0.83, 0.57, 0.29), nil, .solid),
+            // Group unknown, not solid: an orange stripe's cream band is the
+            // same hue, so "no band seen" proves nothing on an orange ball
+            // (15-ball layout, 2026-11-12: orange stripe spread 4.7-9.5 inside
+            // the orange solid's 1.7-10.3; see `bandBlindHueLow`). Every other
+            // row is unchanged.
+            ("orange solid", Vec3(0.83, 0.57, 0.29), nil, nil),
             ("red stripe", Vec3(0.67, 0.29, 0.24), Vec3(0.62, 0.53, 0.33), .stripe),
             ("maroon stripe", Vec3(0.48, 0.32, 0.28), Vec3(0.60, 0.50, 0.31), .stripe)
         ]
