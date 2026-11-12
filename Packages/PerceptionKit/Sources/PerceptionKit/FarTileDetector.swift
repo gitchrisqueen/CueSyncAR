@@ -35,6 +35,10 @@ public struct FarTileEvent: Sendable, Equatable {
     public var added: Int
     /// Seconds spent on the crop plus the second inference.
     public var seconds: Double
+    /// Seconds the full-frame pass took on this frame.
+    public var fullSeconds: Double
+    /// The period in force when this pass ran (it moves in budget mode).
+    public var period: Int
     /// The window used, and whether it was placed from the locked table
     /// (false: the fixed fallback region).
     public var region: FarTileRegion
@@ -67,12 +71,16 @@ public final class FarTileDetector: DetectionProviding, @unchecked Sendable {
         var schedule: FarTileSchedule
         var onEvent: (@Sendable (FarTileEvent) -> Void)?
         var tableSource: TableSource?
+        /// Non-nil: the period follows this budget; `schedule`'s period is
+        /// kept equal to `budget.period`.
+        var budget: FarTileBudget?
     }
 
     private let inner: any DetectionProviding
     private let fallbackRegion: FarTileRegion
     private let narrowerThanPixels: Double
     private let cropper: Cropper
+    private let now: @Sendable () -> UInt64
     private let state: Mutex<State>
 
     /// Default OFF, every frame (`period` 1).
@@ -80,15 +88,20 @@ public final class FarTileDetector: DetectionProviding, @unchecked Sendable {
                 fallbackRegion: FarTileRegion = .default,
                 narrowerThanPixels: Double = 32,
                 period: Int = 1,
+                budgetMilliseconds: Double? = nil,
                 mode: FarTileMode = .off,
                 tableSource: TableSource? = nil,
+                now: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
                 cropper: @escaping Cropper) {
+        self.now = now
         self.inner = inner
         self.fallbackRegion = fallbackRegion
         self.narrowerThanPixels = narrowerThanPixels
         self.cropper = cropper
-        self.state = Mutex(State(mode: mode, schedule: FarTileSchedule(period: period),
-                                 onEvent: nil, tableSource: tableSource))
+        let budget = budgetMilliseconds.map { FarTileBudget(budgetMilliseconds: $0) }
+        self.state = Mutex(State(mode: mode,
+                                 schedule: FarTileSchedule(period: budget?.period ?? period),
+                                 onEvent: nil, tableSource: tableSource, budget: budget))
     }
 
     public var mode: FarTileMode { state.withLock { $0.mode } }
@@ -105,9 +118,26 @@ public final class FarTileDetector: DetectionProviding, @unchecked Sendable {
         setMode(on ? .on : .off)
     }
 
+    /// Pin the period (leaves budget mode).
     public func setPeriod(_ period: Int) {
-        state.withLock { $0.schedule.setPeriod(period) }
+        state.withLock {
+            $0.budget = nil
+            $0.schedule.setPeriod(period)
+        }
     }
+
+    /// Follow a detect-time budget: the period is chosen from measured pass
+    /// times (`FarTileBudget`).
+    public func setBudget(milliseconds: Double) {
+        state.withLock {
+            let budget = FarTileBudget(budgetMilliseconds: milliseconds)
+            $0.schedule.setPeriod(budget.period)
+            $0.budget = budget
+        }
+    }
+
+    /// The budget's view of the passes, nil outside budget mode.
+    public var budget: FarTileBudget? { state.withLock { $0.budget } }
 
     public func setTableSource(_ source: TableSource?) {
         state.withLock { $0.tableSource = source }
@@ -143,33 +173,48 @@ public final class FarTileDetector: DetectionProviding, @unchecked Sendable {
             return (mode, state.schedule.advance(enabled: mode != .off), index,
                     state.onEvent, state.tableSource?())
         }
+        let fullStart = now()
         let full = try await inner.detect(in: frame)
+        let fullSeconds = Double(now() &- fullStart) / 1e9
+        if mode != .off {
+            state.withLock { state in
+                guard state.budget != nil else { return }
+                state.budget?.noteFullPass(milliseconds: fullSeconds * 1000)
+                state.schedule.setPeriod(state.budget?.period ?? state.schedule.period)
+            }
+        }
         guard runTile, let image = frame.image,
               let (region, placed) = window(for: frame, mode: mode, table: table),
               let crop = region.pixelCrop(frameWidth: image.width, frameHeight: image.height)
         else { return full }
 
-        let start = ContinuousClock.now
-        func seconds() -> Double {
-            let elapsed = ContinuousClock.now - start
-            return Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
-        }
+        let start = now()
+        let clock = now
+        func seconds() -> Double { Double(clock() &- start) / 1e9 }
+        let period = state.withLock { $0.schedule.period }
         do {
             guard let tileFrame = try cropper(frame, crop) else { return full }
             let raw = try await inner.detect(in: tileFrame)
             let tile = FarTileMerge.frameDetections(fromTile: raw, crop: crop)
             let merged = FarTileMerge.merge(full: full, tile: tile)
+            let tileSeconds = seconds()
+            state.withLock { state in
+                guard state.budget != nil else { return }
+                state.budget?.noteTilePass(milliseconds: tileSeconds * 1000)
+                state.schedule.setPeriod(state.budget?.period ?? state.schedule.period)
+            }
             onEvent?(FarTileEvent(frameIndex: index, tileDetections: tile.count,
                                   added: max(0, merged.count - full.count),
-                                  seconds: seconds(), region: region, placedFromTable: placed,
-                                  failure: nil))
+                                  seconds: tileSeconds, fullSeconds: fullSeconds, period: period,
+                                  region: region, placedFromTable: placed, failure: nil))
             return merged
         } catch is CancellationError {
             throw CancellationError()
         } catch {
             // The tile is an extra. Its failure must never cost the frame.
             onEvent?(FarTileEvent(frameIndex: index, tileDetections: 0, added: 0,
-                                  seconds: seconds(), region: region, placedFromTable: placed,
+                                  seconds: seconds(), fullSeconds: fullSeconds, period: period,
+                                  region: region, placedFromTable: placed,
                                   failure: String(describing: error)))
             return full
         }
