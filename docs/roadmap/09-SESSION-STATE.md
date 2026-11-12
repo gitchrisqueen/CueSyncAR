@@ -67,6 +67,10 @@ charger (battery 45%, falling about 5 points per 25 minutes); a higher
 camera mount would cut every position error (the camera is about 0.6 m
 above the cloth, and at the far row 1 cm of height error moves a ball 5 cm).
 
+**Owner ruling, 2026-11-12:** goals 13 and 14 once carried the device's
+address and name; both now use placeholders. The older commits keep them
+and the history is left as it is. No force-push.
+
 Local evidence, never committed: `~/CueSyncRuns/goal14/`.
 
 ### 2026-09-10 — calibration finished, and the reason it was wrong
