@@ -73,6 +73,17 @@ public struct OverlayLayout: Sendable, Equatable {
         public var position: Vec3
         public var radius: Double
         public var isCue: Bool
+        /// The ball the suggested shot is for. While a shot is suggested,
+        /// the cue ball and this one are the only balls with a marker.
+        public var isTarget: Bool = false
+    }
+
+    /// Which shot is suggested: the thing that "changes" for the hero
+    /// line's cross-fade. Two layouts with the same id are the same shot,
+    /// however much a ball has jittered between them.
+    public struct ShotID: Sendable, Hashable {
+        public var ball: BallID
+        public var pocket: PocketID
     }
 
     public var strips: [Strip]
@@ -90,11 +101,15 @@ public struct OverlayLayout: Sendable, Equatable {
     public var targetStrips: [Strip] = []
     /// Where the cue ball's centre has to arrive to make that shot.
     public var targetGhostBall: Marker?
-    /// A ring on the ball being shot at, so the player can see which one
-    /// the percentage refers to without reading the card.
+    /// The ball being shot at. Its ring is drawn from `balls` (the entry
+    /// with `isTarget`), so the renderer does not draw this marker again.
     public var targetBall: Marker?
-    /// The pocket the recommended shot is going into.
+    /// The pocket the recommended shot is going into. The marker's centre is
+    /// the pocket's position and its radius the pocket's capture radius; the
+    /// renderer draws a ring there and the hero line ends at its centre.
     public var targetPocket: Marker?
+    /// The suggested shot this layout carries; nil when there is none.
+    public var shotID: ShotID?
     /// The cloth's up-normal in world space, so the renderer can rotate a
     /// strip about the right axis rather than assuming world up.
     public var planeNormal: Vec3 = Vec3(0, 1, 0)
@@ -117,12 +132,64 @@ public struct OverlayLayout: Sendable, Equatable {
         }
     }
 
+    /// How many overlay primitives (lines, ghost spheres, pocket marks,
+    /// rings) do NOT belong to the suggested shot: the measure behind "one
+    /// line to follow, one pocket to hit, everything else quiet or gone".
+    /// The suggested shot's own marks are the hero strips, the target ghost,
+    /// the target pocket, and the rings on the cue ball and the target ball.
+    public var primitivesOutsideSuggestion: Int {
+        strips.count
+            + (ghostBall == nil ? 0 : 1)
+            + highlightedPockets.count
+            + (calledPocket == nil ? 0 : 1)
+            + balls.filter { !$0.isCue && !$0.isTarget }.count
+    }
+
+    /// The layout for one frame of the live loop: which of the three shapes
+    /// the overlay takes, decided in one tested place.
+    ///
+    /// - Parameters:
+    ///   - prediction: the live aim's prediction; nil when there is no live
+    ///     aim (no cue held while parked, no cue ball, no stable direction).
+    ///     Nil draws no live line and no live ghost ball.
+    ///   - showsShotGuides: false in a game with friends: rings only.
+    ///   - showsSecondaryLines: the test switch that restores the lines
+    ///     hidden while a shot is suggested.
+    public static func frame(state: TableState,
+                             calibration: TableCalibration,
+                             prediction: ShotPrediction?,
+                             showsShotGuides: Bool,
+                             calledPocket: PocketID? = nil,
+                             target: Target? = nil,
+                             showsSecondaryLines: Bool = false) -> OverlayLayout {
+        guard showsShotGuides else {
+            return ballsOnly(state: state, calibration: calibration, target: nil)
+        }
+        guard let prediction else {
+            return ballsOnly(state: state, calibration: calibration, target: target,
+                             showsSecondaryLines: showsSecondaryLines)
+        }
+        return compose(state: state, prediction: prediction, calibration: calibration,
+                       calledPocket: calledPocket, target: target,
+                       showsSecondaryLines: showsSecondaryLines)
+    }
+
     /// Colors mirror TableScene's path styling rules (05-UX-DESIGN).
+    ///
+    /// While a shot is SUGGESTED (`target` non-nil) the table shows one line
+    /// to follow and one pocket to hit: the hero line, the target ring, a
+    /// ring on the cue ball and one on the target ball. Of the live aim only
+    /// the cue's approach line stays (where the cue points now, to compare
+    /// against the hero). The ghost ball, the cue ball after contact, the
+    /// object ball's own predicted path, other balls' chains and the
+    /// predicted-pocket marks are secondary and come back only with
+    /// `showsSecondaryLines`. With no suggestion nothing is hidden.
     public static func compose(state: TableState,
                                prediction: ShotPrediction,
                                calibration: TableCalibration,
                                calledPocket calledPocketID: PocketID? = nil,
                                target: Target? = nil,
+                               showsSecondaryLines: Bool = false,
                                aimColor: UInt32 = 0xF5A623,
                                objectColor: UInt32 = 0x2FA36B,
                                cueAfterColor: UInt32 = 0x4A90D9,
@@ -165,10 +232,13 @@ public struct OverlayLayout: Sendable, Equatable {
                 color = objectColor
                 dashed = false
             }
-            // The recommended shot is ONE colour from the cue ball to the
-            // pocket (OverlayStyle): amber means "where you are aiming"
-            // and nothing else, so the plan's cue-ball leg is not amber.
-            if role == .plan, !dashed { color = OverlayStyle.shotColor }
+            // The recommended shot is the hero (OverlayStyle): white for the
+            // cue ball's leg, green for the object ball's. Amber means
+            // "where you are aiming" and nothing else, so the plan's
+            // cue-ball leg is not amber.
+            if role == .plan, !dashed {
+                color = isCue ? OverlayStyle.heroCueColor : OverlayStyle.heroObjectColor
+            }
 
             let mid = (segment.start + segment.end) * 0.5
             let worldStart = calibration.tableToWorld(segment.start)
@@ -184,7 +254,7 @@ public struct OverlayLayout: Sendable, Equatable {
         }
         }
 
-        let strips = buildStrips(prediction, role: .live)
+        var strips = buildStrips(prediction, role: .live)
 
         var ghost: Marker?
         if let contact = prediction.firstContact?.contact {
@@ -196,10 +266,19 @@ public struct OverlayLayout: Sendable, Equatable {
         for event in prediction.events {
             if case let .pocket(_, pocket) = event { litPockets.insert(pocket) }
         }
-        let highlights = state.table.pockets
+        var highlights = state.table.pockets
             .filter { litPockets.contains($0.id) }
             .map { Marker(position: calibration.tableToWorld($0.position),
                           radius: $0.captureRadius) }
+
+        // A suggestion owns the table. The live aim keeps only the cue's
+        // approach line; its ghost sphere (which read as a second ghost
+        // ball) and the rest are secondary.
+        if target != nil, !showsSecondaryLines {
+            strips = strips.filter { $0.ballID == cueID && !$0.dashed }
+            ghost = nil
+            highlights = []
+        }
 
         // Called-shot state (M6-02): ring the called pocket; "on line"
         // when an object ball is predicted into it (the cue ball going in
@@ -218,35 +297,79 @@ public struct OverlayLayout: Sendable, Equatable {
             }
         }
 
-        var targetStrips: [Strip] = []
-        var targetGhost: Marker?
-        var targetBallMarker: Marker?
-        var targetPocketMarker: Marker?
-        if let target {
-            let radius = state.cueBall?.radius ?? Ball.standardRadius
-            targetStrips = buildStrips(target.prediction, role: .plan)
-            targetGhost = Marker(position: calibration.tableToWorld(target.ghostBall),
-                                 radius: radius)
-            if let ball = state.ball(target.ball) {
-                targetBallMarker = Marker(position: calibration.tableToWorld(ball.position),
-                                          radius: ball.radius * 1.45)
-            }
-            if let pocket = state.table.pockets.first(where: { $0.id == target.pocket }) {
-                targetPocketMarker = Marker(position: calibration.tableToWorld(pocket.position),
-                                            radius: pocket.captureRadius)
-            }
-        }
+        let planStrips = target.map { buildStrips($0.prediction, role: .plan) } ?? []
+        let layer = targetLayer(for: target, planStrips: planStrips, state: state,
+                                calibration: calibration, showsSecondaryLines: showsSecondaryLines)
 
         return OverlayLayout(strips: strips, ghostBall: ghost,
                              highlightedPockets: highlights,
-                             balls: ballMarkers(state: state, calibration: calibration),
+                             balls: ballMarkers(state: state, calibration: calibration, target: target),
                              calledPocket: calledMarker,
                              calledPocketSatisfied: satisfied,
-                             targetStrips: targetStrips,
-                             targetGhostBall: targetGhost,
-                             targetBall: targetBallMarker,
-                             targetPocket: targetPocketMarker,
+                             targetStrips: layer.strips,
+                             targetGhostBall: layer.ghost,
+                             targetBall: layer.ball,
+                             targetPocket: layer.pocket,
+                             shotID: target.map { ShotID(ball: $0.ball, pocket: $0.pocket) },
                              planeNormal: calibration.normal)
+    }
+
+    /// The recommended shot's marks, laid out.
+    private struct TargetLayer {
+        var strips: [Strip] = []
+        var ghost: Marker?
+        var ball: Marker?
+        var pocket: Marker?
+    }
+
+    /// The hero: the cue ball's approach to the ghost ball, then the object
+    /// ball's leg from ITS CENTRE to the POCKET'S CENTRE. The object leg is
+    /// the straight line the ranking aimed at, not the solver's roll-out,
+    /// which stops where the ball is captured and so ended short of the
+    /// pocket the ring marks. `planStrips` are the solver's strips for the
+    /// ideal aim; only the cue ball's approach is kept from them, plus the
+    /// rest when `showsSecondaryLines` is on.
+    private static func targetLayer(for target: Target?, planStrips: [Strip],
+                                    state: TableState, calibration: TableCalibration,
+                                    showsSecondaryLines: Bool) -> TargetLayer {
+        guard let target else { return TargetLayer() }
+        let cueID = state.cueBall?.id
+        var layer = TargetLayer()
+        layer.ghost = Marker(position: calibration.tableToWorld(target.ghostBall),
+                             radius: state.cueBall?.radius ?? Ball.standardRadius)
+        let ball = state.ball(target.ball)
+        let pocket = state.table.pockets.first(where: { $0.id == target.pocket })
+        if let ball {
+            layer.ball = Marker(position: calibration.tableToWorld(ball.position),
+                                radius: ball.radius)
+        }
+        if let pocket {
+            layer.pocket = Marker(position: calibration.tableToWorld(pocket.position),
+                                  radius: pocket.captureRadius)
+        }
+
+        let cueLeg = planStrips.filter { $0.ballID == cueID && !$0.dashed }
+        let objectLeg: [Strip]
+        if let ball, let pocket {
+            let start = calibration.tableToWorld(ball.position)
+            let end = calibration.tableToWorld(pocket.position)
+            objectLeg = [Strip(ballID: ball.id, start: start, end: end,
+                               midpoint: (start + end) * 0.5,
+                               length: (pocket.position - ball.position).length,
+                               dashed: false, color: OverlayStyle.heroObjectColor,
+                               role: .plan)]
+        } else {
+            // The ball or pocket is not in this state: draw what the solver
+            // predicted rather than no object leg at all.
+            objectLeg = planStrips.filter { $0.ballID == target.ball && !$0.dashed }
+        }
+        let secondary = showsSecondaryLines
+            ? planStrips.filter { $0.dashed || ($0.ballID != cueID && $0.ballID != target.ball) }
+            : []
+        // Secondary first, so the hero is placed after it and never buried
+        // under a line it crosses.
+        layer.strips = secondary + cueLeg + objectLeg
+        return layer
     }
 
     /// Ball rings without a prediction — rendered whenever live tracking
@@ -260,18 +383,27 @@ public struct OverlayLayout: Sendable, Equatable {
     /// draw. Showing them how to make it is the whole point.
     public static func ballsOnly(state: TableState,
                                  calibration: TableCalibration,
-                                 target: Target? = nil) -> OverlayLayout {
+                                 target: Target? = nil,
+                                 showsSecondaryLines: Bool = false) -> OverlayLayout {
         compose(state: state, prediction: ShotPrediction(),
-                calibration: calibration, target: target)
+                calibration: calibration, target: target,
+                showsSecondaryLines: showsSecondaryLines)
     }
 
+    /// One ring per tracked ball, or, while a shot is suggested, a ring on
+    /// the cue ball and one on the target ball and nothing under the rest.
     static func ballMarkers(state: TableState,
-                            calibration: TableCalibration) -> [BallMarker] {
+                            calibration: TableCalibration,
+                            target: Target? = nil) -> [BallMarker] {
         let cueID = state.cueBall?.id
-        return state.balls.map { ball in
-            BallMarker(position: calibration.tableToWorld(ball.position),
-                       radius: ball.radius,
-                       isCue: ball.id == cueID)
+        return state.balls.compactMap { ball in
+            let isCue = ball.id == cueID
+            let isTarget = !isCue && ball.id == target?.ball
+            if target != nil, !isCue, !isTarget { return nil }
+            return BallMarker(position: calibration.tableToWorld(ball.position),
+                              radius: ball.radius,
+                              isCue: isCue,
+                              isTarget: isTarget)
         }
     }
 }

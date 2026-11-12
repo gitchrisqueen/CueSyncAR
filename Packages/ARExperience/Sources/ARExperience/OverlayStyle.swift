@@ -12,7 +12,8 @@
 //  hierarchy is now three tiers with one colour each:
 //
 //    hero      the suggested shot (cue ball -> ghost ball -> pocket):
-//              thickest, fully opaque, white. The one line to follow.
+//              thickest, fully opaque; white for the cue ball's leg, green
+//              for the object ball's. The one line to follow.
 //    aim       where the cue is pointing right now: amber, thinner and
 //              dimmer, because it is a reading, not an instruction.
 //    secondary the cue ball after contact (the ricochet): thinnest,
@@ -21,6 +22,7 @@
 //  Pure, so it is tested on Linux. The renderer reads every number here.
 //
 
+import CueSyncUI
 import Foundation
 
 public enum OverlayStyle {
@@ -69,13 +71,70 @@ public enum OverlayStyle {
         }
     }
 
-    /// The colour of "the shot": the recommended line from the cue ball to
-    /// the ghost ball and on to the pocket. One colour for the whole path.
-    public static let shotColor: UInt32 = 0xFFFFFF
-    /// Rings under the balls that are not being shot at: present, quiet,
-    /// and not amber, which means "your aim".
+    // MARK: One colour per meaning
+    //
+    // Every colour here is a `Theme` token, so the table and the HUD speak
+    // one language:
+    //
+    //   white  (hudText)    the cue ball's job: the cue-ball leg of the shot
+    //                       and the ring on the cue ball
+    //   green  (feltGreen)  the object ball's job: its leg to the pocket,
+    //                       the ring on it, and the pocket ring it ends in
+    //   amber  (cueAmber)   where the cue is pointing right now (the live aim)
+    //   blue   (chalkBlue)  the cue ball after contact (secondary, off)
+    //   coral  (warnCoral)  a predicted scratch (secondary, off)
+
+    /// The cue-ball leg of the recommended shot: cue ball to ghost ball.
+    public static let heroCueColor: UInt32 = Theme.hudText.rgb
+    /// The object-ball leg of the recommended shot: target ball to pocket.
+    public static let heroObjectColor: UInt32 = Theme.feltGreen.rgb
+    /// Older name for the cue-ball leg's colour.
+    public static let shotColor: UInt32 = heroCueColor
+    /// The ring on the pocket the shot is going into.
+    public static let pocketRingColor: UInt32 = heroObjectColor
+    /// The ring on the cue ball, and on every ball when no shot is suggested.
+    public static let cueRingColor: UInt32 = heroCueColor
+    /// The ring on the ball being shot at.
+    public static let targetRingColor: UInt32 = heroObjectColor
+    /// Rings on balls when no shot is suggested: present so tap-to-designate
+    /// has a visible target, quiet, and not amber, which means "your aim".
     public static let ballRingColor: UInt32 = 0xD8DEE6
-    public static let ballRingOpacity = 0.28
+
+    // MARK: Rings
+    //
+    // A ring, never a plate. The old marker was a filled disc wider than the
+    // ball and brighter than the line, so fifteen of them out-shouted the
+    // shot. A ring starts outside the ball's footprint and is a few
+    // millimetres thick, so nothing is covered.
+
+    /// Opacity of every ball ring. In the 25 to 40 percent band by rule:
+    /// quiet enough that fifteen of them do not compete with the hero line.
+    public static let ballRingOpacity = 0.3
+    /// The two rings that belong to the suggested shot sit at the top of
+    /// the band so they still read first.
+    public static let involvedRingOpacity = 0.4
+    /// The band every ball ring stays inside.
+    public static let ringOpacityRange = 0.25...0.4
+    /// Clear gap (m) between the ball's footprint and the ring's inner edge.
+    public static let ringGap = 0.004
+    /// Thickness (m) of a ball ring.
+    public static let ringWidth = 0.003
+    /// Inner and outer radius (m) of the ring drawn around a ball.
+    public static func ballRing(ballRadius: Double) -> (inner: Double, outer: Double) {
+        (ballRadius + ringGap, ballRadius + ringGap + ringWidth)
+    }
+
+    /// Thickness (m) of the pocket ring. Heavier than a ball ring: it is the
+    /// one thing to hit.
+    public static let pocketRingWidth = 0.008
+    public static let pocketRingOpacity = 1.0
+    /// Inner and outer radius (m) of the ring on a pocket. The marker's
+    /// radius is the pocket's capture radius and is the ring's centre line,
+    /// so the ring straddles the capture circle instead of lying inside it.
+    public static func pocketRing(captureRadius: Double) -> (inner: Double, outer: Double) {
+        (captureRadius - pocketRingWidth / 2, captureRadius + pocketRingWidth / 2)
+    }
+
     /// The ghost ball of the recommended shot.
     public static let targetGhostOpacity = 0.5
 
