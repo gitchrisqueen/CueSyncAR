@@ -196,6 +196,9 @@ extension SessionModel {
     private func addHealthBlocks(to state: inout [String: Any]) {
         state["detection"] = mirrorDetectionHealth()
         state["calibrationHealth"] = calibrationHealthMirrorState()
+        // Whether the zoomed far-table detector pass is installed and on
+        // (`/cmd?action=farTile`), so a remote tester can see the switch.
+        state["farTile"] = FarTileControl.mirrorState
     }
 
     /// Recall health: the number that says whether "Tracking N balls"
