@@ -182,9 +182,11 @@ extension SessionModel {
             }
             guard let provider else { return nil }
             DetectorCompute.log.notice("detector loaded: \(probe.summary, privacy: .public)")
-            return probe.units == .cpuAndNeuralEngine
+            let base = probe.units == .cpuAndNeuralEngine
                 ? ProbedDetector(inner: provider) as (any DetectionProviding)
                 : provider as (any DetectionProviding)
+            // Far-tile pass: OFF until `/cmd?action=farTile&v=1`.
+            return FarTileControl.install(around: base)
         }.value
     }
 
@@ -219,6 +221,9 @@ extension SessionModel {
         case "parkedHold":
             guard let v = params["v"].flatMap(Int.init) else { return }
             setParkedHoldEnabled(v != 0)
+        case "farTile":
+            guard let v = params["v"].flatMap(Int.init) else { return }
+            setFarTileEnabled(v != 0)
         default:
             Self.log.info("mirror command ignored: \(String(describing: params), privacy: .public)")
         }
