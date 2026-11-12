@@ -79,6 +79,46 @@ public struct BallIdentity: Sendable, Equatable {
         /// `switchObservations` elections running. 0.6 means "clearly more
         /// neutral", not merely marginally.
         public var eightSwitchRatio: Double
+        /// A look dimmer than this (brightness relative to the cue ball)
+        /// does not count as evidence of a band. A dim ball's per-pixel hues are
+        /// noise, which reads as spread: on a 15-ball layout (2026-11-12)
+        /// the maroon SOLID (0.48-0.59) spread 16.8-34.7 degrees, above the
+        /// stripe line, and solids between 0.3 and 0.6 had a median spread
+        /// of 15-25 against 3-6 for bright ones. The line is at 0.6 because
+        /// a dark blue solid measured 0.61 on another recording
+        /// (2026-09-09) with a clean 1.8-6.0 degrees; nothing between 0.6
+        /// and 0.75 was a solid on the newer one.
+        public var stripeMinimumValue: Double
+        /// Hue range, in degrees, in which a stripe's cream band cannot be
+        /// seen. The band is a warm cream (hue roughly 30-40), so a pigment
+        /// whose hue is near it shows no spread however much band is
+        /// visible: yellow stripe 1.9-7.5 against yellow solid 1.1-4.6, and
+        /// orange stripe 4.7-9.5 against orange solid 1.7-10.3. Such a ball
+        /// that shows no band is NOT called solid, because "no band seen"
+        /// carries no information there; its group stays unknown. Red
+        /// (hue below this range) shows its band clearly: 12.0-24.7 against
+        /// 3.9-10.7.
+        public var bandBlindHueLow: Double
+        public var bandBlindHueHigh: Double
+        /// A dark ball that is not the eight is named by its hue only when
+        /// its mean chroma (relative to the cue ball) is at least this. The
+        /// eight measures 0.01-0.06 and a dark purple ball 0.01-0.08, where
+        /// the hue is numerical noise: the purple balls read maroon in
+        /// every frame (hue 334-343 degrees from pixels with no colour). A
+        /// dark green ball measured 0.09-0.14 and a dark blue one 0.09-0.17,
+        /// with a trustworthy hue. Below the floor the ball is left unnamed.
+        public var fallbackChromaFloor: Double
+        /// Below the chroma floor a dark ball is still named when its hue
+        /// is steady: the interquartile spread, in degrees, of the hues it
+        /// showed on its dark looks is at or under this. The noisy purple
+        /// balls spread 12-29; the greens and the blue 4-8 (and clear the
+        /// floor anyway).
+        public var fallbackHueSpread: Double
+        /// A challenger's share of the colour vote must beat the held
+        /// colour's share by this much for a look to count towards a
+        /// rename, so a dead heat between two colours cannot flip a name
+        /// however long it lasts.
+        public var switchShareMargin: Double
 
         public init(window: Int = 40,
                     stripeWhiteFraction: Double = 0.30,
@@ -87,7 +127,13 @@ public struct BallIdentity: Sendable, Equatable {
                     minimumObservations: Int = 5,
                     switchObservations: Int = 5,
                     eightChromaCeiling: Double = 0.10,
-                    eightSwitchRatio: Double = 0.6) {
+                    eightSwitchRatio: Double = 0.6,
+                    stripeMinimumValue: Double = 0.6,
+                    bandBlindHueLow: Double = 8,
+                    bandBlindHueHigh: Double = 60,
+                    fallbackChromaFloor: Double = 0.08,
+                    fallbackHueSpread: Double = 6,
+                    switchShareMargin: Double = 0.10) {
             self.window = window
             self.stripeWhiteFraction = stripeWhiteFraction
             self.stripeHueSpread = stripeHueSpread
@@ -96,6 +142,12 @@ public struct BallIdentity: Sendable, Equatable {
             self.switchObservations = switchObservations
             self.eightChromaCeiling = eightChromaCeiling
             self.eightSwitchRatio = eightSwitchRatio
+            self.stripeMinimumValue = stripeMinimumValue
+            self.bandBlindHueLow = bandBlindHueLow
+            self.bandBlindHueHigh = bandBlindHueHigh
+            self.fallbackChromaFloor = fallbackChromaFloor
+            self.fallbackHueSpread = fallbackHueSpread
+            self.switchShareMargin = switchShareMargin
         }
 
         public static let `default` = Config()
@@ -194,34 +246,39 @@ public struct BallIdentity: Sendable, Equatable {
     /// one look.
     private func commit(_ record: inout Record) {
         guard record.observations.count >= config.minimumObservations else { return }
-        if let leader = Self.tally(record.observations)?.leader {
+        if let tally = Self.tally(record.observations) {
             Self.advance(&record.committedFamily, challenger: &record.challenger,
-                         looks: &record.challengerLooks, towards: leader,
-                         after: config.switchObservations)
+                         looks: &record.challengerLooks, tally: tally, config: config)
         }
-        if let leader = Self.tally(fallbackLooks: record.observations)?.leader {
+        if let tally = Self.tally(fallbackLooks: record.observations) {
             Self.advance(&record.committedFallback, challenger: &record.fallbackChallenger,
-                         looks: &record.fallbackChallengerLooks, towards: leader,
-                         after: config.switchObservations)
+                         looks: &record.fallbackChallengerLooks, tally: tally, config: config)
         }
     }
 
     /// The hold: the first name commits at once, a change of name only
-    /// after `after` consecutive looks in which another colour leads.
+    /// after `config.switchObservations` consecutive looks in which another
+    /// colour leads the vote by at least `config.switchShareMargin` of its
+    /// share. A look in which the leader
+    /// does not clear the margin ends the challenge rather than pausing it:
+    /// the evidence has to be sustained, not merely recurring.
     private static func advance(_ committed: inout ColorFamily?, challenger: inout ColorFamily?,
-                                looks: inout Int, towards leader: ColorFamily, after: Int) {
+                                looks: inout Int, tally: VoteTally, config: Config) {
+        let leader = tally.leader
         guard let current = committed else {
             committed = leader
             return
         }
-        if leader == current {
+        let held = tally.scores[current]?.share ?? 0
+        let lead = (tally.scores[leader]?.share ?? 0) - held
+        if leader == current || lead < config.switchShareMargin {
             challenger = nil
             looks = 0
             return
         }
         looks = leader == challenger ? looks + 1 : 1
         challenger = leader
-        if looks >= after {
+        if looks >= config.switchObservations {
             committed = leader
             challenger = nil
             looks = 0
@@ -314,6 +371,17 @@ public struct BallIdentity: Sendable, Equatable {
     /// The chromatic colour of a dark ball that is not the eight, held
     /// like any other name.
     private func fallbackFamily(for record: Record) -> (family: ColorFamily, confidence: Double)? {
+        // A ball this neutral has no hue to read unless the hue it shows is
+        // steady (see `fallbackChromaFloor`). Looks that carry no hue
+        // (older callers) are not held to the floor.
+        if let chroma = record.meanRelativeChroma, chroma < config.fallbackChromaFloor {
+            let hues = record.observations.compactMap { $0.fallbackFamily == nil ? nil : $0.hue }
+            if !hues.isEmpty {
+                guard let spread = Self.hueInterquartile(of: hues, minimum: config.minimumObservations + 1),
+                      spread <= config.fallbackHueSpread
+                else { return nil }
+            }
+        }
         guard let tally = Self.tally(fallbackLooks: record.observations) else { return nil }
         let family = record.committedFallback.flatMap { tally.scores[$0] == nil ? nil : $0 } ?? tally.leader
         guard let score = tally.scores[family] else { return nil }
@@ -323,20 +391,19 @@ public struct BallIdentity: Sendable, Equatable {
     /// Confidence-weighted vote over a window of looks, with a
     /// deterministic tie-break so the same looks always name the same ball
     /// the same way.
-    private static func tally(_ observations: [AppearanceObservation])
-        -> (leader: ColorFamily, scores: [ColorFamily: (share: Double, strength: Double)])? {
+    typealias VoteTally = (leader: ColorFamily, scores: [ColorFamily: (share: Double, strength: Double)])
+
+    private static func tally(_ observations: [AppearanceObservation]) -> VoteTally? {
         tally(observations.map { ($0.family, $0.confidence) })
     }
 
     /// The same vote over the chromatic readings of the looks that called
     /// the ball black.
-    private static func tally(fallbackLooks observations: [AppearanceObservation])
-        -> (leader: ColorFamily, scores: [ColorFamily: (share: Double, strength: Double)])? {
+    private static func tally(fallbackLooks observations: [AppearanceObservation]) -> VoteTally? {
         tally(observations.compactMap { look in look.fallbackFamily.map { ($0, look.fallbackConfidence) } })
     }
 
-    private static func tally(_ looks: [(family: ColorFamily, confidence: Double)])
-        -> (leader: ColorFamily, scores: [ColorFamily: (share: Double, strength: Double)])? {
+    private static func tally(_ looks: [(family: ColorFamily, confidence: Double)]) -> VoteTally? {
         var weights: [ColorFamily: Double] = [:]
         var counts: [ColorFamily: Int] = [:]
         for look in looks {
@@ -376,8 +443,46 @@ public struct BallIdentity: Sendable, Equatable {
         // only ever have seen a band, never proved there isn't one, so a
         // ball that has shown neither is called solid provisionally and
         // will be corrected the moment it rolls and shows otherwise.
-        if let spread = record.peakHueSpread, spread >= config.stripeHueSpread { return .stripe }
-        return record.peakWhiteFraction >= config.stripeWhiteFraction ? .stripe : .solid
+        let reliable = record.observations.filter { look in
+            look.relativeValue.map { $0 >= config.stripeMinimumValue } ?? true
+        }
+        // Only looks bright enough to trust count: a dim ball's hue spread
+        // is noise (see `stripeMinimumValue`).
+        if let spread = reliable.compactMap(\.hueSpread).max(), spread >= config.stripeHueSpread {
+            return .stripe
+        }
+        if record.peakWhiteFraction >= config.stripeWhiteFraction { return .stripe }
+        // No band seen. That says "solid" only when a band could have been
+        // seen against this pigment: not when its hue is already the band's.
+        // The pigment's hue is the mean over every look; dimness adds noise
+        // to a hue but not a bias.
+        if let hue = Self.meanHue(of: record.observations),
+           hue >= config.bandBlindHueLow, hue <= config.bandBlindHueHigh { return nil }
+        return .solid
+    }
+
+    /// Interquartile range, in degrees, of hues around their circular
+    /// mean, or nil with fewer than `minimum`: a handful of looks can agree
+    /// by chance, and a name that appears for a frame and goes is worse
+    /// than none.
+    private static func hueInterquartile(of hues: [Double], minimum: Int) -> Double? {
+        guard hues.count >= minimum else { return nil }
+        let x = hues.map { cos($0 * .pi / 180) }.reduce(0, +)
+        let y = hues.map { sin($0 * .pi / 180) }.reduce(0, +)
+        let mean = atan2(y, x) * 180 / .pi
+        let deviations = hues.map { (($0 - mean + 540).truncatingRemainder(dividingBy: 360)) - 180 }.sorted()
+        return deviations[(deviations.count - 1) * 3 / 4] - deviations[(deviations.count - 1) / 4]
+    }
+
+    /// Circular mean of the looks' hues in degrees 0..<360, or nil when
+    /// none carried one.
+    private static func meanHue(of looks: [AppearanceObservation]) -> Double? {
+        let hues = looks.compactMap(\.hue)
+        guard !hues.isEmpty else { return nil }
+        let x = hues.map { cos($0 * .pi / 180) }.reduce(0, +)
+        let y = hues.map { sin($0 * .pi / 180) }.reduce(0, +)
+        let degrees = atan2(y, x) * 180 / .pi
+        return degrees < 0 ? degrees + 360 : degrees
     }
 
     /// The ball's identity: a player's correction if there is one, else

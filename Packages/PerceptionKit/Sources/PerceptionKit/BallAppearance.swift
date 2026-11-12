@@ -104,7 +104,14 @@ public enum ColorFamily: String, Sendable, Equatable, CaseIterable, Codable {
     /// Hue centre in degrees, for the chromatic families.
     var hueCentre: Double? {
         switch self {
-        case .yellow: 48
+        // Measured 38-40 on two recordings (2026-09 and 2026-11-12), where 48
+        // put the yellow/orange boundary at 36.5, under the lowest yellow
+        // look (36.6), so a noisy yellow ball read orange. 44 puts it at
+        // 34.5, which still keeps the orange balls of the 2026-11-11 session
+        // (hue 32.6-33.9) orange. The two colours are only 3 degrees apart
+        // across those sessions: hue alone cannot be made safe, see
+        // `AppearanceObservation.hue` for what else is kept.
+        case .yellow: 44
         case .orange: 25
         case .red: 356
         case .maroon: 348
@@ -160,11 +167,18 @@ public struct AppearanceObservation: Sendable, Equatable {
     /// one ball may be the eight.
     public var fallbackFamily: ColorFamily?
     public var fallbackConfidence: Double
+    /// Hue in degrees of the patch's mean colour, white-balanced on the
+    /// cue ball. `BallIdentity` uses it to tell whether a stripe's cream
+    /// band could be seen against this pigment at all (see
+    /// `BallIdentity.Config.bandBlindHue`). Nil from callers that do not
+    /// measure it, which then get the behaviour they always had.
+    public var hue: Double?
 
     public init(family: ColorFamily, confidence: Double, whiteFraction: Double,
                 hueSpread: Double? = nil, meanRGB: Vec3? = nil,
                 relativeChroma: Double? = nil, relativeValue: Double? = nil,
-                fallbackFamily: ColorFamily? = nil, fallbackConfidence: Double = 0) {
+                fallbackFamily: ColorFamily? = nil, fallbackConfidence: Double = 0,
+                hue: Double? = nil) {
         self.family = family
         self.confidence = confidence
         self.whiteFraction = whiteFraction
@@ -174,6 +188,7 @@ public struct AppearanceObservation: Sendable, Equatable {
         self.relativeValue = relativeValue
         self.fallbackFamily = fallbackFamily
         self.fallbackConfidence = fallbackConfidence
+        self.hue = hue
     }
 }
 
@@ -218,6 +233,17 @@ public enum BallAppearance {
         /// 0.78-0.90 on two clips), so the answer is only ever a vote
         /// input: `BallIdentity` commits it after several agreeing looks.
         public var maroonRelativeValueCeiling: Double
+        /// A warm-hued ball (red, maroon or orange by hue) that is BOTH
+        /// less coloured than this and dimmer than `maroonWarmValueCeiling`,
+        /// each relative to the cue ball, is the maroon. Hue cannot say:
+        /// the maroon's hue sits between red and orange and was called
+        /// orange in every frame. Measured on a 15-ball layout (2026-11-12,
+        /// relative to the cue ball), chroma / value: maroon 0.19-0.31 /
+        /// 0.48-0.71 (2 balls), red 0.47-0.58 / 0.80-0.96 (2 balls),
+        /// orange 0.64-0.75 / 0.92-1.03 (2 balls). Chroma is the wider gap
+        /// (0.31 against 0.47) and the ceiling sits in its middle.
+        public var maroonChromaCeiling: Double
+        public var maroonWarmValueCeiling: Double
 
         public init(minimumSamples: Int = 40,
                     blackChromaCeiling: Double = 0.15,
@@ -225,7 +251,9 @@ public enum BallAppearance {
                     hueTolerance: Double = 40,
                     blackMeanChromaCeiling: Double = 0.15,
                     blackRelativeValueCeiling: Double = 0.6,
-                    maroonRelativeValueCeiling: Double = 0.75) {
+                    maroonRelativeValueCeiling: Double = 0.75,
+                    maroonChromaCeiling: Double = 0.40,
+                    maroonWarmValueCeiling: Double = 0.78) {
             self.minimumSamples = minimumSamples
             self.blackChromaCeiling = blackChromaCeiling
             self.whiteFractionFloor = whiteFractionFloor
@@ -233,6 +261,8 @@ public enum BallAppearance {
             self.blackMeanChromaCeiling = blackMeanChromaCeiling
             self.blackRelativeValueCeiling = blackRelativeValueCeiling
             self.maroonRelativeValueCeiling = maroonRelativeValueCeiling
+            self.maroonChromaCeiling = maroonChromaCeiling
+            self.maroonWarmValueCeiling = maroonWarmValueCeiling
         }
 
         public static let `default` = Config()
@@ -261,7 +291,8 @@ public enum BallAppearance {
                                   hueSpread: patch.hueSpread, meanRGB: patch.meanRGB,
                                   relativeChroma: meanChromaRelative, relativeValue: valueRelative,
                                   fallbackFamily: fallback?.family,
-                                  fallbackConfidence: fallback?.confidence ?? 0)
+                                  fallbackConfidence: fallback?.confidence ?? 0,
+                                  hue: hue(of: balanced))
         }
 
         if patch.whiteFraction >= config.whiteFractionFloor,
@@ -282,11 +313,13 @@ public enum BallAppearance {
             // and sends the losers to this reading.
             if valueRelative < config.blackRelativeValueCeiling {
                 return observation(.black, 0.9,
-                                   fallback: hueFamily(of: balanced, value: valueRelative, config: config))
+                                   fallback: hueFamily(of: balanced, value: valueRelative,
+                                                       chroma: meanChromaRelative, config: config))
             }
             return observation(.white, 0.9)
         }
-        guard let reading = hueFamily(of: balanced, value: valueRelative, config: config) else { return nil }
+        guard let reading = hueFamily(of: balanced, value: valueRelative,
+                                      chroma: meanChromaRelative, config: config) else { return nil }
         return observation(reading.family, reading.confidence)
     }
 
@@ -298,7 +331,7 @@ public enum BallAppearance {
     /// best two set the confidence. Yellow at 48 and orange at 25 are
     /// genuinely close under this light, and the honest output is a low
     /// number rather than a coin flip dressed as a decision.
-    static func hueFamily(of balanced: Vec3, value valueRelative: Double,
+    static func hueFamily(of balanced: Vec3, value valueRelative: Double, chroma chromaRelative: Double? = nil,
                           config: Config) -> (family: ColorFamily, confidence: Double)? {
         guard let hue = hue(of: balanced) else { return nil }
         var scored: [(family: ColorFamily, fit: Double)] = []
@@ -316,6 +349,17 @@ public enum BallAppearance {
         var family = best.family
         if family == .red || family == .maroon {
             family = valueRelative < config.maroonRelativeValueCeiling ? .maroon : .red
+        }
+        // The maroon's hue is between red and orange, so hue alone calls it
+        // orange (or red). A dim, pale warm ball is maroon on value and
+        // chroma, which separate it cleanly where hue does not. Its
+        // confidence is how far inside both ceilings it sits, not the hue
+        // margin, which is small by construction.
+        if let chromaRelative, [.red, .maroon, .orange].contains(best.family),
+           chromaRelative < config.maroonChromaCeiling, valueRelative < config.maroonWarmValueCeiling {
+            let margin = Swift.min((config.maroonChromaCeiling - chromaRelative) / config.maroonChromaCeiling,
+                                   (config.maroonWarmValueCeiling - valueRelative) / config.maroonWarmValueCeiling)
+            return (.maroon, Swift.max(0, Swift.min(1, 0.6 + 0.4 * margin)))
         }
         // How much better the winner fits than the next best. A colour
         // with no near neighbour keeps its fit; one sitting between two
