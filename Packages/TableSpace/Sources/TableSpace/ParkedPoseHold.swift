@@ -82,6 +82,11 @@ public struct StillnessDetector: Sendable, Equatable {
         self.config = config
     }
 
+    /// Whether one sample is over either limit (the device is moving).
+    public func isOverLimit(rotationRate: Double, userAcceleration: Double) -> Bool {
+        rotationRate > config.rotationLimit || userAcceleration > config.accelerationLimit
+    }
+
     /// Feed one IMU sample. Returns whether the device is still now.
     @discardableResult
     public mutating func add(time: TimeInterval, rotationRate: Double,
@@ -109,7 +114,32 @@ public struct StillnessDetector: Sendable, Equatable {
 }
 
 /// The parked-device pose correction. See the file header for the model.
+///
+/// Life cycle (2026-11-12 fix, "re-arming the parked hold moves the table"):
+/// a hold SESSION starts when the gate first opens on a locked table and
+/// ends only with `releaseLock()` (the lock was dropped or replaced). The
+/// calibration lives in the session's corrected world, so the correction
+/// must never change because a switch was flipped: closing the gate
+/// (`setArmed(false)`) keeps the correction and keeps tracking drift while
+/// the IMU says the device is still, exactly as an open gate does. Only the
+/// IMU decides what is held; the gate decides whether a session may start,
+/// and whether a device that moved while the gate was closed is trusted.
 public struct ParkedPoseHold: Sendable, Equatable {
+    /// What `setArmed(_:)` did.
+    public enum ArmOutcome: Sendable, Equatable {
+        /// Nothing changed.
+        case unchanged
+        /// A new session began (identity correction, no reference yet).
+        case started
+        /// The gate reopened on a session that was kept; the correction is
+        /// exactly what it was.
+        case resumed
+        /// The device moved while the gate was closed, so the session's
+        /// frame can no longer be trusted. The caller must drop the table
+        /// lock (and say so); call `releaseLock()` once it has.
+        case lockMustBeDropped
+    }
+
     /// Maps the corrected world into ARKit's current world. Identity until
     /// a hold has run.
     public private(set) var correction: Transform3D = .identity
@@ -120,32 +150,71 @@ public struct ParkedPoseHold: Sendable, Equatable {
     public private(set) var reference: Transform3D?
     /// ARKit's latest camera pose.
     public private(set) var lastPose: Transform3D?
-    /// Whether a hold may run at all (a table is locked and the feature is on).
+    /// The gate: a table is locked, the device is parked and the feature is on.
     public private(set) var isArmed = false
+    /// A session exists: the locked calibration is expressed in the
+    /// corrected world, so `correction` stays in force (and keeps tracking
+    /// while the device is still) whether or not the gate is open.
+    public private(set) var isActive = false
+    /// A sample over the stillness limits arrived while the gate was closed
+    /// on a live session (see `noteMotion()`).
+    public private(set) var motionWhileUnarmed = false
+    /// Re-arming was refused for that reason; stays set until `releaseLock()`.
+    public private(set) var lockMustBeDropped = false
 
     public init() {}
 
     /// True while the camera is being held at `reference`.
     public var isHolding: Bool { reference != nil }
 
-    /// Arm or disarm. Disarming drops the correction: with nothing locked
-    /// there is no calibration for it to protect, and the next lock is
-    /// measured in ARKit's world as it is then.
-    public mutating func setArmed(_ armed: Bool) {
-        guard armed != isArmed else { return }
-        isArmed = armed
-        if !armed {
-            correction = .identity
-            frozenCorrection = .identity
-            reference = nil
+    /// Open or close the gate. Never changes `correction`: closing keeps the
+    /// session, so the locked table does not move in the camera image, and
+    /// reopening resumes it. Opening with no session starts one. Opening
+    /// after the device moved with the gate closed refuses (see
+    /// `ArmOutcome.lockMustBeDropped`) rather than restore a frame the
+    /// motion may have invalidated.
+    @discardableResult
+    public mutating func setArmed(_ armed: Bool) -> ArmOutcome {
+        guard armed else {
+            isArmed = false
+            return .unchanged
         }
+        guard isActive else {
+            isActive = true
+            isArmed = true
+            return .started
+        }
+        if lockMustBeDropped || (motionWhileUnarmed && !isArmed) {
+            lockMustBeDropped = true
+            return .lockMustBeDropped
+        }
+        defer { isArmed = true }
+        return isArmed ? .unchanged : .resumed
+    }
+
+    /// The IMU saw motion (a sample over the stillness limits). Matters
+    /// only to a live session with the gate closed.
+    public mutating func noteMotion() {
+        if isActive, !isArmed { motionWhileUnarmed = true }
+    }
+
+    /// The table lock ended or was replaced: forget the session. A new lock
+    /// is measured in ARKit's world as it is then and starts a new reference.
+    public mutating func releaseLock() {
+        correction = .identity
+        frozenCorrection = .identity
+        reference = nil
+        isArmed = false
+        isActive = false
+        motionWhileUnarmed = false
+        lockMustBeDropped = false
     }
 
     /// Feed ARKit's camera pose for a frame, with whether the IMU says the
     /// device is still.
     public mutating func update(cameraPose pose: Transform3D, still: Bool) {
         lastPose = pose
-        guard isArmed else { return }
+        guard isActive else { return }
         if still {
             if let reference {
                 correction = pose * AnchoredCalibration.invertRigid(reference) * frozenCorrection

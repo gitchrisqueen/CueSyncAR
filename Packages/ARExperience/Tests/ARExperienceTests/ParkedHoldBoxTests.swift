@@ -47,17 +47,17 @@ private func shifted(_ x: Double) -> Transform3D {
         #expect(!box.current.isHolding)
     }
 
-    @Test func disabledNeverArmsAndDropsTheCorrection() {
+    /// A box that was disabled before any lock never starts a hold. (The
+    /// old version of this test also asserted that disabling a RUNNING hold
+    /// dropped its correction; that was the table-moves bug, and
+    /// ParkedHoldRearmBoxTests now asserts the opposite.)
+    @Test func disabledNeverStartsAHold() {
         let box = ParkedHoldBox()
+        box.setEnabled(false)
         box.setArmed(true)
+        #expect(!box.isArmed)
         settle(box, until: 100)
         _ = box.update(cameraPose: .identity, at: 100)
-        _ = box.update(cameraPose: shifted(0.2), at: 100.1)
-        box.setEnabled(false)
-        #expect(!box.isArmed)
-        #expect(box.current.correction == .identity)
-        box.setArmed(true)
-        #expect(!box.isArmed)
         let corrected = box.update(cameraPose: shifted(0.4), at: 100.2)
         #expect(abs(corrected.translation.x - 0.4) < 1e-9)
         box.noteWorldMapping("mapped")

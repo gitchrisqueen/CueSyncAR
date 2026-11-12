@@ -49,6 +49,11 @@ extension SessionModel {
             hold["driftMm"] = r(drift.translation * 1000, 10)
             hold["driftDeg"] = r(drift.rotationDegrees, 1000)
         }
+        // The lock-time reference the hold keeps across switches.
+        hold["referenceHeld"] = reading.referenceHeld
+        if let age = reading.referenceAge { hold["referenceAgeS"] = r(age, 10) }
+        hold["motionWhileUnarmed"] = reading.motionWhileUnarmed
+        hold["lockMustBeDropped"] = reading.lockMustBeDropped
         state["parkedHold"] = hold
         if let anchor = coordinator.currentTableAnchorTransform {
             let t = anchor.translation
@@ -88,6 +93,23 @@ extension SessionModel {
         arCoordinator?.parkedHold.setEnabled(on)
         Self.log.notice("parked pose hold \(on ? "ON" : "OFF", privacy: .public) (remote)")
         showRemoteFeedback(on ? "Parked pose hold on" : "Parked pose hold off")
+    }
+
+    /// The frame loop's one call: tell the hold whether a table is locked
+    /// and whether the device is parked, and act on its verdict.
+    func syncParkedHold(_ hold: ParkedHoldBox) {
+        if hold.sync(locked: calibration.isLocked, parked: settings.deviceParked) == .dropLock {
+            dropLockForHoldMotion()
+        }
+    }
+
+    /// The device moved while the hold was off, so the locked table's frame
+    /// can no longer be trusted and a silent restore would be wrong: drop the
+    /// lock and ask for calibration again, loudly.
+    func dropLockForHoldMotion() {
+        Self.log.notice("parked hold: device moved while the hold was off; table lock dropped, calibration needed")
+        beginCalibration()
+        showTapFeedback("The iPad moved while the hold was off. Set up the table again.")
     }
 
     /// Measure the table size with the balls as a ruler, after a pocket
