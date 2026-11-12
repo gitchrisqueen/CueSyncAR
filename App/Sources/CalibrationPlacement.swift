@@ -87,6 +87,10 @@ final class CalibrationPlacement {
     var pocketSnap: [String: String] = [:]
     /// The last tilted pocket fit in full: rms, worst, leave-one-out, tilt.
     var pocketFitDetail: String?
+    /// What the last snapped pocket lock was built from (pixels, nose
+    /// lines, pose, intrinsics, per-pocket errors), so it can be re-run
+    /// offline. Nil when the lock did not go through the snapped path.
+    var lockEvidence: PocketLockEvidence?
 
     /// The cloth height every corner in the current flow was placed
     /// against, frozen at the first tap.

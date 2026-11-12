@@ -249,3 +249,128 @@ What the data does support:
 - Whether the table is level. needs-device-run: a spirit level on the slate
   would separate a real table tilt from an ARKit attitude bias.
 - The table size. needs-device-run: tape-measure the cushion-nose length.
+
+## Follow-up: a clean recording of a parked lock (build 34acd56)
+
+Data:
+- 148 clean camera frames, 1440 x 1080, with the raw detector boxes and the
+  held camera pose for every frame.
+- Box `x, y` is the top-left corner. The far orange ball's box is 29 px tall
+  with its top at y = 430.
+- The held pose is identical in all 148 frames.
+
+Method:
+- Each lock below is fitted the app's way unless the row says otherwise:
+  nose-height plane, height and tilt free, near corners along-free.
+- The snaps come from `Tools/PocketSnap` run on each frame with the six
+  picks.
+- Every box in all 148 frames goes through the lock exactly as the pipeline
+  maps it: box centre, ray, plane lifted one radius, table. Each grid spot is
+  scored at its median position.
+- Each candidate is locked from 10 frames (every 15th) and compared with the
+  grid.
+
+Reproduction check:
+- My mapping through the lock in force matches the app's own ball markers to
+  2.5 mm (median).
+- It scores 3.07 cm, shift (+0.7, -1.3) cm. The app measured 3.2 cm, shift
+  (+0.6, -1.4).
+
+Reference fits:
+- The judge: the balls alone, plane and pose free. This uses known spots, so
+  it is not a lock. It gives 1.82 cm at 1.45 deg tilt.
+- The lock in force: 3.07 cm at 1.05 deg.
+
+| Candidate (10 locks from different frames) | raw rms mean (min-max), cm | shift mean, cm | shift spread x, y, cm | rotation mean, spread, deg | tilt, deg |
+|---|---|---|---|---|---|
+| Lock in force (snapped at lock time, one lock) | 3.07 | (+0.7, -1.3) | n/a | -0.09 | 1.05 |
+| App fit, snapped in the recorded frames | 2.83 (2.76-2.92) | (+0.8, -0.3) | 0.31, 0.07 | +0.13, 0.07 | 1.03 |
+| (a) Snaps averaged over all 148 frames (one lock) | 2.81 | (+0.8, -0.3) | n/a | +0.12 | 1.03 |
+| (b) Pockets + three nose lines (TL-TR, TR-BR, BR-BL) | 2.87 (2.79-2.97) | (+0.9, -0.3) | 0.30, 0.09 | +0.16, 0.06 | 1.00 |
+| (b) Pockets + the two long nose lines | 2.88 (2.81-2.97) | (+0.9, -0.3) | 0.31, 0.08 | +0.15, 0.07 | 1.02 |
+| (b) Rectangle from nose lines: far corners from line crossings, side jaws, no near corners | 2.87 (2.78-2.96) | (+0.9, -0.3) | 0.29, 0.10 | +0.16, 0.06 | 1.00 |
+| (b) Nose lines + side jaws only | 2.84 (2.76-2.94) | (+0.9, -0.3) | 0.29, 0.10 | +0.16, 0.06 | 1.01 |
+| (c) App fit with the plane forced level | 5.24 (5.15-5.32) | (+2.9, +0.3) | 0.27, 0.03 | -0.23, 0.10 | 0 |
+| (c) Tilt from ball sizes over time | rejected | | | | 1.7-4.9, wrong sign |
+| (c) Pockets + nose lines + focal length fitted with them | 2.62 (2.51-2.72) | (+0.7, -0.3) | 0.31, 0.09 | +0.16, 0.06 | about 1.05 (focal +0.98 %, spread 0.32 %) |
+| Not a lock: pockets + nose lines with the tilt taken from the judge | 2.57 (2.52-2.62) | (-1.4, -0.4) | 0.22, 0.07 | +0.32, 0.09 | 1.45 |
+
+### (a) Snapping over many frames
+
+**The snap error repeats in every frame, so averaging cannot help.**
+- Each snapped pocket scatters 0.14-0.30 px (standard deviation) over 148
+  frames, 1.0 px at most.
+- Each rail and nose line moves less than 0.1 px and less than 0.05 deg.
+- Averaging all 148 frames changes the result by 0.02 cm.
+
+On a parked device the lock is already repeatable: shift spread 0.3 cm,
+rotation spread under 0.1 deg. The lock-to-lock shifts of 1-4 cm seen before
+came from different taps and snaps between locks, not from frame noise.
+
+### (b) Cushion-nose lines
+
+**The nose lines agree with the pockets, so adding them changes nothing.**
+- Three nose lines are found in every frame at 0.4-0.8 px rms. The near end
+  has no nose line.
+- Every way of adding them lands at 2.84-2.88 cm with the same tilt (about
+  1.0 deg).
+- With the lines added, the features fit their model to 1.3 mm. They agree
+  with each other.
+
+### (c) What else the frames allow
+
+**A fixed image-to-table map changes nothing on a parked device.** The held
+pose is already constant: all 148 frames carry the same pose. So a lock that
+uses no ARKit pose after the lock is what the parked hold already gives.
+
+**The one real gain is the pose chain.** Snapping in a frame that has the
+same pose as the balls gives 2.83 cm, against 3.07 cm for the lock in force.
+Two signs of the difference:
+- The lock-time snaps moved differently from the snaps in the recording:
+  cornerBottomRight 42 px against 31, sideBottom 62 px against 46.
+- The lock's y shift was -1.3 cm, against -0.3 cm here.
+
+**Focal length.**
+
+| Focal change | Feature fit (mm) | Grid raw (cm) |
+|---|---|---|
+| -4 % | 3.55 | 4.14 |
+| 0 % | 1.33 | 2.94 |
+| +1 % | 1.14 | 2.67 |
+| +3 % | 1.69 | 2.21 |
+| +7 % | 3.88 | 1.73 |
+
+The pocket-and-line fit is best at +1 %. That is what a lock could
+self-calibrate, and it gives 2.62 cm with the focal length fitted jointly.
+The grid keeps improving out to +7 %, but the features reject that.
+
+**Tilt from ball sizes is unusable.** Fitting a plane through sphere centres
+placed by box-size range gives 1.7-4.9 deg of tilt, depending on how the box
+size is taken, and often the wrong sign.
+
+### Result
+
+**No candidate built only from what a lock has reaches 2.2 cm.** The closest
+is the jointly fitted focal length at 2.62 cm. Using it would need the
+pipeline's raycast to use the corrected focal length.
+
+**What limits it is the tilt, and the error is a bias rather than noise.**
+- The image features agree on about 1.0 deg of tilt: pockets and three nose
+  lines, fitted to 1.1-1.3 mm.
+- The balls need 1.45 deg.
+- Fixing the tilt to the balls' value moves the shift instead: 2.57 cm.
+
+Whatever disagrees lies between the cushion-nose features and the ball rays,
+not in the lock's position or heading. The candidates are the focal length
+or angular scale, a systematic placement error in the grid, or a bias in the
+ball box centres. This recording cannot separate them.
+
+**Evidence recorded from now on.** `/state.json` now carries `lockEvidence`
+for every snapped pocket lock:
+- per pocket: the tap and snapped pixels, the snap method, the fitted error
+  and the leave-one-out error;
+- the rail and nose line of each side;
+- the camera transform and intrinsics the rays were cast from;
+- the plane normal, tilt, fit rms and size.
+
+So the next lock can be re-run offline from its own inputs.

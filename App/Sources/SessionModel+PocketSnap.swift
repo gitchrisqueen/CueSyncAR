@@ -28,6 +28,9 @@ extension SessionModel {
         var imageTaps: [PocketID: Vec2]
         var methods: [PocketID: PocketSnap.Method]
         var size: TableSizeFromImage.Estimate?
+        /// What the lock is built from, for `/state.json` (the per-pocket
+        /// errors are filled in once the fit has run).
+        var evidence: PocketLockEvidence
         /// How many taps actually moved onto a feature.
         var snappedCount: Int { methods.values.filter { $0 != .raw }.count }
     }
@@ -70,9 +73,11 @@ extension SessionModel {
         let refined = PocketSnap.refine(image, taps: taps)
         var rays: [(pocket: PocketID, ray: TapRay)] = []
         var methods: [PocketID: PocketSnap.Method] = [:]
+        var recorded: [PocketID: PocketLockEvidence.Pocket] = [:]
         for (pocket, _) in sightings {
             guard let result = refined[pocket] else { continue }
             methods[pocket] = result.method
+            recorded[pocket] = .init(tap: result.tap, snapped: result.point, method: result.method.rawValue)
             rays.append((pocket, Self.worldRay(throughPixel: result.point, pose: pose, intrinsics: k)))
         }
         // The size, with the balls in the SAME frame as the ruler.
@@ -94,7 +99,10 @@ extension SessionModel {
         placement.pocketSnap = Dictionary(uniqueKeysWithValues: refined.map { pocket, result in
             (pocket.rawValue, String(format: "%@ %.1f px", result.method.rawValue, result.shift))
         })
-        return SnappedPockets(rays: rays, imageTaps: taps, methods: methods, size: size)
+        let evidence = PocketLockEvidence(pockets: recorded, lines: lines, cameraPose: pose, intrinsics: k,
+                                          normal: Vec3(0, 1, 0), tiltDegrees: 0, residual: 0,
+                                          dropped: nil, size: .eightFoot)
+        return SnappedPockets(rays: rays, imageTaps: taps, methods: methods, size: size, evidence: evidence)
     }
 
     /// Where a world direction lands in the camera image, pixels (top-left
@@ -182,6 +190,12 @@ extension SessionModel {
             return false
         }
         placement.pocketFitDetail = fit.summary
+        placement.lockEvidence = snapped.map { snapped in
+            var evidence = snapped.evidence
+            evidence.size = size
+            evidence.apply(fit)
+            return evidence
+        }
         let table = fit.lowered(by: PocketSnap.noseHeight)
         let height = table.origin.y
         guard commitPocketTable(table.worldCorners, size: size, height: height,
