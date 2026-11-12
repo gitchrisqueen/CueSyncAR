@@ -55,6 +55,16 @@ public struct ShotPlanner: Sendable {
         }
 
         public static let `default` = Config()
+
+        /// The configuration for a device that is, or is not, parked.
+        ///
+        /// One place turns "the device is parked" into the resolver's
+        /// `allowDevicePose`, so the app and its tests build the planner the
+        /// same way. A parked device aims from the held cue only: sighting
+        /// down a tripod is not an aim.
+        public static func forDevice(parked: Bool) -> Config {
+            Config(resolver: AimResolver.Config(allowDevicePose: !parked))
+        }
     }
 
     public let config: Config

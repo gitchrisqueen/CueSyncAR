@@ -645,27 +645,21 @@ struct ARCameraView: View {
             }
             return
         }
-        let layout: OverlayLayout
-        if !model.showsShotGuides {
-            // A game with friends: rings so the app is visibly awake and
-            // keeping score, but no aim line. This is the branch that gives
-            // `ModeConfiguration.showsShotGuides` its first consumer — every
-            // PracticeMode sets it true, so it has never read false before.
-            layout = OverlayLayout.ballsOnly(state: state, calibration: calibration,
-                                             target: nil)
-        } else if let prediction = model.shotPrediction {
-            layout = OverlayLayout.compose(state: state, prediction: prediction,
-                                           calibration: calibration,
-                                           calledPocket: model.calledPocket,
-                                           target: model.targetOverlay)
-        } else {
-            // No shot line yet (usually: no cue ball, or the cue is not
-            // being aimed) — still render the tracked-ball rings so the
-            // user sees what the app sees, AND the recommended shot, which
-            // is most useful precisely when they are not yet down on it.
-            layout = OverlayLayout.ballsOnly(state: state, calibration: calibration,
-                                             target: model.targetOverlay)
-        }
+        // Which of the three shapes the overlay takes is decided in
+        // `OverlayLayout.frame`, where it is tested:
+        //  - no shot guides (a game with friends): rings so the app is
+        //    visibly awake and keeping score, but no aim line;
+        //  - no live aim (no cue ball, the cue is not being aimed, or the
+        //    device is parked and no cue is held): the tracked-ball rings and
+        //    the recommended shot, which is most useful precisely when the
+        //    player is not yet down on it;
+        //  - a live aim: that too, with a suggestion keeping the table quiet.
+        let layout = OverlayLayout.frame(state: state, calibration: calibration,
+                                         prediction: model.shotPrediction,
+                                         showsShotGuides: model.showsShotGuides,
+                                         calledPocket: model.calledPocket,
+                                         target: model.targetOverlay,
+                                         showsSecondaryLines: model.showsSecondaryLines)
         if layout != lastRendered {
             lastRendered = layout
             overlayRenderer?.render(layout)

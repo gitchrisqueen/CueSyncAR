@@ -246,7 +246,9 @@ struct OverlayLayoutTargetTests {
         #expect(layout.targetPocket != nil)
     }
 
-    @Test("The recommended shot is one colour, and it is the heaviest tier on the table")
+    // Was "one colour for the whole path". The rule is now one colour per
+    // meaning: white for the cue ball's leg, green for the object ball's.
+    @Test("The recommended shot is the heaviest tier on the table: white cue leg, green object leg")
     func planIsTheHero() throws {
         let (state, calibration, target) = try fixture()
         let live = solver.predict(state: state,
@@ -256,7 +258,11 @@ struct OverlayLayoutTargetTests {
                                            calibration: calibration, target: target)
         let solidPlan = layout.targetStrips.filter { !$0.dashed }
         #expect(solidPlan.count >= 2, "cue leg and object leg")
-        #expect(solidPlan.allSatisfy { $0.color == OverlayStyle.shotColor })
+        #expect(solidPlan.filter { $0.ballID == cueID }
+            .allSatisfy { $0.color == OverlayStyle.heroCueColor })
+        #expect(solidPlan.filter { $0.ballID == objectID }
+            .allSatisfy { $0.color == OverlayStyle.heroObjectColor })
+        #expect(OverlayStyle.heroCueColor != OverlayStyle.heroObjectColor)
         for strip in solidPlan {
             #expect(OverlayStyle.tier(role: strip.role, dashed: strip.dashed) == .hero)
         }

@@ -67,11 +67,29 @@ extension SessionModel {
     /// guide speed. Parked mode lives in `AimResolver.Config`, which the
     /// planner holds as a `let`.
     func rebuildShotPlanner() {
-        let resolver = AimResolver.Config(allowDevicePose: !settings.deviceParked)
         shotPlanner = ShotPlanner(
             solver: AnalyticSolver(),
             guideSpeed: settings.guideSpeed,
-            config: ShotPlanner.Config(resolver: resolver))
+            config: .forDevice(parked: settings.deviceParked))
+    }
+
+    /// Read the persisted settings at launch and put them in force.
+    ///
+    /// Launch used to assign `settings` and stop there. The planner is built
+    /// with the default configuration (device-pose aiming on), and only a
+    /// CHANGE to "device is parked" rebuilt it, so a device that was parked
+    /// when the app last ran came back parked on screen but still aiming
+    /// from where the tripod's camera points: a phantom shot held for the
+    /// whole session. The persisted guide speed was skipped the same way.
+    ///
+    /// Not `applySettings()`: that also starts the debug mirror WITH an
+    /// announcement, which launch deliberately does not do (the caller
+    /// starts the mirror quietly), and it re-applies the speech level, which
+    /// this change leaves alone.
+    func loadPersistedSettings() {
+        settings = SettingsModel(loading: appSettingsStore,
+                                 debugMirrorEnabledByDefault: Self.mirrorOnByDefault)
+        rebuildShotPlanner()
     }
 
     /// Tracker tuning derived from settings.
@@ -106,6 +124,9 @@ extension SessionModel {
         // Kept as a positive assertion rather than deleted: the mirror
         // said `false` for long enough that a reader should see it flip.
         payload["visibleMissGraceConnected"] = true
+        // The overlay test switch is not a setting, but it is the one piece
+        // of overlay state a remote tester cannot see on the screen.
+        payload["overlaySecondaryLines"] = showsSecondaryLines
         return payload
     }
 

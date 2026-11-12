@@ -203,6 +203,7 @@ final class SessionModel {
     /// The recommended shot, solved and ready for the overlay: how to make
     /// the ball the player picked. Nil when there is nothing to show.
     var targetOverlay: OverlayLayout.Target?
+    var showsSecondaryLines = false // test switch, never persisted: SessionModel+OverlayOptions
 
     /// Solver for the recommended shot. Separate from the one inside
     /// `shotPlanner` because the two answer different questions from the
@@ -834,8 +835,7 @@ final class SessionModel {
         await registry.register(AppSecrets() as any SecretsProviding)
         // Settings first: the mirror's start-on-launch preference, the
         // practice mode and the guide speed all come out of this load.
-        settings = SettingsModel(loading: appSettingsStore,
-                                 debugMirrorEnabledByDefault: Self.mirrorOnByDefault)
+        loadPersistedSettings() // also rebuilds the planner (parked mode lives there)
         startDebugMirrorIfEnabled(announcing: false)
         // M2-01 winner, bundled: YOLOv11n on the pool-ball-agzev fork,
         // mAP50 0.896 / mAP50-95 0.765 (Linux fine-tune, epoch 19).
@@ -878,8 +878,8 @@ extension SessionModel {
         // A list rather than a chain of `if`s: this function already sits
         // at SwiftLint's cyclomatic ceiling, and every new command set
         // added as another branch pushes it further past.
-        let handlers = [handleCalibrationMirrorCommand, handleShotSelectionMirrorCommand,
-                        handleSpeechMirrorCommand, handleUIMirrorCommand, handleFeedbackMirrorCommand]
+        let handlers = [handleCalibrationMirrorCommand, handleShotSelectionMirrorCommand, handleSpeechMirrorCommand,
+                        handleUIMirrorCommand, handleFeedbackMirrorCommand, handleOverlayMirrorCommand]
         for handler in handlers where handler(params) { return }
         switch params["action"] {
         case "resetTracking":
