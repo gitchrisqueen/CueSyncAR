@@ -185,7 +185,8 @@ extension SessionModel {
             let base = probe.units == .cpuAndNeuralEngine
                 ? ProbedDetector(inner: provider) as (any DetectionProviding)
                 : provider as (any DetectionProviding)
-            // Far-tile pass: OFF until `/cmd?action=farTile&v=1`.
+            // Far-tile pass: automatic (on once a table is locked);
+            // `/cmd?action=farTile&v=0|1|auto&period=N` switches it.
             return FarTileControl.install(around: base)
         }.value
     }
@@ -222,8 +223,7 @@ extension SessionModel {
             guard let v = params["v"].flatMap(Int.init) else { return }
             setParkedHoldEnabled(v != 0)
         case "farTile":
-            guard let v = params["v"].flatMap(Int.init) else { return }
-            setFarTileEnabled(v != 0)
+            setFarTile(value: params["v"], period: params["period"].flatMap(Int.init))
         default:
             Self.log.info("mirror command ignored: \(String(describing: params), privacy: .public)")
         }

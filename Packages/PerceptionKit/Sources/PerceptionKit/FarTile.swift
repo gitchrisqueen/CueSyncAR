@@ -49,14 +49,30 @@ public struct FarTileRegion: Sendable, Equatable {
     }
 
     /// The integer pixel window for a frame of this size. Origin and size are
-    /// even (required by 4:2:0 chroma planes) and the height follows the
-    /// width at the frame's aspect, within one pixel pair.
+    /// even (required by 4:2:0 chroma planes). The window has the frame's
+    /// aspect ratio EXACTLY whenever the frame's reduced ratio allows it
+    /// (1440 x 1080 is 4:3, so widths in steps of 8 px: 720 x 540, 576 x 432),
+    /// otherwise to within one pixel pair.
     public func pixelCrop(frameWidth: Int, frameHeight: Int) -> FarTilePixelCrop? {
         guard frameWidth > 0, frameHeight > 0 else { return nil }
         func even(_ value: Double) -> Int { max(2, Int((value / 2).rounded()) * 2) }
-        let width = min(even(size * Double(frameWidth)), frameWidth / 2 * 2)
-        let height = min(even(Double(width) * Double(frameHeight) / Double(frameWidth)),
+        let wanted = size * Double(frameWidth)
+        var width = min(even(wanted), frameWidth / 2 * 2)
+        var height = min(even(Double(width) * Double(frameHeight) / Double(frameWidth)),
                          frameHeight / 2 * 2)
+        // Exact aspect: the smallest even-sided window with the frame's
+        // reduced ratio, then the nearest multiple of it.
+        let divisor = Self.gcd(frameWidth, frameHeight)
+        var unitWidth = frameWidth / divisor, unitHeight = frameHeight / divisor
+        if unitWidth % 2 != 0 || unitHeight % 2 != 0 { unitWidth *= 2; unitHeight *= 2 }
+        if Double(unitWidth) <= wanted {
+            let steps = max(1, Int((wanted / Double(unitWidth)).rounded()))
+            let exactWidth = steps * unitWidth, exactHeight = steps * unitHeight
+            if exactWidth <= frameWidth, exactHeight <= frameHeight {
+                width = exactWidth
+                height = exactHeight
+            }
+        }
         let originX = min(Int((x * Double(frameWidth) / 2).rounded()) * 2, frameWidth - width)
         let originY = min(Int((y * Double(frameHeight) / 2).rounded()) * 2, frameHeight - height)
         guard width >= 2, height >= 2 else { return nil }
@@ -64,6 +80,8 @@ public struct FarTileRegion: Sendable, Equatable {
                                 width: width, height: height,
                                 frameWidth: frameWidth, frameHeight: frameHeight)
     }
+
+    private static func gcd(_ a: Int, _ b: Int) -> Int { b == 0 ? a : gcd(b, a % b) }
 }
 
 /// An exact integer crop of a frame, and the tile-to-frame mapping for it.
@@ -170,13 +188,19 @@ public enum FarTileMerge {
     }
 }
 
-/// Runs the tile on every `period`-th frame (frames 0, period, 2 * period...).
+/// Runs the tile on every `period`-th frame (frames 0, period, 2 * period...);
+/// period 1 is every frame.
 public struct FarTileSchedule: Sendable, Equatable {
-    public let period: Int
+    public private(set) var period: Int
     public private(set) var frameIndex = 0
 
     /// `period` below 1 is treated as 1 (every frame).
     public init(period: Int) {
+        self.period = max(1, period)
+    }
+
+    /// Change the period without disturbing the frame count.
+    public mutating func setPeriod(_ period: Int) {
         self.period = max(1, period)
     }
 

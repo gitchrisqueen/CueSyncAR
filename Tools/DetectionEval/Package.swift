@@ -17,6 +17,7 @@ let package = Package(
     dependencies: [
         .package(path: "../../Packages/CueSyncCore"),
         .package(path: "../../Packages/PerceptionKit"),
+        .package(path: "../../Packages/TableSpace"),
     ],
     targets: [
         .executableTarget(
@@ -24,6 +25,7 @@ let package = Package(
             dependencies: [
                 .product(name: "CueSyncCore", package: "CueSyncCore"),
                 .product(name: "PerceptionKit", package: "PerceptionKit"),
+                .product(name: "TableSpace", package: "TableSpace"),
             ]
         ),
     ]
