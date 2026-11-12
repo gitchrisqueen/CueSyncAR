@@ -159,7 +159,7 @@ extension SessionModel {
     var mirrorWatching: MirrorPacing.Watching {
         guard let server = debugMirror else { return .init(frame: false, state: false, ui: false) }
         return .init(frame: server.wantsFrameSnapshot, state: server.wantsStateUpdates,
-                     ui: server.wantsUISnapshot)
+                     ui: server.wantsUISnapshot, statePollInterval: server.stateFetchInterval)
     }
 
     /// Publish only what `due` asks for, and never wait on it.
@@ -172,7 +172,13 @@ extension SessionModel {
     func publishMirror(_ due: MirrorPacing.Due, frameJPEG: Data? = nil) {
         guard let server = debugMirror else { return }
         if frameJPEG != nil || due.state {
-            server.update(jpeg: frameJPEG, stateJSON: due.state ? mirrorStateJSON() : nil)
+            let started = ProcessInfo.processInfo.systemUptime
+            let document = due.state ? mirrorStateJSON() : nil
+            if due.state {
+                let milliseconds = (ProcessInfo.processInfo.systemUptime - started) * 1000
+                Self.perceptionControls.noteAppStage("mirrorState", milliseconds: milliseconds)
+            }
+            server.update(jpeg: frameJPEG, stateJSON: document)
         }
         if due.ui {
             Task { @MainActor in

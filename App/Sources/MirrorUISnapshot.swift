@@ -45,7 +45,11 @@ enum MirrorUISnapshot {
     /// not hold up the overlay.
     @MainActor
     static func jpegEncodedOffMain() async -> Data? {
+        let started = ProcessInfo.processInfo.systemUptime
         guard let rendered = image() else { return nil }
+        // The part that holds the main actor, for `health.stageMs`.
+        SessionModel.perceptionControls.noteAppStage(
+            "mirrorUI", milliseconds: (ProcessInfo.processInfo.systemUptime - started) * 1000)
         nonisolated(unsafe) let handoff = rendered
         return await Task.detached(priority: .utility) {
             handoff.jpegData(compressionQuality: 0.8)

@@ -723,15 +723,24 @@ struct ARCameraView: View {
         //    the recommended shot, which is most useful precisely when the
         //    player is not yet down on it;
         //  - a live aim: that too, with a suggestion keeping the table quiet.
+        let composeStart = ProcessInfo.processInfo.systemUptime
         let layout = OverlayLayout.frame(state: state, calibration: calibration,
                                          prediction: model.shotPrediction,
                                          showsShotGuides: model.showsShotGuides,
                                          calledPocket: model.calledPocket,
                                          target: model.targetOverlay,
                                          showsSecondaryLines: model.showsSecondaryLines)
+        // `render` diffs against what is drawn and touches nothing for a
+        // layout that differs only by sub-millimetre jitter, so this
+        // exact comparison only has to catch the layouts that are identical.
+        let sceneStart = ProcessInfo.processInfo.systemUptime
+        SessionModel.perceptionControls.noteAppStage("overlayCompose", milliseconds: (sceneStart - composeStart) * 1000)
         if layout != drawState.lastLayout {
             drawState.lastLayout = layout
             overlayRenderer?.render(layout)
+            if let renderer = overlayRenderer { SessionModel.overlayStats.set(renderer.stats) }
+            SessionModel.perceptionControls.noteAppStage(
+                "overlayScene", milliseconds: (ProcessInfo.processInfo.systemUptime - sceneStart) * 1000)
         }
     }
 

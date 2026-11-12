@@ -50,6 +50,10 @@ final class DebugMirrorServer: @unchecked Sendable {
     /// (`MirrorPacing`).
     private var frameWantedUntil = Date.distantPast
     private var stateWantedUntil = Date.distantPast
+    /// When `/state.json` was last fetched and the smoothed gap between
+    /// fetches, so the app can build it no more often than it is asked for.
+    private var stateLastFetch: Date?
+    private var statePollGap: TimeInterval?
     private var commandHandler: CommandHandler?
     private var sessionsRootValue: URL?
     private var activeSessionValue: String?
@@ -145,6 +149,13 @@ final class DebugMirrorServer: @unchecked Sendable {
     var wantsStateUpdates: Bool {
         lock.lock(); defer { lock.unlock() }
         return Date() < stateWantedUntil
+    }
+
+    /// Seconds between the client's recent `/state.json` fetches (smoothed);
+    /// nil when it has not asked more than once lately.
+    var stateFetchInterval: TimeInterval? {
+        lock.lock(); defer { lock.unlock() }
+        return Date() < stateWantedUntil ? statePollGap : nil
     }
 
     /// Best-effort LAN address for showing the URL in the HUD (en0 = Wi-Fi).
@@ -257,7 +268,15 @@ final class DebugMirrorServer: @unchecked Sendable {
             return Self.httpResponse(body: ui, contentType: "image/jpeg")
         case "/state.json":
             lock.lock()
-            stateWantedUntil = Date().addingTimeInterval(15)
+            let now = Date()
+            if let last = stateLastFetch, now.timeIntervalSince(last) < 15 {
+                let gap = now.timeIntervalSince(last)
+                statePollGap = statePollGap.map { ($0 + gap) / 2 } ?? gap
+            } else {
+                statePollGap = nil
+            }
+            stateLastFetch = now
+            stateWantedUntil = now.addingTimeInterval(15)
             let json = latestStateJSON
             lock.unlock()
             return Self.httpResponse(body: json ?? Data("{}".utf8),
