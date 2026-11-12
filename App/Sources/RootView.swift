@@ -79,17 +79,12 @@ struct RootView: View {
                     .allowsHitTesting(false)
             }
 
-            // Under the VStack below, so the bar is always on top of it. It
-            // places itself off the table (HUDPlacement.clusterPlan), and
-            // takes the same Dynamic Type cap as the rest of the HUD.
-            ShotAdviceCluster()
-                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             FeedbackEffectsLayer()
 
             VStack {
-                // Exactly three slots, in this order, forever: the status
-                // capsule never moves, an active recording is always
-                // unmistakable, and everything else competes for ONE toast
+                // The slots, in this order, forever: the status capsule never
+                // moves, the shot card is right under it, an active recording
+                // is always unmistakable, and everything else competes for ONE toast
                 // (HUDMessage decides which). What used to stack here and
                 // where it went: `sessionEvent` -> HUDStatus.degraded and
                 // the mirror's /state.json; `previewStats.lastError` and
@@ -97,6 +92,11 @@ struct RootView: View {
                 // (the URL is also selectable in Settings -> Developer).
                 statusCapsule
                     .lockFlash(model.feedback.lockFlashCount) // FeedbackViews.swift
+                // The shot card: always here, top centre, directly under the
+                // capsule, at one width. It cannot overlap the capsule at any
+                // text size because it is laid out after it, and it never
+                // takes a tap.
+                ShotAdviceCluster()
                 if let recording = model.recordingStatus {
                     RecordingBadge(status: recording)
                 }

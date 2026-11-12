@@ -65,10 +65,10 @@ public enum HUDStatus: Sendable, Equatable {
         case .confirmingRails: "Drag dots onto the cushion noses, then lock"
         case .awaitingCueBall: "Place the cue ball — or tap a ball to mark it"
         case .onLine: "On line — send it"
-        case .tracking(let count): "Tracking \(count) balls"
+        case .tracking(let count): "Tracking \(HUDCopy.count(count, "ball"))"
         case .needsCalibration(let seeing):
             seeing > 0
-                ? "Tap anywhere to calibrate — seeing \(seeing) objects, tracking none"
+                ? "Tap anywhere to calibrate — seeing \(HUDCopy.count(seeing, "object")), tracking none"
                 : "Tap anywhere to calibrate the table"
         case .losingBalls(let seen, let peak, let dark):
             // Name the number rather than the fault: "seeing 2 of 6"
@@ -76,8 +76,8 @@ public enum HUDStatus: Sendable, Equatable {
             // has genuinely pocketed four balls will know to ignore it.
             // The cause is only offered when the frames really are dim.
             dark
-                ? "Only seeing \(seen) of \(peak) balls — more light would help"
-                : "Only seeing \(seen) of \(peak) balls"
+                ? "Only seeing \(seen) of \(HUDCopy.count(peak, "ball")) — more light would help"
+                : "Only seeing \(seen) of \(HUDCopy.count(peak, "ball"))"
         case .degraded(.fastMotion): "Hold steady…"
         case .degraded(.lowLight): "Need more light"
         case .degraded(.trackingLost): "Re-finding the table…"
@@ -135,8 +135,9 @@ public struct StatusCapsule: View {
         Label(status.label, systemImage: status.systemImage)
             .hudFont(.body)
             .multilineTextAlignment(.center)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 18)
             .padding(.vertical, 8)
+            .frame(minHeight: HUDMetrics.minimumTarget)
             .hudPlate(Capsule())
             .accessibilityIdentifier("status-capsule")
     }
@@ -149,6 +150,9 @@ public struct BallCountChip: View {
         self.count = count
     }
 
+    /// "1 ball tracked", "6 balls tracked".
+    var accessibilityText: String { "\(HUDCopy.count(count, "ball")) tracked" }
+
     public var body: some View {
         Label("\(count)", systemImage: "circle.grid.3x3.fill")
             .hudFont(.caption, weight: .semibold)
@@ -156,7 +160,7 @@ public struct BallCountChip: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .hudPlate(Capsule())
-            .accessibilityLabel("\(count) balls tracked")
+            .accessibilityLabel(accessibilityText)
             .accessibilityIdentifier("ball-count-chip")
     }
 }
@@ -189,6 +193,75 @@ public struct HUDBar<Content: View>: View {
         // the second row's corners. One row is 52 pt high, where this is
         // indistinguishable from a capsule.
         .hudPlate(RoundedRectangle(cornerRadius: 26, style: .continuous))
+    }
+}
+
+/// The bottom bar's shape: one quiet state line, and the buttons.
+///
+/// One row when the two fit side by side (an iPad), else the state line
+/// above the buttons (a phone), so nothing is ever truncated or wrapped
+/// mid-control. Every button is at least `HUDMetrics.minimumTarget` tall
+/// (`HUDBarButtonStyle`).
+public struct HUDBottomBar<StateLine: View, Buttons: View>: View {
+    private let stateLine: StateLine
+    private let buttons: Buttons
+
+    public init(@ViewBuilder stateLine: () -> StateLine,
+                @ViewBuilder buttons: () -> Buttons) {
+        self.stateLine = stateLine()
+        self.buttons = buttons()
+    }
+
+    public var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 20) {
+                stateLine
+                buttons
+            }
+            VStack(spacing: 4) {
+                stateLine
+                buttons
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .hudPlate(RoundedRectangle(cornerRadius: 26, style: .continuous))
+    }
+}
+
+/// The quiet grey state line: "8 ft · Free play · Any group". A label, in
+/// the secondary text colour, at the caption size.
+public struct HUDStateLineText: View {
+    public let text: String
+
+    public init(_ text: String) {
+        self.text = text
+    }
+
+    public var body: some View {
+        Text(text)
+            .hudFont(.caption, weight: .regular)
+            .foregroundStyle(Theme.hudTextSecondary.color)
+            .lineLimit(1)
+            .fixedSize()
+            .frame(minHeight: HUDMetrics.minimumTarget)
+            .accessibilityIdentifier("hud-state-line")
+    }
+}
+
+/// A labelled bar button: icon and word, a visible outline so it reads as
+/// a button, and a 44 pt minimum height and width.
+public struct HUDBarButtonStyle: ButtonStyle {
+    public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .hudFont(.body, weight: .semibold)
+            .padding(.horizontal, 16)
+            .frame(minWidth: HUDMetrics.minimumTarget, minHeight: HUDMetrics.minimumTarget)
+            .background(Capsule().fill(.white.opacity(configuration.isPressed ? 0.28 : 0.14)))
+            .overlay(Capsule().stroke(.white.opacity(0.35), lineWidth: 1))
+            .contentShape(Capsule())
     }
 }
 #endif

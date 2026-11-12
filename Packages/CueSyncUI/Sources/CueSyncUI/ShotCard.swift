@@ -16,6 +16,7 @@
 //  CoachKit. That keeps the design system testable without the coach.
 //
 
+import CueSyncCore
 import Foundation
 
 /// How a shot reads at a glance. Mirrors CoachKit's difficulty bands
@@ -106,20 +107,16 @@ public enum ShotEmptyState: Sendable, Equatable {
     }
 }
 
-/// How much of the shot the card shows.
-public enum ShotCardStyle: Sendable, Equatable {
-    /// Tier, group, the call, aim advice and the hint.
-    case full
-    /// Tier word and the call on one line (two when it wraps): for screens
-    /// with nowhere to put the full card (HUDClusterPlan).
-    case pill
-}
-
 #if canImport(SwiftUI)
 import SwiftUI
 
-/// A glass card carrying one shot: the ball and pocket in the player's
-/// words, how hard it is, and who picked it.
+/// A glass card carrying one shot: the tier as a word, the ball and the
+/// pocket as one big line, who picked it, and (when the advice is not
+/// centre ball) the cue-ball guide tile.
+///
+/// It is always the same width (`HUDMetrics.cardWidth*`, or the screen's
+/// less its gutters) and the app always puts it in the same place, so it
+/// does not move or resize from one shot to the next.
 public struct ShotCard: View {
     /// What the ball is called: "Blue ball". Nil only when nothing is known.
     public let ball: String?
@@ -132,26 +129,24 @@ public struct ShotCard: View {
     public let chosenByPlayer: Bool
     /// Shown instead of the call when the shot cannot be taken.
     public let blockedReason: String?
-    /// Which balls are in play ("Solids"), or nil to leave it off.
-    public let group: String?
     /// Which way to move to get on this shot ("Aim a little left"), when
     /// the player is aiming at all. The actionable line, so it carries the
     /// tint rather than the grey.
     public let aimAdvice: String?
-    public let style: ShotCardStyle
+    /// Where on the cue ball to strike. The tile is drawn only when this
+    /// is not a centre hit.
+    public let tipOffset: Vec2?
 
     public init(ball: String?, pocket: String?, confidence: ShotConfidence,
                 chosenByPlayer: Bool, blockedReason: String? = nil,
-                group: String? = nil, aimAdvice: String? = nil,
-                style: ShotCardStyle = .full) {
-        self.style = style
+                aimAdvice: String? = nil, tipOffset: Vec2? = nil) {
         self.aimAdvice = aimAdvice
         self.ball = ball
         self.pocket = pocket
         self.confidence = confidence
         self.chosenByPlayer = chosenByPlayer
         self.blockedReason = blockedReason
-        self.group = group
+        self.tipOffset = tipOffset
     }
 
     private var tint: Color { confidence.token.color }
@@ -159,7 +154,8 @@ public struct ShotCard: View {
 
     /// "Blue ball → right side pocket". The same shape CoachKit's
     /// `ShotCall.line` has; kept as plain strings here so this package
-    /// does not depend on the coach.
+    /// does not depend on the coach. Used for the mirror and VoiceOver;
+    /// the card itself shows `headline`.
     var callLine: String? {
         switch (ball, pocket) {
         case let (ball?, pocket?): "\(ball) → \(pocket)"
@@ -168,6 +164,9 @@ public struct ShotCard: View {
         case (nil, nil): nil
         }
     }
+
+    /// The card's big line: "BLUE → RIGHT SIDE". See `HUDCopy.headline`.
+    var headline: String? { HUDCopy.headline(ball: ball, pocket: pocket) }
 
     /// The hint under the call. A suggestion must never look like the
     /// player's own decision, and one that is not good should not claim to
@@ -180,91 +179,63 @@ public struct ShotCard: View {
         }
     }
 
-    public var body: some View {
-        Group {
-            switch style {
-            case .full: fullCard
-            case .pill: pill
-            }
+    /// Who chose this, in two words, beside the tier chip.
+    var provenance: String {
+        if chosenByPlayer { return "Your pick" }
+        switch confidence {
+        case .easy, .medium: return "Best shot"
+        default: return "Best available"
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityText)
-        .accessibilityIdentifier("shot-card")
     }
 
-    /// One line: the tier, then the call. Wraps rather than truncates when
-    /// the screen is too narrow for it, and carries the aim advice as a
-    /// second line only when there is any, because that line is the
-    /// actionable one.
-    private var pill: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .center, spacing: 8) {
-                tierChip
+    private var showsGuide: Bool {
+        guard blockedReason == nil, let tipOffset else { return false }
+        return HUDCopy.guideWord(tipOffset: tipOffset) != nil
+    }
+
+    public var body: some View {
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .center, spacing: 12) {
+                    tierChip
+                    Text(provenance)
+                        .hudFont(.body, weight: .semibold)
+                        .foregroundStyle(Theme.hudTextSecondary.color)
+                        .lineLimit(1)
+                }
                 if let blockedReason {
                     Text(blockedReason)
                         .hudFont(.body, weight: .semibold)
                         .fixedSize(horizontal: false, vertical: true)
-                } else if let callLine {
-                    Text(callLine)
-                        .hudFont(.body, weight: .bold)
+                } else if let headline {
+                    // One line at the default text size; wraps rather than
+                    // clips when Dynamic Type or a narrow phone needs it.
+                    Text(headline)
+                        .hudFont(.headline, weight: .heavy)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let aimAdvice, blockedReason == nil {
+                    Text(aimAdvice)
+                        .hudFont(.body, weight: .semibold)
+                        .foregroundStyle(textTint)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if chosenByPlayer {
+                    Text(hint)
+                        .hudFont(.caption)
+                        .foregroundStyle(Theme.hudTextSecondary.color)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            if let aimAdvice, blockedReason == nil {
-                Text(aimAdvice)
-                    .hudFont(.caption, weight: .semibold)
-                    .foregroundStyle(textTint)
-                    .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if showsGuide, let tipOffset {
+                CueBallGuideView(tipOffset: tipOffset)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .hudPlate(RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius, style: .continuous)
-                .stroke(tint.opacity(chosenByPlayer ? 1 : 0.6),
-                        lineWidth: chosenByPlayer ? 3 : 2)
-        )
-    }
-
-    private var fullCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .center, spacing: 8) {
-                tierChip
-                Spacer(minLength: 8)
-                if let group {
-                    Text(group.uppercased())
-                        .hudFont(.caption, weight: .bold)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .overlay(Capsule().stroke(Theme.hudTextSecondary.color.opacity(0.6), lineWidth: 1))
-                        .foregroundStyle(Theme.hudTextSecondary.color)
-                }
-            }
-
-            if let blockedReason {
-                Text(blockedReason)
-                    .hudFont(.body, weight: .semibold)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if let callLine {
-                Text(callLine)
-                    .hudFont(.headline, weight: .bold)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if let aimAdvice, blockedReason == nil {
-                Text(aimAdvice)
-                    .hudFont(.caption, weight: .semibold)
-                    .foregroundStyle(textTint)
-            }
-
-            Text(hint)
-                .hudFont(.caption)
-                .foregroundStyle(Theme.hudTextSecondary.color)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
         .hudCardWidth()
         .hudPlate(RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius, style: .continuous))
         .overlay(
@@ -272,20 +243,25 @@ public struct ShotCard: View {
                 .stroke(tint.opacity(chosenByPlayer ? 1 : 0.6),
                         lineWidth: chosenByPlayer ? 3 : 2)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityText)
+        .accessibilityHint(chosenByPlayer ? "Tap the ball again to release it"
+                                          : "Tap a ball to pick another")
+        .accessibilityIdentifier("shot-card")
     }
 
     /// The tier as an icon AND a word: colour is the third signal, not
     /// the only one.
     private var tierChip: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Image(systemName: confidence.tierSymbol)
                 .imageScale(.small)
             Text(confidence.tierWord.uppercased())
-                .hudFont(.body, weight: .heavy)
+                .hudFont(.tier, weight: .heavy)
         }
         .foregroundStyle(textTint)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 3)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 4)
         .overlay(Capsule().stroke(tint, lineWidth: 2))
     }
 
@@ -304,6 +280,33 @@ public struct ShotCard: View {
     }
 }
 
+/// The cue-ball guide on its own, for when the player is aiming but no
+/// shot is on offer: the same slot, the same width as the shot card.
+public struct CueBallGuideCard: View {
+    public let tipOffset: Vec2
+    public let headline: String
+
+    public init(tipOffset: Vec2, headline: String) {
+        self.tipOffset = tipOffset
+        self.headline = headline
+    }
+
+    public var body: some View {
+        HStack(alignment: .center, spacing: 16) {
+            Text(headline)
+                .hudFont(.body, weight: .semibold)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+            CueBallGuideView(tipOffset: tipOffset)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .hudCardWidth()
+        .hudPlate(RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius, style: .continuous))
+    }
+}
+
 public struct ShotEmptyCapsule: View {
     public let state: ShotEmptyState
 
@@ -314,8 +317,10 @@ public struct ShotEmptyCapsule: View {
     public var body: some View {
         Label(state.text, systemImage: state.systemImage)
             .hudFont(.body, weight: .semibold)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .hudCardWidth()
             .fixedSize(horizontal: false, vertical: true)
             .hudPlate(RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: HUDMetrics.cornerRadius, style: .continuous)
@@ -325,15 +330,16 @@ public struct ShotEmptyCapsule: View {
 }
 
 #Preview("Shot card") {
-    VStack(alignment: .leading, spacing: 12) {
-        ShotCard(ball: "Red ball", pocket: "far-left corner", confidence: .easy,
-                 chosenByPlayer: false, group: "Solids")
+    VStack(spacing: 12) {
+        ShotCard(ball: "Orange ball", pocket: "near-left corner", confidence: .easy,
+                 chosenByPlayer: false)
         ShotCard(ball: "Blue ball", pocket: "right side pocket", confidence: .medium,
-                 chosenByPlayer: true, group: "Stripes", aimAdvice: "Aim a little left")
+                 chosenByPlayer: true, aimAdvice: "Aim a little left",
+                 tipOffset: Vec2(0, -0.6))
         ShotCard(ball: "8-ball", pocket: "near-right corner", confidence: .hard,
                  chosenByPlayer: false)
         ShotCard(ball: nil, pocket: nil, confidence: .blocked, chosenByPlayer: true,
-                 blockedReason: "Blocked — a ball is in the cue ball's way", group: "Solids")
+                 blockedReason: "Blocked — a ball is in the cue ball's way")
         ShotEmptyCapsule(state: .noCleanShot)
         ShotEmptyCapsule(state: .breakRack)
     }

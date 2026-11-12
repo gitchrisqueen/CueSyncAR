@@ -2,7 +2,7 @@
 //  HUDControlBar.swift
 //  CueSync AR
 //
-//  The bottom bar, after the split. It carried nine controls — camera
+//  The bottom bar, after two splits. It carried nine controls — camera
 //  flip, calibrate, debug mirror, record, practice-mode menu, ball group,
 //  model picker, settings gear, a latency readout and a box-rotation nudge
 //  — seven of them icon-only, four of them there to serve development
@@ -15,8 +15,14 @@
 //  Settings → Developer, and every one of them keeps its /cmd route on the
 //  debug mirror.
 //
+//  The second split: "8-ft", "Free play" and "Open" were three bare words
+//  in the same weight as the icon buttons, so none of them read as state
+//  and none as a button. They are now one grey sentence, and the two real
+//  buttons carry words ("Record", "More").
+//
 
 import CoachKit
+import CueSyncCore
 import CueSyncUI
 import SwiftUI
 
@@ -38,39 +44,114 @@ enum HUDPins {
     }
 }
 
-/// Three controls (four while a shot is live), all labelled.
+/// One quiet grey state line and two labelled buttons.
+///
+///     8 ft · Free play · Any group          [Record]  [More]
+///
+/// The state line is a menu (table, practice mode, ball group), so the
+/// things the three bare words used to be are still one tap away, but it
+/// reads as a sentence, not as three controls. Until a table is locked a
+/// "Set up table" button comes first, because that is the only thing a
+/// player needs to press then. Every button is at least 44 pt tall
+/// (`HUDBarButtonStyle`).
 struct HUDControlBar: View {
     @Environment(SessionModel.self) private var model
     @AppStorage(HUDPins.recordButtonKey) private var showRecordButton = HUDPins.recordButtonDefault
     /// Opens the More sheet. Owned by RootView, which owns sheet state.
     let onMore: () -> Void
 
+    /// "8 ft · Free play · Any group". The table part is left out until a
+    /// table is locked.
+    private var stateText: String {
+        HUDCopy.stateLine(table: model.tableCalibration.map { Self.sizeName(for: $0.size) },
+                          practice: model.practiceMode.title,
+                          group: model.ballGroup == .any ? nil : model.ballGroup.label)
+    }
+
     var body: some View {
-        HUDBar {
-            if model.usingFrontCamera {
-                backCameraButton
-            } else {
-                tableButton
+        HUDBottomBar {
+            HStack(spacing: 12) {
+                if model.usingFrontCamera {
+                    backCameraButton
+                } else {
+                    if model.tableCalibration == nil || model.calibrationVisible {
+                        setUpTableButton
+                    }
+                    stateMenu
+                }
             }
-            sessionButton
-            // Only while there is a rack to have a half of: outside live
-            // tracking the group changes nothing anyone can see. It is
-            // also in Settings → Practice, so it is never unreachable.
-            if model.isLiveTracking {
-                BallGroupButton()
+        } buttons: {
+            HStack(spacing: 12) {
+                if showRecordButton, !model.usingFrontCamera {
+                    RecordButton(labelled: true)
+                }
+                moreButton
             }
-            if showRecordButton, !model.usingFrontCamera {
-                RecordButton()
-            }
-            moreButton
+            .buttonStyle(HUDBarButtonStyle())
         }
     }
 
-    /// Enters (or re-enters) the calibration flow; shows the locked table
-    /// size once calibrated (tappable to recalibrate — 05-UX-DESIGN).
-    /// Labelled, not a dashed-rectangle glyph: on a cold table this is the
-    /// only thing the player needs to press.
-    private var tableButton: some View {
+    /// "8 ft" for the three standard sizes, "2.2×1.1 m" for a custom one.
+    static func sizeName(for size: TableSize) -> String {
+        switch size {
+        case .sevenFoot: HUDCopy.tableSizeName(feet: 7)
+        case .eightFoot: HUDCopy.tableSizeName(feet: 8)
+        case .nineFoot: HUDCopy.tableSizeName(feet: 9)
+        case .custom(let width, let height): String(format: "%.1f×%.1f m", width, height)
+        }
+    }
+
+    /// The state line, as a menu: ball group, practice mode, and a way to
+    /// set the table up again. No chrome: it is the quiet line, and the
+    /// buttons beside it are the loud ones.
+    private var stateMenu: some View {
+        Menu {
+            Section("Balls") {
+                ForEach([BallGroup.any, .solids, .stripes], id: \.rawValue) { group in
+                    Button {
+                        model.setBallGroup(group)
+                    } label: {
+                        if model.ballGroup == group {
+                            Label(group == .any ? "Any group" : group.label, systemImage: "checkmark")
+                        } else {
+                            Text(group == .any ? "Any group" : group.label)
+                        }
+                    }
+                }
+            }
+            Section("Practice") {
+                ForEach(PracticeMode.allCases, id: \.rawValue) { mode in
+                    Button {
+                        model.selectPracticeMode(mode)
+                    } label: {
+                        if model.practiceMode == mode {
+                            Label(mode.title, systemImage: "checkmark")
+                        } else {
+                            Text(mode.title)
+                        }
+                    }
+                }
+            }
+            if model.tableCalibration != nil, !model.calibrationVisible {
+                Button {
+                    model.beginCalibration()
+                } label: {
+                    Label("Set up table again", systemImage: "rectangle.dashed")
+                }
+                .accessibilityIdentifier("calibrate-again-button")
+            }
+        } label: {
+            HUDStateLineText(stateText)
+        }
+        .accessibilityLabel("Table, practice and balls: \(stateText)")
+        .accessibilityHint("Opens a menu to change the balls or the practice mode")
+        .accessibilityIdentifier("hud-state-menu")
+    }
+
+    /// Enters the calibration flow (or leaves it again). Labelled, not a
+    /// dashed-rectangle glyph: on a cold table this is the only thing the
+    /// player needs to press.
+    private var setUpTableButton: some View {
         Button {
             if model.calibrationVisible {
                 model.cancelCalibration()
@@ -78,17 +159,11 @@ struct HUDControlBar: View {
                 model.beginCalibration()
             }
         } label: {
-            if let size = model.tableCalibration?.size {
-                Label(RootView.sizeBadge(for: size), systemImage: "checkmark.rectangle")
-                    .fixedSize()
-            } else {
-                Label("Set up table", systemImage: "rectangle.dashed")
-                    .fixedSize()
-            }
+            Label(model.calibrationVisible ? "Cancel setup" : "Set up table",
+                  systemImage: "rectangle.dashed")
+                .fixedSize()
         }
-        .accessibilityLabel(model.tableCalibration == nil
-                            ? "Set up table"
-                            : "Table calibrated — tap to set it up again")
+        .buttonStyle(HUDBarButtonStyle())
         .accessibilityIdentifier("calibrate-button")
     }
 
@@ -104,40 +179,14 @@ struct HUDControlBar: View {
         } label: {
             Label("Back camera", systemImage: "arrow.uturn.backward.circle")
         }
+        .buttonStyle(HUDBarButtonStyle())
         .accessibilityLabel("Return to the back camera and the AR session")
         .accessibilityIdentifier("camera-flip-button")
-    }
-
-    /// Practice mode (M6-01), with its name on it. Same menu as before —
-    /// it was `figure.billiards`, an icon whose meaning was "billiards",
-    /// which is not a distinction on this screen.
-    private var sessionButton: some View {
-        Menu {
-            ForEach(PracticeMode.allCases, id: \.rawValue) { mode in
-                Button {
-                    model.selectPracticeMode(mode)
-                } label: {
-                    if model.practiceMode == mode {
-                        Label(mode.title, systemImage: "checkmark")
-                    } else {
-                        Text(mode.title)
-                    }
-                }
-            }
-        } label: {
-            // No line limit: the bar wraps to a second row before it
-            // shortens a label (HUDBarRows).
-            Label(model.practiceMode.title, systemImage: "figure.billiards")
-        }
-        .accessibilityLabel("Practice mode: \(model.practiceMode.title)")
-        .accessibilityIdentifier("practice-mode-menu")
     }
 
     private var moreButton: some View {
         Button(action: onMore) {
             Label("More", systemImage: "ellipsis.circle")
-                .labelStyle(.iconOnly)
-                .imageScale(.large)
         }
         .accessibilityLabel("More — record and settings")
         .accessibilityIdentifier("more-button")

@@ -14,6 +14,9 @@ import SwiftUI
 struct RecordButton: View {
     @Environment(SessionModel.self) private var model
     @State private var confirming = false
+    /// True in the HUD bar, where the button carries its word ("Record" /
+    /// "Stop"); the More sheet has its own row label and shows the icon.
+    var labelled = false
 
     var body: some View {
         Button {
@@ -26,9 +29,10 @@ struct RecordButton: View {
                 confirming = true
             }
         } label: {
-            Label(model.isRecording ? "Stop recording" : "Record session",
+            Label(labelled ? (model.isRecording ? "Stop" : "Record")
+                           : (model.isRecording ? "Stop recording" : "Record session"),
                   systemImage: model.isRecording ? "stop.circle.fill" : "record.circle")
-                .labelStyle(.iconOnly)
+                .labelStyle(LabelledOrIconStyle(showsTitle: labelled))
                 .foregroundStyle(model.isRecording ? Theme.hardText.color : Color.primary)
         }
         .accessibilityLabel(model.isRecording ? "Stop recording the session"
@@ -42,6 +46,22 @@ struct RecordButton: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(model.recordingSizeSummary)
+        }
+    }
+}
+
+/// Icon and word when `showsTitle`, else the icon alone.
+private struct LabelledOrIconStyle: LabelStyle {
+    let showsTitle: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        if showsTitle {
+            HStack(spacing: 6) {
+                configuration.icon
+                configuration.title
+            }
+        } else {
+            configuration.icon
         }
     }
 }
@@ -78,6 +98,6 @@ struct RecordingBadge: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .hudPlate(Capsule())
-        .accessibilityLabel("Recording, \(status.clock), \(status.frames) frames")
+        .accessibilityLabel("Recording, \(status.clock)")
     }
 }

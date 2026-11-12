@@ -10,8 +10,8 @@
 //  button, control bar. Nothing here ranks or draws anything itself.
 //
 //  Triggers (both compiled out of Release and device builds):
-//    launch argument   -seedTable open|blocked|rack
-//    mirror command    GET /cmd?action=seed&layout=open|blocked|rack
+//    launch argument   -seedTable open|blocked|rack|straight
+//    mirror command    GET /cmd?action=seed&layout=open|blocked|rack|straight
 //
 //  The AR loop is the only thing that publishes /state.json, and it does
 //  not run in the Simulator, so a seed and every mirror command publish
@@ -26,7 +26,7 @@ import Foundation
 import TableSpace
 
 enum DebugSeed {
-    static let layoutNames = ["open", "blocked", "rack"]
+    static let layoutNames = ["open", "blocked", "rack", "straight"]
 
     /// Table-space metres on a nine-foot table (x along the long rail).
     static func state(named name: String) -> TableState? {
@@ -53,6 +53,14 @@ enum DebugSeed {
             ])
         case "rack":
             return eightBallRack(table: table)
+        case "straight":
+            // Cue ball, object ball and the far-right corner pocket on one
+            // line: a near-straight shot, which the guide answers with a
+            // non-centre strike, so the cue-ball guide tile is on screen.
+            return TableState(table: table, balls: [
+                ball(0, .cue, -0.30, -0.15),
+                ball(4, .solid(4), 0.50, 0.25)
+            ])
         default:
             return nil
         }

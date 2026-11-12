@@ -48,15 +48,21 @@ struct HUDContrastTests {
         #expect(Theme.hardText.red > Theme.hardText.green && Theme.hardText.red > Theme.hardText.blue)
     }
 
-    @Test("Text sizes: nothing under 13 pt on a phone, nothing under 20 pt for secondary on a tablet")
+    @Test("Text sizes: 17 pt floor on a phone; 36 / 28 / 22 pt on a tablet read from 2 m")
     func textSizes() {
         for role in HUDTextRole.allCases {
-            #expect(role.baseSize >= 13, "\(role)")
+            #expect(role.compactSize >= 17, "\(role)")
+            #expect(role.baseSize == role.compactSize, "\(role)")
+            #expect(role.regularSize >= role.compactSize, "\(role)")
         }
-        let secondary = HUDTextRole.caption
-        #expect(secondary.baseSize * HUDTextRole.regularWidthScale >= 20)
-        #expect(HUDTextRole.body.baseSize * HUDTextRole.regularWidthScale >= 22)
-        #expect(HUDTextRole.headline.baseSize * HUDTextRole.regularWidthScale >= 28)
+        // On an iPad: headline at least 36, tier chip at least 28, every
+        // other persistent string at least 22.
+        #expect(HUDTextRole.headline.regularSize >= 36)
+        #expect(HUDTextRole.tier.regularSize >= 28)
+        #expect(HUDTextRole.body.regularSize >= 22)
+        #expect(HUDTextRole.caption.regularSize >= 22)
+        #expect(HUDTextRole.headline.size(regularWidth: true) == HUDTextRole.headline.regularSize)
+        #expect(HUDTextRole.headline.size(regularWidth: false) == HUDTextRole.headline.compactSize)
     }
 
     @Test("Hit targets and gaps")

@@ -67,9 +67,10 @@ final class SeededHUDUITests: XCTestCase {
         XCTAssertFalse(card.label.contains("%"), card.label)
 
         // The rest of the HUD a player has in front of them.
-        XCTAssertTrue(element(app, "ball-group-button").exists, "no group button")
-        XCTAssertTrue(app.buttons["calibrate-button"].exists, "no table control")
-        XCTAssertTrue(element(app, "practice-mode-menu").exists, "no practice-mode control")
+        // One state line (a menu: table, practice, group) and two labelled
+        // buttons; a locked table has no "Set up table" button.
+        XCTAssertTrue(element(app, "hud-state-menu").exists, "no state line")
+        XCTAssertFalse(app.buttons["calibrate-button"].exists, "set-up button on a locked table")
         XCTAssertTrue(app.buttons["more-button"].exists, "no More control")
         XCTAssertTrue(element(app, "table-scene").exists, "no seeded table drawn")
 
@@ -109,25 +110,28 @@ final class SeededHUDUITests: XCTestCase {
         let app = launchSeeded("open")
         waitForCapsule(app, containing: "Tracking 5 balls")
         let card = element(app, "shot-card")
-        let group = element(app, "ball-group-button")
+        let menu = element(app, "hud-state-menu")
         XCTAssertTrue(card.waitForExistence(timeout: 30), "no shot card")
-        XCTAssertTrue(group.waitForExistence(timeout: 10), "no group button")
+        XCTAssertTrue(menu.waitForExistence(timeout: 10), "no state line")
 
-        // Any -> solids -> stripes. The open layout has two solids, one
-        // stripe and the eight, so the best shot cannot be the same ball in
-        // every group.
+        // Any -> solids -> stripes, chosen from the state line's menu. The
+        // open layout has two solids, one stripe and the eight, so the best
+        // shot cannot be the same ball in every group.
         var cards = [card.label]
-        var groups = [group.label]
-        for _ in 0..<2 {
-            let before = group.label
-            group.tap()
+        var groups = [menu.label]
+        for name in ["Solids", "Stripes"] {
+            let before = menu.label
+            menu.tap()
+            let choice = app.buttons[name]
+            XCTAssertTrue(choice.waitForExistence(timeout: 10), "no \(name) in the menu")
+            choice.tap()
             let changed = NSPredicate(format: "label != %@", before)
-            expectation(for: changed, evaluatedWith: group)
+            expectation(for: changed, evaluatedWith: menu)
             waitForExpectations(timeout: 10)
-            groups.append(group.label)
+            groups.append(menu.label)
             cards.append(card.label)
         }
-        XCTAssertEqual(Set(groups).count, 3, "the group button did not cycle: \(groups)")
+        XCTAssertEqual(Set(groups).count, 3, "the state line did not follow the group: \(groups)")
         XCTAssertGreaterThan(Set(cards).count, 1,
                              "re-ranking by group never changed the shot: \(cards)")
     }
@@ -141,7 +145,7 @@ final class SeededHUDUITests: XCTestCase {
         // capsule being up means the (empty) suggestion is already settled.
         XCTAssertFalse(element(app, "shot-card").exists,
                        "a blocked table was offered as a shot")
-        XCTAssertTrue(element(app, "ball-group-button").exists)
+        XCTAssertTrue(element(app, "hud-state-menu").exists)
         // ...and says why, instead of leaving the player wondering.
         XCTAssertTrue(element(app, "shot-empty").waitForExistence(timeout: 10),
                       "no 'No clean shot' capsule on a blocked table")
