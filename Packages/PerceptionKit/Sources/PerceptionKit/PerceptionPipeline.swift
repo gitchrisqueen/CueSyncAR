@@ -268,7 +268,8 @@ public actor PerceptionPipeline {
                 if frameChangeGate.skipped == 1 || frameChangeGate.skipped % 200 == 0 {
                     let rate = Int((frameChangeGate.skipRate ?? 0) * 100)
                     let skipped = self.frameChangeGate.skipped
-                    Self.log.info("frame gate: skipped \(skipped, privacy: .public) unchanged frames (\(rate, privacy: .public)%)")
+                    let gate = "skipped \(skipped) unchanged frames (\(rate)%)"
+                    Self.log.info("frame gate: \(gate, privacy: .public)")
                 }
                 #endif
                 continue
