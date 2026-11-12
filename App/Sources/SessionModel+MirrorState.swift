@@ -208,6 +208,9 @@ extension SessionModel {
         if let lux = detectionHealth.luminance {
             health["luminance"] = (lux * 1000).rounded() / 1000
         }
+        // What became of every raw detection, and the tracker's counters
+        // (SessionModel+PerceptionDiagnostics). Numbers only.
+        health.merge(perceptionDiagnosticsMirrorEntries()) { current, _ in current }
         guard case .thin(let seen, let peak, let dark) = detectionVerdict else {
             health["thin"] = false
             return health
@@ -396,6 +399,10 @@ extension SessionModel {
         if let latency = overlayLatencyMilliseconds { state["overlayLatencyMs"] = Int(latency) }
         if let worst = worstOverlayLatencyMilliseconds { state["worstLatencyMs"] = Int(worst) }
         if let seconds = calibrationSeconds { state["calibrationSeconds"] = seconds }
+        // Where each frame's milliseconds go: rolling means per stage,
+        // pipeline stages plus the app's own ranking and hand-off.
+        let stages = perceptionStageMilliseconds()
+        if !stages.isEmpty { state["stageMs"] = stages }
         // The change gate's effect, so the saving is measured rather than
         // assumed — and so a stale overlay can be checked against it.
         state["skippedFrames"] = skippedFrames
@@ -409,7 +416,6 @@ extension SessionModel {
         #endif
         return state
     }
-
 
     /// The platform's thermal state as the package's own reading.
     /// `ProcessInfo.ThermalState` is Darwin-only, which is exactly why the

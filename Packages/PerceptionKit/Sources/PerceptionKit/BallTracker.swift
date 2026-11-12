@@ -222,6 +222,12 @@ public struct BallTracker: Sendable {
     public var config: TrackerConfig
     var tracks: [BallTrack] = []
     private var nextID = 0
+    /// The id the next brand-new track will get (re-identified tracks reuse
+    /// theirs). After a clean run over N balls this is N; more means tracks
+    /// were spawned and lost. Diagnostics only.
+    public var nextTrackID: Int { nextID }
+    /// Tracks seen but not yet confirmed, so not in the output. Diagnostics only.
+    public var tentativeCount: Int { tracks.filter { !$0.confirmed }.count }
     /// Timestamp of the previous `update`, for per-frame elapsed time.
     private var lastTimestamp: TimeInterval?
     /// Identities of retired tracks, newest last. Only CONFIRMED tracks are

@@ -572,7 +572,7 @@ final class SessionModel {
             raycaster: PlaneGeometryRaycaster(calibration: calibration),
             config: PerceptionConfig(followsTableAnchor: followsTableAnchor),
             trackerConfig: trackerConfigFromSettings(),
-            tableAnchorTransform: lockAnchorTransform)
+            tableAnchorTransform: lockAnchorTransform, controls: Self.perceptionControls)
         pipeline = newPipeline
         calibrationHealth.reset() // `pipeline`'s didSet already sets isLiveTracking
         // Spatial overlays take over — stale 2D preview boxes would linger
@@ -601,7 +601,7 @@ final class SessionModel {
                     self.noteFrameHealth(cameraTimestamp: output.state.timestamp)
                     self.tableState = self.cueIdentity.apply(
                         to: self.ballIdentity.apply(to: output.state))
-                    self.recomputeRanking()
+                    self.recomputeRankingTimed(after: output)
                     self.stickQuad = output.stickQuad
                     self.latestDetectionLabels = output.detectionLabels
                     if count == 1 || count % 40 == 0 {
@@ -878,8 +878,8 @@ extension SessionModel {
         // A list rather than a chain of `if`s: this function already sits
         // at SwiftLint's cyclomatic ceiling, and every new command set
         // added as another branch pushes it further past.
-        let handlers = [handleCalibrationMirrorCommand, handleShotSelectionMirrorCommand,
-                        handleSpeechMirrorCommand, handleUIMirrorCommand, handleFeedbackMirrorCommand]
+        let handlers = [handleCalibrationMirrorCommand, handleShotSelectionMirrorCommand, handleSpeechMirrorCommand,
+                        handleUIMirrorCommand, handleFeedbackMirrorCommand, handlePerceptionMirrorCommand]
         for handler in handlers where handler(params) { return }
         switch params["action"] {
         case "resetTracking":
