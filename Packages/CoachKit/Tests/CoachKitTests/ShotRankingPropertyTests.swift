@@ -174,7 +174,14 @@ struct ShotRankingPropertyTests {
         let total = makeable.values.reduce(0, +)
         print("REPLAY all-unblocked total=\(all.values.reduce(0, +)) \(line(all))")
         print("REPLAY makeable(>=45%) total=\(total) \(line(makeable))")
-        #expect(total > 500, "too few makeable shots to mean anything: \(total)")
+        // Was `> 500`, when 696 shots read makeable. The old count came from
+        // a corner margin 63 % too wide (captureRadius - R = 46.4 mm against
+        // the 28.4 mm a 114 mm mouth leaves; see ShotRankingAuditTests). With
+        // the margin from the mouth width 416 read makeable, and 412 of them
+        // (99 %) potted in the solver, so the premise this floor guards -
+        // enough makeable shots to mean anything - still holds.
+        // Docs: docs/research/2026-11-12-ranking-audit.md.
+        #expect(total > 300, "too few makeable shots to mean anything: \(total)")
         #expect(unexplained <= 4, "unexplained misses grew to \(unexplained)")
         #expect(Double(makeable[.potted, default: 0]) / Double(total) > 0.95)
     }
@@ -460,7 +467,17 @@ struct ShotRankingPropertyTests {
         print("JITTER layouts=\(layoutsUsed) frames=\(frames) hysteresis=\(withHysteresis) "
               + "plain-best=\(withoutHysteresis) worst-stable-layout=\(worstStable) worst=\(worst)")
         #expect(layoutsUsed > 50)
-        #expect(worstStable <= 2, "layouts with a fixed shootable set flickered \(worstStable) times")
+        // Was `<= 2`. Measured on the same seeds: with the over-wide corner
+        // margin, 3 flickers in total and 0 on layouts with a fixed shootable
+        // set; with the margin from the mouth width, 32 in total (against 100
+        // for "always the best") and 4 on a fixed set (seed 28).
+        // That layout holds shots rated 5-23 %, where the aim tolerance is
+        // about 0.1 degrees, so 2 mm of ball jitter swings the number by
+        // 18 points - more than the 0.05 hysteresis margin. The old value
+        // sat on the flat 94 % plateau where jitter could not show. The bound
+        // pins the new behaviour; the margin (ShotSelection) is the place to
+        // tune it. Docs: docs/research/2026-11-12-ranking-audit.md.
+        #expect(worstStable <= 4, "layouts with a fixed shootable set flickered \(worstStable) times")
         #expect(withHysteresis <= withoutHysteresis)
     }
 }
