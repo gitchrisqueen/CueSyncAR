@@ -112,9 +112,13 @@ class Report:
     def __init__(self) -> None:
         self.checks: list[dict] = []
 
-    def add(self, cid: str, desc: str, ok: bool, detail: str, required: bool) -> None:
-        self.checks.append({"id": cid, "description": desc, "pass": bool(ok),
-                            "required": required, "detail": detail})
+    def add(self, cid: str, desc: str, ok: bool, detail: str, required: bool,
+            metrics: dict | None = None) -> None:
+        check = {"id": cid, "description": desc, "pass": bool(ok),
+                 "required": required, "detail": detail}
+        if metrics is not None:
+            check["metrics"] = metrics
+        self.checks.append(check)
 
     @property
     def failed_required(self) -> list[dict]:
@@ -142,8 +146,53 @@ def pick(samples: list[dict], *path: str) -> list:
     return out
 
 
+def load_grid_truth():
+    """Scripts/grid-truth.py has a hyphen in its name, so import it by path."""
+    import importlib.util
+    path = Path(__file__).resolve().parent / "grid-truth.py"
+    spec = importlib.util.spec_from_file_location("grid_truth", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def table_length_from_state(state: dict) -> float | None:
+    """The app's own model, e.g. tableSize "2.34 x 1.17 m" -> 2.34."""
+    try:
+        return float(str(state.get("tableSize", "")).split("x")[0])
+    except ValueError:
+        return None
+
+
+def add_grid_check(r: Report, samples: list[dict], length: float) -> None:
+    """Advisory: ball-position error against the diamond grid (docs/validation/
+    ground-truth-grid.md), scored on the last sample that has balls. Passes when
+    a score could be computed; the numbers are the result, there is no threshold."""
+    gt = load_grid_truth()
+    with_balls = [s for s in samples if s.get("balls")]
+    if not with_balls:
+        r.add("grid_error", "ball positions vs ground-truth grid", False,
+              "no sample had balls", False)
+        return
+    res = gt.score(with_balls[-1]["balls"], length)
+    if not res["n"]:
+        r.add("grid_error", "ball positions vs ground-truth grid", False,
+              "only a cue ball in the last sample", False)
+        return
+    fit = res["fit_x"]
+    fit_txt = f", x spacing ratio {fit['ratio']:.3f}" if fit else ""
+    detail = (f"{res['n']} balls vs {length:g} m grid: rms {res['rms_cm']:.1f} cm, "
+              f"max {res['max_cm']:.1f} cm, mean dx {res['mean_dx_cm']:+.1f} cm, "
+              f"claimed twice {res['claimed_twice']}{fit_txt}")
+    r.add("grid_error", "ball positions vs ground-truth grid (advisory)", True, detail, False,
+          metrics={"n": res["n"], "rms_cm": round(res["rms_cm"], 2),
+                   "max_cm": round(res["max_cm"], 2), "length_m": length,
+                   "claimed_twice": res["claimed_twice"],
+                   "x_spacing_ratio": round(fit["ratio"], 4) if fit else None})
+
+
 def evaluate(samples: list[dict], first: dict, logs: str, expect_sha: str,
-             strict: bool) -> Report:
+             strict: bool, grid_length: float | None = None) -> Report:
     r = Report()
     r.add("reachable", "mirror state.json answers", bool(first), f"{len(samples)} samples", True)
 
@@ -206,6 +255,8 @@ def evaluate(samples: list[dict], first: dict, logs: str, expect_sha: str,
     if dirty and expect_sha:
         r.add("build_clean", "build came from a clean tree", False,
               "device build is dirty: its SHA does not pin the code", False)
+    if grid_length is not None:
+        add_grid_check(r, samples, grid_length)
     return r
 
 
@@ -231,6 +282,8 @@ def write_junit(path: Path, report: Report) -> None:
         if not c["pass"]:
             tag = "failure" if c["required"] else "skipped"
             body = f"<{tag} message={quoteattr(c['detail'])}/>"
+        elif "metrics" in c:
+            body = f"<system-out>{escape(c['detail'])}</system-out>"
         cases.append(f'<testcase classname="dryrun" name={quoteattr(c["id"])}>{body}</testcase>')
     failures = len(report.failed_required)
     path.write_text(f'<testsuite name="device-dryrun" tests="{len(cases)}" '
@@ -254,6 +307,12 @@ def main() -> int:
     ap.add_argument("--pull-session", action="store_true",
                     help="after the run, pull the latest recorded session bundle")
     ap.add_argument("--strict", action="store_true", help="require every check, not just the core ones")
+    ap.add_argument("--grid", action="store_true",
+                    help="advisory check `grid_error`: score ball positions against the "
+                         "diamond-grid ground truth (docs/validation/ground-truth-grid.md)")
+    ap.add_argument("--grid-length", type=float, metavar="M",
+                    help="table length for --grid, metres (default: the app's own tableSize, "
+                         "else 2.34)")
     ap.add_argument("--junit", type=Path, help="also write a JUnit XML file (for CI)")
     ap.add_argument("--token", default=os.environ.get("CUESYNC_MIRROR_TOKEN"),
                     help="mirror token for builds that require one")
@@ -337,7 +396,11 @@ def main() -> int:
             print(f"pull-session exit {rc}")
 
     # Phase 4: evaluate
-    report = evaluate(samples, first, logs, expect, args.strict)
+    grid_length = None
+    if args.grid:
+        grid_length = args.grid_length or table_length_from_state(samples[-1] if samples else {}) \
+            or 2.34
+    report = evaluate(samples, first, logs, expect, args.strict, grid_length)
     b = (first.get("build") or {})
     meta = {"target": base, "build": b.get("summary", "unreachable"),
             "started": started.isoformat(timespec="seconds"),

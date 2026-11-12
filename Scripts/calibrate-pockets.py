@@ -23,6 +23,16 @@ treat this as a preview of where the picks will go, not the device's answer.
 the picks that keeps any change lowering the height-solve residual in
 `lastProbe`, until the table locks or --max-evals.
 
+Before the picks go out the script resets the app's state: parkedHold v=0, then
+v=1, then beginCalibration (2.5 s apart; --no-reset skips it). Relocking while
+the app is still locked with the parked-pose hold armed unprojects the new
+picks with a stale camera pose and the app refuses ("Fit is 36 cm out").
+
+--size takes sevenFoot|eightFoot|nineFoot or <length>,<width> metres
+(2.235,1.118 for an 88 x 44 in table). If the answer says `locked: false` the
+device is STILL on its previous lock and the fit numbers are stale (warning on
+stderr; stdout stays pure JSON).
+
 Standard library only. The device keeps whatever the last request produced.
 """
 
@@ -36,6 +46,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -48,6 +59,55 @@ def get(base: str, path: str, **q: str) -> bytes:
         return r.read()
 
 
+def get_retry(base: str, path: str, retries: int = 3, **q: str) -> bytes:
+    """get() that survives the mirror briefly refusing connections."""
+    for attempt in range(max(1, retries)):
+        try:
+            return get(base, path, **q)
+        except (urllib.error.URLError, OSError):
+            if attempt + 1 >= retries:
+                raise
+            time.sleep(2)
+    raise AssertionError("unreachable")
+
+
+def parse_size(text: str) -> str:
+    """sevenFoot|eightFoot|nineFoot, or `<length>,<width>` in metres (2.235,1.118)."""
+    if text in ("sevenFoot", "eightFoot", "nineFoot"):
+        return text
+    try:
+        length, width = (float(p) for p in text.split(","))
+        if 0.5 < width < length < 5.0:
+            return text
+    except ValueError:
+        pass
+    raise argparse.ArgumentTypeError(
+        f"size {text!r}: use sevenFoot|eightFoot|nineFoot or <length>,<width> metres "
+        "such as 2.235,1.118")
+
+
+def reset_hold(base: str, wait: float) -> None:
+    """Release then re-arm the parked-pose hold and restart calibration.
+
+    Relocking while the app is still locked with the hold armed unprojects the
+    new picks with a stale camera pose, and the app refuses ("Fit is 36 cm out").
+    """
+    for query in ({"action": "parkedHold", "v": "0"}, {"action": "parkedHold", "v": "1"},
+                  {"action": "beginCalibration"}):
+        try:
+            get(base, "/cmd", **query)
+        except (urllib.error.URLError, OSError) as exc:
+            print(f"warning: {query} failed ({exc}); continuing", file=sys.stderr)
+        time.sleep(wait)
+
+
+def warn_if_unlocked(rep: dict) -> None:
+    if rep.get("locked") is False:
+        print("WARNING: locked is false. The app did NOT take these picks: the device is "
+              "STILL on its previous lock, and the fit numbers in the JSON are stale.",
+              file=sys.stderr)
+
+
 def send(base: str, pockets: dict[str, list[float]], size: str, height: str | None) -> None:
     spec = ";".join(f"{k}:{v[0]:.1f}:{v[1]:.1f}" for k, v in pockets.items())
     q = {"action": "calibrateFromPockets", "pockets": spec, "v": size}
@@ -57,10 +117,10 @@ def send(base: str, pockets: dict[str, list[float]], size: str, height: str | No
 
 
 def attempt(base: str, pockets: dict[str, list[float]], size: str, height: str | None,
-            settle: float) -> tuple[float | None, dict]:
+            settle: float, retries: int = 3) -> tuple[float | None, dict]:
     send(base, pockets, size, height)
     time.sleep(settle)
-    s = json.loads(get(base, "/state.json"))
+    s = json.loads(get_retry(base, "/state.json", retries))
     m = re.search(r"(\d+(?:\.\d+)?) mm rms", s.get("lastProbe") or "")
     score = float(m.group(1)) if m else None
     if s.get("calibrationLocked"):
@@ -101,8 +161,16 @@ def report(state: dict) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("host")
-    ap.add_argument("--size", default="eightFoot",
-                    help="the size to use when the image cannot measure it decisively")
+    ap.add_argument("--size", default="eightFoot", type=parse_size,
+                    help="the size to use when the image cannot measure it decisively: "
+                         "sevenFoot|eightFoot|nineFoot or <length>,<width> metres (2.235,1.118)")
+    ap.add_argument("--retries", type=int, default=3,
+                    help="attempts for the final /state read (the mirror can briefly "
+                         "refuse connections)")
+    ap.add_argument("--reset-wait", type=float, default=2.5,
+                    help="seconds between the parkedHold/beginCalibration reset commands")
+    ap.add_argument("--no-reset", action="store_true",
+                    help="skip the parkedHold 0 -> 1 + beginCalibration reset before the picks")
     ap.add_argument("--h", help="force the cloth height (m); uses the old flat fit")
     ap.add_argument("--pocket", action="append", required=True, metavar="ID:X:Y")
     ap.add_argument("--preview", action="store_true")
@@ -119,14 +187,18 @@ def main() -> int:
 
     if args.preview:
         preview(base, pockets)
+    if not args.no_reset:
+        reset_hold(base, args.reset_wait)
     if not args.search:
         send(base, pockets, args.size, args.h)
         time.sleep(args.settle)
-        state = json.loads(get(base, "/state.json"))
-        print(json.dumps(report(state), indent=2))
+        state = json.loads(get_retry(base, "/state.json", args.retries))
+        rep = report(state)
+        print(json.dumps(rep, indent=2))
+        warn_if_unlocked(rep)
         return 0 if state.get("calibrationLocked") else 1
 
-    best, state = attempt(base, pockets, args.size, args.h, args.settle)
+    best, state = attempt(base, pockets, args.size, args.h, args.settle, args.retries)
     evals = 1
     print(f"start residual {best} mm  locked={state.get('calibrationLocked')}", flush=True)
     step = args.step
@@ -140,7 +212,8 @@ def main() -> int:
                         break
                     trial = {k: list(v) for k, v in pockets.items()}
                     trial[name][axis] += sign * step
-                    score, st = attempt(base, trial, args.size, args.h, args.settle)
+                    score, st = attempt(base, trial, args.size, args.h, args.settle,
+                                        args.retries)
                     evals += 1
                     if score is not None and score < best:
                         best, pockets, state, improved = score, trial, st, True
@@ -152,6 +225,7 @@ def main() -> int:
     result = report(state)
     result.update({"residual_mm": best, "evals": evals, "pockets": pockets})
     print(json.dumps(result, indent=2))
+    warn_if_unlocked(result)
     return 0 if state.get("calibrationLocked") else 1
 
 
