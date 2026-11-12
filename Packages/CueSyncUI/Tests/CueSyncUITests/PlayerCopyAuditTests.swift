@@ -20,7 +20,7 @@ struct PlayerCopyAuditTests {
         .losingBalls(seen: 2, peak: 6, dark: true),
         .losingBalls(seen: 2, peak: 6, dark: false),
         .degraded(reason: .fastMotion), .degraded(reason: .lowLight),
-        .degraded(reason: .trackingLost),
+        .degraded(reason: .trackingLost), .tableMoved,
     ]
 
     @Test("No HUD status says anything a player cannot act on")

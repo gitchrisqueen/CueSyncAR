@@ -100,6 +100,8 @@ public enum GuidanceStage: Sendable, Equatable {
     /// HUD keeps them apart: ARKit is fine, and the advice is different.
     case losingBalls(seen: Int, peak: Int, dark: Bool)
     case degraded(GuidanceTrouble)
+    /// The locked calibration no longer fits what the camera sees.
+    case tableMoved
 }
 
 /// Why tracking is degraded — the spoken half of the HUD's warning capsule.
@@ -393,6 +395,9 @@ public struct SpokenGuidance: Sendable, Equatable {
             return cornersLine(placed: placed)
         case .degraded(let trouble):
             return troubleLine(trouble)
+        case .tableMoved:
+            return moment("stage.tableMoved",
+                          "The table may have moved. Tap the banner to calibrate again.")
         case .losingBalls(let seen, let peak, let dark):
             return losingBallsLine(seen: seen, peak: peak, dark: dark)
         }

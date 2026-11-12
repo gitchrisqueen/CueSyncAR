@@ -137,5 +137,11 @@ struct HUDStatusTests {
     @Test func confidenceHonestyFadesOverlays() {
         #expect(HUDStatus.tracking(ballCount: 16).overlayOpacity == 1.0)
         #expect(HUDStatus.degraded(reason: .lowLight).overlayOpacity == 0.4)
+        #expect(HUDStatus.tableMoved.overlayOpacity == 0)
+    }
+
+    @Test func tableMovedAsksForRecalibration() {
+        #expect(HUDStatus.tableMoved.label == "Table moved? Re-calibrate")
+        #expect(HUDStatus.tableMoved.systemImage == "arrow.triangle.2.circlepath")
     }
 }

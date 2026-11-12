@@ -276,7 +276,8 @@ struct SpokenGuidanceTests {
     func setupPrompts() {
         let stages: [GuidanceStage] = [.findingTable, .needsCalibration, .confirmingRails,
                                        .awaitingCueBall, .degraded(.fastMotion),
-                                       .degraded(.lowLight), .degraded(.trackingLost)]
+                                       .degraded(.lowLight), .degraded(.trackingLost),
+                                       .tableMoved]
         for (index, stage) in stages.enumerated() {
             var guidance = coach(.keyMoments)
             let line = guidance.next(for: .init(stage: stage), at: TimeInterval(index))
@@ -301,7 +302,7 @@ struct SpokenGuidanceTests {
             .init(stage: .placingCorners(placed: 0)), .init(stage: .placingCorners(placed: 3)),
             .init(stage: .confirmingRails), .init(stage: .awaitingCueBall),
             .init(stage: .degraded(.lowLight)), .init(stage: .degraded(.fastMotion)),
-            .init(stage: .degraded(.trackingLost)),
+            .init(stage: .degraded(.trackingLost)), .init(stage: .tableMoved),
             playing(), playing(chosenByPlayer: true),
             playing(nudge: .onLine), playing(nudge: .left(degrees: 2)),
             playing(nudge: .right(degrees: 20)),

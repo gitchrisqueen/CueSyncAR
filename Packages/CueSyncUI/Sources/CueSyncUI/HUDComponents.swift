@@ -44,6 +44,12 @@ public enum HUDStatus: Sendable, Equatable {
     /// have different causes and different advice. See DetectionHealth.
     case losingBalls(seen: Int, peak: Int, dark: Bool)
     case degraded(reason: DegradedReason)
+    /// Tracking is running, but most detections now land off the table or
+    /// on the rails: the locked calibration no longer matches the camera's
+    /// view (device bumped, ARKit session reset). Tapping the capsule
+    /// starts calibration again. Raised by `CalibrationHealthMonitor`
+    /// (PerceptionKit), which waits for seconds of evidence first.
+    case tableMoved
 
     public enum DegradedReason: String, Sendable {
         case fastMotion
@@ -75,6 +81,7 @@ public enum HUDStatus: Sendable, Equatable {
         case .degraded(.fastMotion): "Hold steady…"
         case .degraded(.lowLight): "Need more light"
         case .degraded(.trackingLost): "Re-finding the table…"
+        case .tableMoved: "Table moved? Re-calibrate"
         }
     }
 
@@ -95,6 +102,7 @@ public enum HUDStatus: Sendable, Equatable {
         // half-filled icon says.
         case .losingBalls: "circle.lefthalf.filled"
         case .degraded: "exclamationmark.triangle"
+        case .tableMoved: "arrow.triangle.2.circlepath"
         }
     }
 
@@ -105,6 +113,10 @@ public enum HUDStatus: Sendable, Equatable {
         // fading as overlays drawn on lost tracking: the guide may be
         // routed around a ball the app cannot currently see.
         if case .losingBalls = self { return 0.4 }
+        // Guides drawn against a calibration that no longer fits the
+        // table point at the wrong place. The layer clamps to its floor
+        // (`OverlayStyle.layerOpacity`); the app also stops drawing them.
+        if case .tableMoved = self { return 0 }
         return 1.0
     }
 }

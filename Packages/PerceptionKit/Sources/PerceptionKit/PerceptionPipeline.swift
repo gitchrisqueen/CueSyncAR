@@ -84,11 +84,25 @@ public struct PerceptionOutput: Sendable {
     public var luminance: Double?
     /// What the playing-surface gate did to this frame.
     public var surfaceGate: SurfaceGateCounts
+    /// Ball detections that projected onto the table plane and so reached
+    /// the gate: admitted plus rejected. Not part of the replay bundle's
+    /// outputs (that schema writes explicit keys), so adding it cannot move
+    /// the golden.
+    public var gateCandidates: Int
     /// How many frames the change gate has skipped so far, and the fraction
     /// of all frames that represents. Cumulative, and carried on the next
     /// PROCESSED frame — a skipped frame produces no output by definition.
     public var skippedFrames: Int
     public var frameSkipRate: Double?
+
+    /// This frame as evidence for `CalibrationHealthMonitor`.
+    public var calibrationHealthSample: CalibrationHealthSample {
+        CalibrationHealthSample(timestamp: state.timestamp,
+                                detections: gateCandidates,
+                                admitted: gateCandidates - surfaceGate.rejected,
+                                offTable: surfaceGate.rejected,
+                                clamped: surfaceGate.clamped)
+    }
 
     public init(state: TableState, stickQuad: [Vec2]? = nil,
                 detectionLabels: [String] = [],
@@ -97,6 +111,7 @@ public struct PerceptionOutput: Sendable {
                 pose: CapturedFrame? = nil,
                 luminance: Double? = nil,
                 surfaceGate: SurfaceGateCounts = SurfaceGateCounts(),
+                gateCandidates: Int = 0,
                 skippedFrames: Int = 0,
                 frameSkipRate: Double? = nil) {
         self.state = state
@@ -107,6 +122,7 @@ public struct PerceptionOutput: Sendable {
         self.pose = pose
         self.luminance = luminance
         self.surfaceGate = surfaceGate
+        self.gateCandidates = gateCandidates
         self.skippedFrames = skippedFrames
         self.frameSkipRate = frameSkipRate
     }
@@ -320,6 +336,7 @@ public actor PerceptionPipeline {
             // this table and must never seed a track.
             var rejected = 0
             var clamped = 0
+            var admitted = 0
             var located: [LocatedDetection] = []
             let detections = try await detector.detect(in: frame)
             let observations = detections.compactMap { detection -> BallObservation? in
@@ -343,6 +360,7 @@ public actor PerceptionPipeline {
                     rejected += 1
                     return nil
                 }
+                admitted += 1
                 if position != table { clamped += 1 }
                 located.append(LocatedDetection(position: position, box: box,
                                                 kind: detection.ballKind))
@@ -444,6 +462,7 @@ public actor PerceptionPipeline {
                                     surfaceGate: SurfaceGateCounts(rejected: rejected,
                                                                    clamped: clamped,
                                                                    suppressed: suppressed),
+                                    gateCandidates: admitted + rejected,
                                     skippedFrames: frameChangeGate.skipped,
                                     frameSkipRate: frameChangeGate.skipRate)
         } catch {

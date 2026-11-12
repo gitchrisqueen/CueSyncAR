@@ -95,7 +95,7 @@ struct RootView: View {
                 // the mirror's /state.json; `previewStats.lastError` and
                 // the mirror URL -> the More sheet's developer section
                 // (the URL is also selectable in Settings -> Developer).
-                StatusCapsule(status: hudStatus)
+                statusCapsule
                     .lockFlash(model.feedback.lockFlashCount) // FeedbackViews.swift
                 if let recording = model.recordingStatus {
                     RecordingBadge(status: recording)
@@ -182,6 +182,22 @@ struct RootView: View {
                 : nil)
     }
 
+    /// The status capsule; a button only while it is asking the player to
+    /// calibrate again ("Table moved? Re-calibrate").
+    @ViewBuilder
+    private var statusCapsule: some View {
+        if hudStatus == .tableMoved {
+            Button { model.recalibrateFromBanner() } label: {
+                StatusCapsule(status: hudStatus)
+            }
+            .buttonStyle(.plain)
+            .hudTapTarget()
+            .accessibilityHint("Starts table calibration again")
+        } else {
+            StatusCapsule(status: hudStatus)
+        }
+    }
+
     private var hudStatus: HUDStatus {
         // Live tracking: the pipeline's stabilized ball count — and an
         // explicit prompt when no cue ball is on the table (nothing can be
@@ -193,6 +209,12 @@ struct RootView: View {
             // CueSyncUI.TrackingCondition, not here.
             if let reason = model.trackingCondition.degradedReason {
                 return .degraded(reason: reason)
+            }
+            // A stale calibration outranks everything about the balls: with
+            // the table in the wrong place every one of them is wrong too.
+            // Hysteresis lives in PerceptionKit.CalibrationHealthMonitor.
+            if model.calibrationHealth.status.isStale {
+                return .tableMoved
             }
             if model.tableState?.cueBall == nil {
                 return .awaitingCueBall
@@ -613,7 +635,10 @@ struct ARCameraView: View {
     /// only when it differs from the last one (re-rendering an identical
     /// layout churns RealityKit entities and can flicker).
     private func renderOverlays(lastRendered: inout OverlayLayout?) {
-        guard let state = model.tableState, let calibration = model.tableCalibration else {
+        // Stale calibration: guides would point at the wrong place, so draw
+        // none (the capsule says why).
+        guard let state = model.tableState, let calibration = model.tableCalibration,
+              !model.calibrationIsStale else {
             if lastRendered != nil {
                 lastRendered = nil
                 overlayRenderer?.clear()

@@ -223,7 +223,7 @@ final class SessionModel {
     /// The current verdict, recomputed only when it changes so the HUD
     /// does not re-render every frame.
     private(set) var detectionVerdict: DetectionHealth.Verdict = .healthy
-
+    let calibrationHealth = CalibrationHealthModel() // locked table vs camera: SessionModel+CalibrationHealth
     /// What each tracked ball is, accumulated over many looks at it.
     ///
     /// Fed from `PerceptionOutput.appearances`; read back by the ranking,
@@ -574,7 +574,7 @@ final class SessionModel {
             trackerConfig: trackerConfigFromSettings(),
             tableAnchorTransform: lockAnchorTransform)
         pipeline = newPipeline
-        isLiveTracking = true
+        calibrationHealth.reset() // `pipeline`'s didSet already sets isLiveTracking
         // Spatial overlays take over — stale 2D preview boxes would linger
         // frozen over the camera otherwise.
         detectionPreview.clearPreviewOutput()
@@ -596,7 +596,7 @@ final class SessionModel {
                     if let pose = output.pose {
                         self.recordClothPlaneSample(detections: output.detections, frame: pose)
                     }
-                    self.noteDetectionHealth(output)
+                    self.noteOutputHealth(output)
                     self.noteFrameGate(output)
                     self.noteFrameHealth(cameraTimestamp: output.state.timestamp)
                     self.tableState = self.cueIdentity.apply(

@@ -148,6 +148,34 @@ struct PerceptionPipelineTests {
         return try #require(lastState)
     }
 
+    /// The calibration-health monitor's input: every ball detection that
+    /// reached the gate, split into admitted and rejected, per frame.
+    @Test func outputCountsWhatTheGateSawForCalibrationHealth() async throws {
+        let table = Table(size: .nineFoot)
+        let off = table.halfExtents.x + 0.5
+        let boxes = [
+            Detection2D(classLabel: "white-ball", boundingBox: box(atTableX: 0), confidence: 0.9),
+            Detection2D(classLabel: "color-ball", boundingBox: box(atTableX: 0.3), confidence: 0.9),
+            Detection2D(classLabel: "color-ball", boundingBox: box(atTableX: off), confidence: 0.9),
+            // Not ball evidence: a cue stick and a box under the floor.
+            Detection2D(classLabel: "cue", boundingBox: box(atTableX: -0.3), confidence: 0.9),
+            Detection2D(classLabel: "color-ball", boundingBox: box(atTableX: -0.6), confidence: 0.01)
+        ]
+        let pipeline = PerceptionPipeline(
+            detector: FixtureDetectionProvider(constant: boxes),
+            calibration: calibration,
+            raycaster: LinearFixtureRaycaster(calibration: calibration))
+        let output = try #require(await pipeline.processFrame(makeFrame(0)))
+        #expect(output.gateCandidates == 3)
+        #expect(output.surfaceGate.rejected == 1)
+        let sample = output.calibrationHealthSample
+        #expect(sample.detections == 3)
+        #expect(sample.admitted == 2)
+        #expect(sample.offTable == 1)
+        #expect(sample.clamped == 0)
+        #expect(sample.timestamp == output.state.timestamp)
+    }
+
     /// The invariant behind the live report "balls are being tracked off
     /// the table": a track whose estimate sits past the cushion nose must
     /// not be reported, however it got there. This one projects 3.2 cm
