@@ -56,8 +56,9 @@ extension PocketCalibration {
         }
     }
 
-    /// Steepest tilt considered, as a slope (about 1.5 degrees).
-    static let maximumTiltSlope = 0.026
+    /// Steepest tilt considered, as a slope (about 3 degrees). Was 1.5; a lock
+    /// on the iPad with fifteen balls on the diamond grid sat on the old cap.
+    static let maximumTiltSlope = 0.052
 
     /// Fit with height and (from five pockets up) tilt free.
     ///
