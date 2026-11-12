@@ -45,6 +45,29 @@ head):
   `overlayLatencyMs`, quoted until now, stops when the result reaches the
   main actor and never included the wait or the draw.
 
+**Paused for the night (01:00, 2026-11-12).** The owner turned the pool
+room lights off and asked for device work to resume at 20:30 the same day.
+A one-shot timer on the Mac wakes the orchestrator thread then. No device
+check is possible in the dark.
+
+Running overnight, none needs the device:
+- `claude/far-recall`: make the golden replays and the stability bar pass
+  again, then bring tile detection under 45 ms.
+- `claude/overlay-latency`: pooled renderer (the 49 ms render), the 38 ms of
+  unaccounted pipeline time, the 26 ms hop.
+- `claude/state-gallery`: every HUD state reachable in the Simulator from a
+  launch argument, captured on the iPad and iPhone SE simulators, layout
+  defects fixed, the edited UI tests run.
+
+On each completion: merge, run the full gate, READ its result in its own
+step, and only then push and install.
+
+First things with the lights on: install the newest green head, lock, and
+repeat the checks on it (16 of 16 balls, latency stages, ball names, why the
+green 6 and the blue stripe 10 had no name, the stale-lock banner on the new
+HUD, the parked hold). Then an independent design re-score from the gallery
+and fresh device stills (baseline 46/100, target 70).
+
 ### 2026-11-12, later — seven more branches merged, build `20eab26` verified on the iPad
 
 Merged into `claude/grid-truth` and gated from clean (`Scripts/test-all.sh`
