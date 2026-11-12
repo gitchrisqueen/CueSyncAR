@@ -3,6 +3,7 @@
 //  detection-eval
 //
 //  Usage:
+//    detection-eval --sweep-dir <frames> --out <results.jsonl> ...   (see Sweep.swift)
 //    detection-eval --model <BallDetector.mlpackage> --image <photo.jpg>
 //                   [--compute cpu|gpu|all] [--json <out.json>]
 //                   [--annotate <out.png>] [--min-confidence 0.25]
@@ -215,6 +216,10 @@ struct EvalReport: Codable {
 // MARK: - Main
 
 do {
+    if CommandLine.arguments.contains("--sweep-dir") {
+        try await runSweep(try SweepArguments.parse(CommandLine.arguments))
+        exit(0)
+    }
     let arguments = try EvalArguments.parse(CommandLine.arguments)
 
     let modelURL = URL(fileURLWithPath: arguments.modelPath)

@@ -70,8 +70,26 @@ public final class CoreMLDetectionProvider: DetectionProviding, @unchecked Senda
     private let inferenceQueue = DispatchQueue(label: "cuesync.coreml.inference",
                                                qos: .userInitiated)
 
-    public init(model: MLModel) throws {
-        visionModel = try VNCoreMLModel(for: model)
+    /// `confidenceThreshold` / `iouThreshold` override the thresholds baked
+    /// into the model's NMS stage (0.25 / 0.45 for the bundled BallDetector)
+    /// through the model's own optional inputs. nil keeps the baked value, so
+    /// `init(model:)` behaves exactly as before. Set once here, before any
+    /// request: VNCoreMLModel is not mutated after this.
+    public init(model: MLModel,
+                confidenceThreshold: Double? = nil,
+                iouThreshold: Double? = nil) throws {
+        let wrapped = try VNCoreMLModel(for: model)
+        var overrides = [String: MLFeatureValue]()
+        if let confidenceThreshold {
+            overrides["confidenceThreshold"] = MLFeatureValue(double: confidenceThreshold)
+        }
+        if let iouThreshold {
+            overrides["iouThreshold"] = MLFeatureValue(double: iouThreshold)
+        }
+        if !overrides.isEmpty {
+            wrapped.featureProvider = try MLDictionaryFeatureProvider(dictionary: overrides)
+        }
+        visionModel = wrapped
     }
 
     public func prepare() async throws {
