@@ -15,6 +15,28 @@ first. This file remains the running log of how each finding was reached,
 newest first, and is worth reading for the reasoning rather than the
 status.
 
+### 2026-11-12, 04:00 — `65c86a8` green and on the iPad; the Simulator will not boot
+
+`claude/state-gallery` (`2f8aa8d`) is merged: 42 seeded HUD scenes behind
+`-seedScene <name>`, Debug Simulator builds only, plus a new UI test file
+(`docs/design/state-gallery.md` lists the scenes and the three states the
+Simulator cannot reach). **None of it has been seen running.** Every
+simulator on the Mac hangs at boot (`xcrun simctl boot` does not answer
+within 120 s, a fresh device included). Restarting CoreSimulatorService did
+not help. The owner needs to restart the Mac; then build the Simulator app
+and run the capture scripts kept in `~/CueSyncRuns/goal14/gallery-tools/`.
+The three UI test files edited this week are still unrun.
+
+Also in `65c86a8`: the shot card is hidden while tracking is degraded
+("Hold steady", "Re-finding the table", "Need more light"); it used to keep
+a confident tier word (`HUDStatus.allowsShotAdvice`).
+
+From clean: `Scripts/test-all.sh` exit 0 (11 test runs), Release iphoneos
+`** BUILD SUCCEEDED **`, swiftlint 16 violations, 0 serious. Pushed, and
+installed on the iPad (dark room, on a charger, battery 45, not calibrated).
+
+Nothing is running now. The thread resumes at 20:30.
+
 ### 2026-11-12, 03:00 — green again at `1509e4a`, installed on the iPad
 
 `claude/far-recall` (`3ba1522`) put the sparse-track behaviour behind
