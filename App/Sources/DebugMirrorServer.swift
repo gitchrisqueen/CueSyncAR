@@ -45,6 +45,11 @@ final class DebugMirrorServer: @unchecked Sendable {
     private var latestStateJSON: Data?
     private var latestUIJPEG: Data?
     private var uiWantedUntil = Date.distantPast
+    /// The same for `/frame.jpg` and `/state.json`: the app does the costly
+    /// work of producing them at full rate only while someone is fetching them
+    /// (`MirrorPacing`).
+    private var frameWantedUntil = Date.distantPast
+    private var stateWantedUntil = Date.distantPast
     private var commandHandler: CommandHandler?
     private var sessionsRootValue: URL?
     private var activeSessionValue: String?
@@ -128,6 +133,18 @@ final class DebugMirrorServer: @unchecked Sendable {
     var wantsUISnapshot: Bool {
         lock.lock(); defer { lock.unlock() }
         return Date() < uiWantedUntil
+    }
+
+    /// True while a client has requested `/frame.jpg` in the last 15 s.
+    var wantsFrameSnapshot: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return Date() < frameWantedUntil
+    }
+
+    /// True while a client has requested `/state.json` in the last 15 s.
+    var wantsStateUpdates: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return Date() < stateWantedUntil
     }
 
     /// Best-effort LAN address for showing the URL in the HUD (en0 = Wi-Fi).
@@ -222,7 +239,10 @@ final class DebugMirrorServer: @unchecked Sendable {
         }
         switch path {
         case "/frame.jpg":
-            lock.lock(); let jpeg = latestJPEG; lock.unlock()
+            lock.lock()
+            frameWantedUntil = Date().addingTimeInterval(15)
+            let jpeg = latestJPEG
+            lock.unlock()
             guard let jpeg else { return Self.httpResponse(status: "404 Not Found") }
             return Self.httpResponse(body: jpeg, contentType: "image/jpeg")
         case "/ui.jpg":
@@ -236,7 +256,10 @@ final class DebugMirrorServer: @unchecked Sendable {
             }
             return Self.httpResponse(body: ui, contentType: "image/jpeg")
         case "/state.json":
-            lock.lock(); let json = latestStateJSON; lock.unlock()
+            lock.lock()
+            stateWantedUntil = Date().addingTimeInterval(15)
+            let json = latestStateJSON
+            lock.unlock()
             return Self.httpResponse(body: json ?? Data("{}".utf8),
                                      contentType: "application/json")
         case "/logs":

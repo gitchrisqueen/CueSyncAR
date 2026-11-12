@@ -585,7 +585,7 @@ final class SessionModel {
                 outputCount += 1
                 let count = outputCount
                 await MainActor.run {
-                    guard let self else { return }
+                    guard let self else { return }; Self.noteArrival(output)
                     // Colour first, cue designation last: the player's
                     // tap and the detector's own white-ball class both
                     // outrank a colour vote.

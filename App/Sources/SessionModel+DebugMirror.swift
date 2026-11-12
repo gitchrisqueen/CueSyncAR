@@ -12,6 +12,7 @@
 //  for SwiftLint's file_length limit.
 //
 
+import ARExperience
 import CoachKit
 import Foundation
 import os
@@ -152,6 +153,33 @@ extension SessionModel {
         guard let server = debugMirror else { return }
         server.update(jpeg: jpeg, stateJSON: mirrorStateJSON(),
                       uiJPEG: server.wantsUISnapshot ? MirrorUISnapshot.jpeg() : nil)
+    }
+
+    /// What the mirror is being watched for, for `MirrorPacing`.
+    var mirrorWatching: MirrorPacing.Watching {
+        guard let server = debugMirror else { return .init(frame: false, state: false, ui: false) }
+        return .init(frame: server.wantsFrameSnapshot, state: server.wantsStateUpdates,
+                     ui: server.wantsUISnapshot)
+    }
+
+    /// Publish only what `due` asks for, and never wait on it.
+    ///
+    /// The AR loop calls this every tick. The state document is built here
+    /// (cheap, and it must be the loop's own newest); the window snapshot is
+    /// drawn here and encoded off the main actor. The ARView screenshot is
+    /// the caller's: it is taken in a task of its own and handed in as
+    /// `frameJPEG`, so no tick ever waits for it.
+    func publishMirror(_ due: MirrorPacing.Due, frameJPEG: Data? = nil) {
+        guard let server = debugMirror else { return }
+        if frameJPEG != nil || due.state {
+            server.update(jpeg: frameJPEG, stateJSON: due.state ? mirrorStateJSON() : nil)
+        }
+        if due.ui {
+            Task { @MainActor in
+                guard let ui = await MirrorUISnapshot.jpegEncodedOffMain() else { return }
+                server.update(jpeg: nil, stateJSON: nil, uiJPEG: ui)
+            }
+        }
     }
 }
 

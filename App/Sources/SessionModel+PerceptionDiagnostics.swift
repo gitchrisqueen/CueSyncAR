@@ -13,10 +13,12 @@
 //  - `startLiveTrackingIfReady` passes `Self.perceptionControls` to the
 //    pipeline;
 //  - the pipeline output loop calls `recomputeRankingTimed(after:)` where it
-//    called `recomputeRanking()`;
+//    called `recomputeRanking()` (which also signals the overlay to draw,
+//    see SessionModel+OverlayTiming);
 //  - `handleMirrorCommand` lists `handlePerceptionMirrorCommand`.
 //
 
+import ARExperience
 import CueSyncCore
 import Foundation
 import PerceptionKit
@@ -55,15 +57,28 @@ extension SessionModel {
     /// pipeline handing it over to the ranking finishing. Both are main-
     /// actor costs that the pipeline's own stage timings cannot see, and
     /// they are the first suspects when the pipeline rate falls as balls
-    /// are added. Behaviour is exactly `recomputeRanking()`.
+    /// are added. Behaviour is `recomputeRanking()` plus the timings and the
+    /// signal to draw.
+    ///
+    /// `handoff` is produced -> ranking finished, which is three things: the
+    /// wait for the main actor to start the output handler (`hop`, in
+    /// `health.latency`), the handler's own work before this call
+    /// (`prework`), and the ranking itself (`ranking`).
     func recomputeRankingTimed(after output: PerceptionOutput) {
         let started = ProcessInfo.processInfo.systemUptime
+        if let arrived = LatencyLedger.shared.arrivedAt() {
+            Self.perceptionControls.noteAppStage("prework", milliseconds: (started - arrived) * 1000)
+        }
         recomputeRanking()
         let finished = ProcessInfo.processInfo.systemUptime
         Self.perceptionControls.noteAppStage("ranking", milliseconds: (finished - started) * 1000)
         if let producedAt = output.producedAt {
             Self.perceptionControls.noteAppStage("handoff", milliseconds: (finished - producedAt) * 1000)
         }
+        // Draw the overlay for this state now. The signal is consumed after
+        // the output handler returns, so the draw sees the whole state: the
+        // stick quad and detection labels assigned right after this call.
+        Self.overlaySignal.signal()
     }
 
     /// Extra entries for the `detection` block of `/state.json`: what became
@@ -76,8 +91,8 @@ extension SessionModel {
 
     /// `health.stageMs`: rolling mean milliseconds per stage. Pipeline
     /// stages are `detect`, `project`, `track`, `appearance`,
-    /// `appearanceRun`, `other` and `total`; the app adds `ranking` and
-    /// `handoff`. Empty when no pipeline is running.
+    /// `appearanceRun`, `other` and `total`; the app adds `prework`,
+    /// `ranking` and `handoff`. Empty when no pipeline is running.
     func perceptionStageMilliseconds() -> [String: Double] {
         guard isLiveTracking else { return [:] }
         return Self.perceptionControls.stageMilliseconds

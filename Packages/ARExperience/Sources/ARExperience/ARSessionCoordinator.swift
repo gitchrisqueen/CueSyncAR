@@ -359,7 +359,7 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
     /// cancelled or the session pauses first. One outstanding request at a
     /// time — callers are expected to be a single polling loop.
     public func nextFrame() async -> CapturedFrame? {
-        await withTaskCancellationHandler {
+        let frame: CapturedFrame? = await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 if let stale = pendingRequest.swap(continuation) {
                     stale.resume(returning: nil)
@@ -368,6 +368,13 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
         } onCancel: {
             self.pendingRequest.take()?.resume(returning: nil)
         }
+        // When the caller actually got the frame back: the gap from the
+        // delegate's stamp is the wait for the main actor (LatencyLedger).
+        if let frame {
+            LatencyLedger.shared.noteReceived(captured: frame.timestamp,
+                                              at: ProcessInfo.processInfo.systemUptime)
+        }
+        return frame
     }
 
     // MARK: - ARSessionDelegate
@@ -381,6 +388,10 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
         let transform = parkedHold.update(cameraPose: rawTransform, at: frame.timestamp)
         noteWorldMapping(frame.worldMappingStatus)
         guard let continuation = pendingRequest.take() else { return }
+        // ARKit's own delay is `now - frame.timestamp` right here, before the
+        // copy below, which is this app's cost and counts as the wait to resume.
+        LatencyLedger.shared.noteDelivered(captured: frame.timestamp,
+                                           at: ProcessInfo.processInfo.systemUptime)
         // Hand consumers a DEEP COPY of the camera pixel buffer, never the
         // ARKit-owned one: anything downstream that outlives this callback
         // (JPEG encode, CIContext texture caches) would otherwise pin one of
@@ -447,10 +458,19 @@ public final class ARSessionCoordinator: NSObject, ARSessionDelegate, FrameSourc
             diagnostics.recordSnapshot(milliseconds: (ContinuousClock.now - started)
                 .totalMilliseconds)
         }
+        // The render and read-back happen where ARView puts them; the JPEG
+        // encode of a 2160 x 1620 image (tens of milliseconds) happens on a
+        // utility queue, not on the main actor the overlay is drawn on.
         return await withCheckedContinuation { continuation in
             arView.snapshot(saveToHDR: false) { image in
-                continuation.resume(
-                    returning: image?.jpegData(compressionQuality: compressionQuality))
+                guard let image else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                nonisolated(unsafe) let captured = image
+                DispatchQueue.global(qos: .utility).async {
+                    continuation.resume(returning: captured.jpegData(compressionQuality: compressionQuality))
+                }
             }
         }
     }

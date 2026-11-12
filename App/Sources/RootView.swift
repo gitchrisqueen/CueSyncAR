@@ -389,12 +389,29 @@ struct ARCameraView: View {
     /// RealityKit renderer for M3-05 spatial overlays (paths, ghost ball,
     /// pocket glow). Created lazily once live tracking begins.
     @State private var overlayRenderer: OverlayRenderer?
+    /// What was last handed to the renderer, shared by the two places that
+    /// draw (the loop's tick and the draw-on-landing task) so an identical
+    /// layout is rendered once however many times it is composed.
+    @State private var drawState = DrawState()
+
+    @MainActor
+    private final class DrawState {
+        var lastLayout: OverlayLayout?
+    }
+
+    /// Whether a screenshot of the ARView is being taken. The loop starts one
+    /// and moves on; it never waits for it.
+    @MainActor
+    private final class SnapshotGate {
+        var inFlight = false
+    }
 
     var body: some View {
         ZStack {
             if let coordinator {
                 ARViewRepresentable(coordinator: coordinator)
                     .task { await runSessionLoop(coordinator) }
+                    .task { await drawOnLanding(coordinator) }
                 // Hidden, not unmounted, while the front preview owns the
                 // camera: unmounting is what used to lose the world origin.
                     .opacity(model.usingFrontCamera ? 0 : 1)
@@ -464,10 +481,11 @@ struct ARCameraView: View {
         // never reconfigures the session.
         var planeDetectionStarted = false
         var relocalizationDeadline: Date?
-        var lastMirrorPublishAt = Date.distantPast
-        // Re-rendering an identical layout every tick churns RealityKit
-        // entities for nothing (and can flicker) — render only on change.
-        var lastRenderedLayout: OverlayLayout?
+        var mirrorPacing = MirrorPacing()
+        let snapshotGate = SnapshotGate()
+        // Re-rendering an identical layout churns RealityKit entities for
+        // nothing (and can flicker) — render only on change
+        // (`drawState.lastLayout`, shared with `drawOnLanding`).
         if CalibrationStore.load() != nil {
             coordinator.enablePlaneDetection(
                 restoringWorldMapAt: CalibrationStore.hasWorldMap
@@ -579,7 +597,7 @@ struct ARCameraView: View {
                        renderer.isWorldCorrected != coordinator.parkedHold.isArmed {
                         renderer.clear()
                         overlayRenderer = nil
-                        lastRenderedLayout = nil
+                        drawState.lastLayout = nil
                     }
                     if overlayRenderer == nil {
                         // Root the overlays under the table's ARAnchor so
@@ -590,15 +608,9 @@ struct ARCameraView: View {
                             tableAnchor: coordinator.tableAnchor,
                             worldCorrected: coordinator.parkedHold.isArmed)
                     }
-                    overlayRenderer?.applyWorldCorrection(coordinator.parkedHold.current.correction)
-                    if syncPalette(model.overlayPaletteMode) {
-                        lastRenderedLayout = nil // re-render in the new palette now
-                    }
-                    renderOverlays(lastRendered: &lastRenderedLayout)
-                    // Confidence honesty (05-UX-DESIGN): a guide drawn on
-                    // a table ARKit has lost, or from a third of the
-                    // balls, fades instead of staying at full strength.
-                    overlayRenderer?.overlayOpacity = model.hudStatus?.overlayOpacity ?? 1
+                    // Every tick still draws, for what changes between table
+                    // states (the live aim); a new state is drawn as it lands.
+                    drawOverlays(coordinator)
                     if model.isRecording {
                         lastSnapshotAt = await recordingTick(coordinator, lastSnapshotAt: lastSnapshotAt)
                     }
@@ -615,19 +627,19 @@ struct ARCameraView: View {
                     model.ingestPreviewFrame(frame)
                 }
             }
-            // Debug mirror: ship the rendered screen (camera + overlays)
-            // to any browser on the LAN at ~1 Hz while enabled.
+            // Debug mirror: the rendered screen (camera + overlays), the state
+            // and the window snapshot go out at the rate MirrorPacing allows
+            // for what is being fetched. Nothing here waits: the screenshot
+            // takes ~100 ms and used to hold the tick for all of it.
             if model.debugMirror != nil {
-                if Date().timeIntervalSince(lastMirrorPublishAt) >= 1.0 {
-                    lastMirrorPublishAt = Date()
-                    let jpeg = await coordinator.snapshotJPEG()
-                    model.publishMirrorFrame(jpeg)
-                } else {
-                    // State refreshes at pipeline cadence (frames stay 1 Hz):
-                    // mid-shot ball positions land in /state.json at ~4-6 Hz,
-                    // enough to reconstruct a rolled path for T1.1.
-                    model.publishMirrorFrame(nil)
-                }
+                let due = mirrorPacing.due(at: ProcessInfo.processInfo.systemUptime,
+                                           watching: model.mirrorWatching,
+                                           frameInFlight: snapshotGate.inFlight)
+                if due.frame { takeMirrorSnapshot(coordinator, gate: snapshotGate) }
+                // State at tick cadence while a client polls it: mid-shot
+                // ball positions land in /state.json at ~4-6 Hz, enough to
+                // reconstruct a rolled path for T1.1.
+                model.publishMirror(due)
             }
             // Rest for what is left of the tick period, not for a fixed time
             // on top of the work (LoopPacing explains why).
@@ -637,16 +649,67 @@ struct ARCameraView: View {
         }
     }
 
+    /// Draw the overlay for the newest table state the moment it lands,
+    /// instead of at the loop's next tick. Waits on `overlaySignal`, which
+    /// the pipeline's output handler raises; signals that arrive faster than
+    /// they are drawn coalesce, because a draw reads the newest state.
+    ///
+    /// Only draws when the loop has a renderer ready for the current mode;
+    /// otherwise the loop's next tick builds it and draws.
+    private func drawOnLanding(_ coordinator: ARSessionCoordinator) async {
+        for await _ in SessionModel.overlaySignal.stream {
+            guard model.calibration.isLocked, model.isLiveTracking, !model.usingFrontCamera,
+                  let renderer = overlayRenderer,
+                  renderer.isWorldCorrected == coordinator.parkedHold.isArmed else { continue }
+            drawOverlays(coordinator)
+        }
+    }
+
+    /// Everything that puts the current table state on the screen, in the
+    /// order it has always run: the parked hold's correction, the palette,
+    /// the HUD's confidence, then the layout (`renderOverlays`). The loop's
+    /// tick and `drawOnLanding` both call it, so they cannot differ.
+    /// Stamps the draw for `LatencyLedger`.
+    private func drawOverlays(_ coordinator: ARSessionCoordinator) {
+        guard let renderer = overlayRenderer else { return }
+        let started = ProcessInfo.processInfo.systemUptime
+        renderer.applyWorldCorrection(coordinator.parkedHold.current.correction)
+        if syncPalette(model.overlayPaletteMode) {
+            drawState.lastLayout = nil // re-render in the new palette now
+        }
+        // Confidence honesty (05-UX-DESIGN): a guide drawn on a table ARKit
+        // has lost, or from a third of the balls, fades instead of staying
+        // at full strength.
+        renderer.overlayOpacity = model.hudStatus?.overlayOpacity ?? 1
+        renderOverlays()
+        LatencyLedger.shared.noteDrawn(start: started, end: ProcessInfo.processInfo.systemUptime)
+    }
+
+    /// Start a screenshot of the ARView for `/frame.jpg` and return at once.
+    /// One at a time: the gate keeps them from piling up if one runs long.
+    private func takeMirrorSnapshot(_ coordinator: ARSessionCoordinator, gate: SnapshotGate) {
+        gate.inFlight = true
+        Task { @MainActor in
+            let jpeg = await coordinator.snapshotJPEG()
+            gate.inFlight = false
+            guard let jpeg else {
+                SessionModel.mirrorLog.error("frame snapshot returned no image; /frame.jpg keeps the last one")
+                return
+            }
+            model.publishMirror(MirrorPacing.Due(), frameJPEG: jpeg)
+        }
+    }
+
     /// Compose this tick's overlay layout from the model and render it
     /// only when it differs from the last one (re-rendering an identical
     /// layout churns RealityKit entities and can flicker).
-    private func renderOverlays(lastRendered: inout OverlayLayout?) {
+    private func renderOverlays() {
         // Stale calibration: guides would point at the wrong place, so draw
         // none (the capsule says why).
         guard let state = model.tableState, let calibration = model.tableCalibration,
               !model.calibrationIsStale else {
-            if lastRendered != nil {
-                lastRendered = nil
+            if drawState.lastLayout != nil {
+                drawState.lastLayout = nil
                 overlayRenderer?.clear()
             }
             return
@@ -666,8 +729,8 @@ struct ARCameraView: View {
                                          calledPocket: model.calledPocket,
                                          target: model.targetOverlay,
                                          showsSecondaryLines: model.showsSecondaryLines)
-        if layout != lastRendered {
-            lastRendered = layout
+        if layout != drawState.lastLayout {
+            drawState.lastLayout = layout
             overlayRenderer?.render(layout)
         }
     }
