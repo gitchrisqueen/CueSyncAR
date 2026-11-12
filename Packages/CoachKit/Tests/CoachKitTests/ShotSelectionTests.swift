@@ -186,6 +186,61 @@ struct ShotSelectionTests {
         }
     }
 
+    /// The fixture without its best ball, so something else is suggested.
+    private func stateWithoutNear(timestamp: TimeInterval = 0) -> TableState {
+        TableState(table: table, balls: state().balls.filter { $0.id != near },
+                   timestamp: timestamp)
+    }
+
+    @Test("A better shot must stay ahead for switchDwell updates before it takes over")
+    func betterShotNeedsToPersist() throws {
+        var s = ShotSelection()
+        s.update(state: stateWithoutNear(), group: .any, config: .intermediate)
+        let incumbent = try #require(s.suggested?.ball)
+        #expect(incumbent != near)
+
+        // The best ball appears. The old suggestion can still be played, so
+        // it holds until the newcomer has led switchDwell times in a row.
+        let ranked = ShotRanking.best(state: state(), group: .any, config: .intermediate)
+        let leader = try #require(ranked.first { $0.ball == near })
+        let held = try #require(ranked.first { $0.ball == incumbent })
+        try #require(held.blocker == nil, "fixture: the old suggestion must stay playable")
+        try #require(leader.probability > held.probability + 0.05,
+                     "fixture: the newcomer must clear the hysteresis margin")
+        try #require(ShotSelection.switchDwell >= 2)
+
+        for n in 1..<ShotSelection.switchDwell {
+            s.update(state: state(), group: .any, config: .intermediate)
+            #expect(s.suggested?.ball == incumbent, "switched after only \(n) update(s)")
+        }
+        s.update(state: state(), group: .any, config: .intermediate)
+        #expect(s.suggested?.ball == near)
+    }
+
+    @Test("A lead that lapses starts the count again")
+    func interruptedLeadDoesNotSwitch() throws {
+        var s = ShotSelection()
+        s.update(state: stateWithoutNear(), group: .any, config: .intermediate)
+        let incumbent = try #require(s.suggested?.ball)
+        // Lead, lapse, lead, lapse: never switchDwell updates in a row.
+        for round in 0..<4 {
+            for _ in 1..<ShotSelection.switchDwell {
+                s.update(state: state(), group: .any, config: .intermediate)
+            }
+            s.update(state: stateWithoutNear(), group: .any, config: .intermediate)
+            #expect(s.suggested?.ball == incumbent, "switched in round \(round)")
+        }
+    }
+
+    @Test("A suggestion that can no longer be played is replaced at once")
+    func goneSuggestionSwitchesImmediately() throws {
+        var s = selection()
+        #expect(s.suggested?.ball == near)
+        s.update(state: stateWithoutNear(timestamp: 1), group: .any, config: .intermediate)
+        let next = try #require(s.suggested?.ball)
+        #expect(next != near)
+    }
+
     // MARK: - Copy
 
     @Test("A blocked shot says what is wrong instead of reading zero per cent")

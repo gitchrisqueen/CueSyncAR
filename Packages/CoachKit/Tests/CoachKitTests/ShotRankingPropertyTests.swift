@@ -174,7 +174,14 @@ struct ShotRankingPropertyTests {
         let total = makeable.values.reduce(0, +)
         print("REPLAY all-unblocked total=\(all.values.reduce(0, +)) \(line(all))")
         print("REPLAY makeable(>=45%) total=\(total) \(line(makeable))")
-        #expect(total > 500, "too few makeable shots to mean anything: \(total)")
+        // Was `> 500`, when 696 shots read makeable. The old count came from
+        // a corner margin 63 % too wide (captureRadius - R = 46.4 mm against
+        // the 28.4 mm a 114 mm mouth leaves; see ShotRankingAuditTests). With
+        // the margin from the mouth width 416 read makeable, and 412 of them
+        // (99 %) potted in the solver, so the premise this floor guards -
+        // enough makeable shots to mean anything - still holds.
+        // Docs: docs/research/2026-11-12-ranking-audit.md.
+        #expect(total > 300, "too few makeable shots to mean anything: \(total)")
         #expect(unexplained <= 4, "unexplained misses grew to \(unexplained)")
         #expect(Double(makeable[.potted, default: 0]) / Double(total) > 0.95)
     }
@@ -460,6 +467,15 @@ struct ShotRankingPropertyTests {
         print("JITTER layouts=\(layoutsUsed) frames=\(frames) hysteresis=\(withHysteresis) "
               + "plain-best=\(withoutHysteresis) worst-stable-layout=\(worstStable) worst=\(worst)")
         #expect(layoutsUsed > 50)
+        // The bound is unchanged at 2. History, measured on these seeds: with
+        // the old over-wide corner margin, 3 flickers in total and 0 on a
+        // fixed shootable set. With the margin from the mouth width and the
+        // 0.05 margin alone, 32 in total and 4 on a fixed set (seed 28: shots
+        // rated 5-23 %, where 2 mm of jitter swings the number by 18 points,
+        // more than any fixed margin absorbs). `ShotSelection.switchDwell`
+        // fixes the cause: a challenger must lead three updates in a row.
+        // With it, 1 flicker in total and 0 on a fixed set.
+        // Docs: docs/research/2026-11-12-ranking-audit.md.
         #expect(worstStable <= 2, "layouts with a fixed shootable set flickered \(worstStable) times")
         #expect(withHysteresis <= withoutHysteresis)
     }

@@ -140,19 +140,30 @@ public enum ShotRanking {
         /// its tolerance is scaled by `railTolerancePenalty`.
         public var railProximity: Double
         public var railTolerancePenalty: Double
+        /// Corner pocket mouth width, metres: the gap between the two jaw
+        /// points. WPA specifies 4.5-4.625 in (114-117 mm); the low end is
+        /// used because a ball that clips a jaw is a gamble, not a make.
+        public var cornerMouthWidth: Double
+        /// Side pocket mouth width, metres. WPA specifies 5-5.125 in
+        /// (127-130 mm).
+        public var sideMouthWidth: Double
 
         public init(aimSigma: Double = 0.005,
                     cutJudgementPenalty: Double = 1.0,
                     clearanceMargin: Double = 0.04,
                     minimumProbability: Double = 0.02,
                     railProximity: Double = 1.4 * Ball.standardRadius,
-                    railTolerancePenalty: Double = 0.75) {
+                    railTolerancePenalty: Double = 0.75,
+                    cornerMouthWidth: Double = 0.114,
+                    sideMouthWidth: Double = 0.127) {
             self.aimSigma = aimSigma
             self.cutJudgementPenalty = cutJudgementPenalty
             self.clearanceMargin = clearanceMargin
             self.minimumProbability = minimumProbability
             self.railProximity = railProximity
             self.railTolerancePenalty = railTolerancePenalty
+            self.cornerMouthWidth = cornerMouthWidth
+            self.sideMouthWidth = sideMouthWidth
         }
 
         /// Beginner: a wider aim error, so only simple shots read as easy.
@@ -251,11 +262,24 @@ public enum ShotRanking {
         // How wide the pocket looks from the object ball, as an angle. A
         // ball arriving across the mouth rather than into it sees less of
         // it, which is why rail-hugging shots into a corner are harder.
+        //
+        // The ball's centre may miss the pocket's centre line by
+        // m = (mouth width × cos(angle off the axis) − ball diameter) / 2
+        // before the ball meets a jaw point, and that offset at the pocket
+        // is atan(m / travel) off the pocket line. The width is the real
+        // mouth (`Config.cornerMouthWidth`, `sideMouthWidth`), NOT
+        // `Pocket.captureRadius`: that is the solver's capture circle for a
+        // ball centre, tuned so a ball aimed at the corner enters it before
+        // the cushion line (Table.swift), and reading it as half a mouth made
+        // the corner margin 46.4 mm against the 28.4 mm a 114 mm mouth leaves
+        // (and the side margin 29.4 mm against 34.9 mm). Audit:
+        // docs/research/2026-11-12-ranking-audit.md.
         let facing = facingDirection(of: pocket.id)
         let approach = max(0, pocketDirection.dot(facing))
         guard approach > 0.17 else { return blockedRating(.pocketFacingAway) }   // ~80°
-        let mouth = max(0, pocket.captureRadius - radius) * approach
-        var objectTolerance = asin(max(-1, min(1, mouth / objectTravel)))
+        let mouthWidth = isSidePocket(pocket.id) ? config.sideMouthWidth : config.cornerMouthWidth
+        let mouth = max(0, (mouthWidth * approach - 2 * radius) / 2)
+        var objectTolerance = atan(mouth / objectTravel)
 
         // Obstruction. A ball in the way does not merely subtract a fixed
         // penalty — it narrows the corridor, which narrows the aim, which
@@ -343,6 +367,10 @@ public enum ShotRanking {
         case .sideTop: return Vec2(0, 1)
         case .sideBottom: return Vec2(0, -1)
         }
+    }
+
+    static func isSidePocket(_ pocket: PocketID) -> Bool {
+        pocket == .sideTop || pocket == .sideBottom
     }
 
     static func isNearRail(_ p: Vec2, table: Table, within: Double) -> Bool {

@@ -61,14 +61,51 @@ public struct ShotSelection: Sendable, Equatable {
         if let target, !ranking.contains(where: { $0.ball == target }) {
             self.target = nil
         }
-        suggested = ShotRanking.stableRecommendation(previous: suggested?.ball,
-                                                     candidates: ranking)
+        let next = ShotRanking.stableRecommendation(previous: suggested?.ball,
+                                                    candidates: ranking)
+        guard let current = suggested, let next, next.ball != current.ball,
+              let held = shootable.first(where: { $0.ball == current.ball }) else {
+            // Same shot, no shot, or the suggested one can no longer be
+            // played: that is a fact, so it shows at once.
+            suggested = next
+            resetChallenger()
+            return
+        }
+        // The suggested shot is still on. A different one has to stay ahead
+        // for `switchDwell` updates in a row before it takes over.
+        challengerRun = challenger == next.ball ? challengerRun + 1 : 1
+        challenger = next.ball
+        if challengerRun >= Self.switchDwell {
+            suggested = next
+            resetChallenger()
+        } else {
+            suggested = held
+        }
+    }
+
+    /// How many updates in a row a different shot must lead (by the margin
+    /// in `ShotRanking.stableRecommendation`) before it replaces a
+    /// suggestion that can still be played.
+    ///
+    /// One update's lead can be noise. A shot with a narrow window into the
+    /// pocket swings by tens of points when a ball's measured position
+    /// moves 2 mm, which no fixed margin on the percentage can absorb. At
+    /// the pipeline's 2-5 updates a second this delays a real change by
+    /// about a second.
+    public static let switchDwell = 3
+    private var challenger: BallID?
+    private var challengerRun = 0
+
+    private mutating func resetChallenger() {
+        challenger = nil
+        challengerRun = 0
     }
 
     public mutating func clear() {
         ranking = []
         suggested = nil
         target = nil
+        resetChallenger()
     }
 
     /// What a tap on the cloth did.
