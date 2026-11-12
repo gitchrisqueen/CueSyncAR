@@ -45,8 +45,14 @@ rms and max error in cm, free-fit spacing. Every accuracy claim must quote it.
 - Pipeline 2.3 Hz and 330 ms overlay latency with 15 balls (4.6 Hz with 1).
 - With "device is parked" on, `aimSource` is still `devicePose` (3600 s): the
   thin lines and the second ghost ball are an aim drawn from the tripod.
-- Live log: `detections=18 projected=14 offTable=1`, so one or two ball
-  detections are dropped before the gate (confidence floor or no ray).
+- Live log: `detections=18 projected=14 offTable=1`. The steady `offTable=1`
+  is a lit appliance beside the table that the detector calls a ball.
+- The missing ball (dark blue, far centre, behind the orange one) is never
+  detected: 0 of 148 recorded frames at confidence 0.25 or more. The 0.35
+  floor is not the cause. The cue ball's confidence dips to 0.27, so the
+  floor does cost cue-ball frames.
+- Accuracy floor: with the balls on known spots the best fit is 1.74-1.86 cm
+  rms, so "2 cm" is the floor for this camera position, not a margin.
 
 ## Tasks (in order; each ends with a grid-truth number or a /ui.jpg still)
 1. DONE 2026-11-12: `claude/grid-harness`, `claude/calib-health`,

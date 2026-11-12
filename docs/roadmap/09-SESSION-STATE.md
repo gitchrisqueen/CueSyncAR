@@ -68,9 +68,28 @@ The same test confirmed the phantom aim's cause: once the parked setting was
 applied again, `hasPrediction` went false and the thin lines disappeared. The
 setting stored from the last run is not applied at launch.
 
-**In flight (one branch each, cut from `34acd56`, all on the Mac):**
-`claude/map-error`, `claude/pipeline-truth`, `claude/overlay-hero`,
-`claude/hud-read`, `claude/ranking-audit`.
+**Map-error diagnosis (merged, `docs/research/2026-11-12-map-error-diagnosis.md`).**
+No single cause. The largest part is a shift (1.1-3.8 cm) and a rotation
+(0-1.2 degrees) that change with every lock: noise in the pocket sightings,
+the same size as the leave-one-out error the app reports (18-27 mm). The 0.9
+degree tilt is not the cause, a level plane is worse, and `clothFromBalls` is
+off by at least 30 mm. With the balls on known spots the best possible is
+1.74-1.86 cm, so the 2.0 cm target sits on the floor for this camera position.
+Table size cannot be read from this data.
+
+**The missing ball is never detected.** A 148-frame recording of the grid
+(kept locally) has 0 detections on the dark blue far-centre ball at any
+confidence of 0.25 or more. It sits directly behind the orange ball as the
+camera sees it. Lowering the 0.35 floor cannot bring it back. The same
+recording shows the cue ball at a median confidence of 0.43 and a minimum of
+0.27, so the floor does drop the cue ball on some frames.
+
+**In flight (one branch each, all on the Mac).** Cut from `34acd56`:
+`claude/pipeline-truth`, `claude/overlay-hero`, `claude/hud-read`,
+`claude/ranking-audit`. Cut from `581d8a8`: `claude/hold-rearm` (the parked
+hold must not move the table), `claude/far-recall` (detector recall on small
+far balls), and `claude/map-error` continues with lock precision (pocket
+snaps over many frames, cushion-nose lines) against the recording.
 
 **QuinVPS was not used.** `delegate_task` to it failed on 2026-11-12 with
 `capability_denied` ("The linked environment no longer accepts this link"),
