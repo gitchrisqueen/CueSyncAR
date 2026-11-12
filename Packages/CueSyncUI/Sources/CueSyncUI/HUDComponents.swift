@@ -119,6 +119,21 @@ public enum HUDStatus: Sendable, Equatable {
         if case .tableMoved = self { return 0 }
         return 1.0
     }
+
+    /// Whether a shot card may be shown under this status.
+    ///
+    /// A card says "EASY" in confident type. While ARKit has lost the table,
+    /// the device is moving fast, the room is too dark, or the calibration no
+    /// longer fits, the app does not know enough to say that, and dimming
+    /// the card instead would drop its text below the contrast floor. So the
+    /// card goes and the capsule explains. `losingBalls` keeps the card: the
+    /// table is still tracked, and the overlay already fades for it.
+    public var allowsShotAdvice: Bool {
+        switch self {
+        case .degraded, .tableMoved: false
+        default: true
+        }
+    }
 }
 
 #if canImport(SwiftUI)

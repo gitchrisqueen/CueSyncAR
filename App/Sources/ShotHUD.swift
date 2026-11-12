@@ -38,7 +38,11 @@ struct ShotAdviceCluster: View {
     }
 
     private var content: Content? {
-        guard model.isLiveTracking, !model.calibrationIsStale else { return nil }
+        // No confident card while the app cannot stand behind it: a stale
+        // calibration, or a status that says tracking is degraded
+        // (`HUDStatus.allowsShotAdvice`). The capsule says why.
+        guard model.isLiveTracking, !model.calibrationIsStale,
+              model.hudStatus?.allowsShotAdvice ?? true else { return nil }
         // A full rack or no clean pot: say so, instead of the card
         // vanishing and the player wondering if the app has stopped. A
         // rack outranks any shot rated into it.
