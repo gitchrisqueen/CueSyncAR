@@ -10,6 +10,10 @@ Rows refer to `docs/device-checklist.md`. This plan does not tick that
 checklist by itself: a row is ticked only by copying the checklist into a dated
 file under `docs/validation/` with the measured result, as that file says.
 
+Ball-position accuracy against the diamond-grid ground truth
+(`Scripts/grid-truth.py`, or `--grid` on the harness): see
+`docs/validation/ground-truth-grid.md`.
+
 ## What gets collected (all automatic)
 
 | Source | How | Lands in |
