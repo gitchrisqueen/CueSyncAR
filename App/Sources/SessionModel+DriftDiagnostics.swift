@@ -79,6 +79,7 @@ extension SessionModel {
         if let status = placement.sizeStatus { state["sizeStatus"] = status }
         if !placement.pocketSnap.isEmpty { state["pocketSnap"] = placement.pocketSnap }
         if let detail = placement.pocketFitDetail { state["pocketFitDetail"] = detail }
+        if let evidence = placement.lockEvidence { state["lockEvidence"] = evidence.mirrorState }
         return state
     }
 
