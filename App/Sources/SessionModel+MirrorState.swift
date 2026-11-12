@@ -102,7 +102,7 @@ extension SessionModel {
             state["ballCount"] = balls.count
             state["balls"] = balls.map(mirrorBallEntry)
         }
-        state["detection"] = mirrorDetectionHealth()
+        addHealthBlocks(to: &state)
         if let fit = lastPocketFit {
             // Sticky: the number that says whether the calibration can be
             // trusted must outlive the 2.5 s toast that announced it.
@@ -187,6 +187,15 @@ extension SessionModel {
         if let tapFeedback { state["tapFeedback"] = tapFeedback }
         return try? JSONSerialization.data(withJSONObject: state,
                                            options: [.sortedKeys])
+    }
+
+    /// The two health blocks: `detection` (are we seeing the balls) and
+    /// `calibrationHealth` (does the locked table still match the camera's
+    /// view). Stale means the HUD asks for a re-calibration and guidance is
+    /// withheld (SessionModel+CalibrationHealth).
+    private func addHealthBlocks(to state: inout [String: Any]) {
+        state["detection"] = mirrorDetectionHealth()
+        state["calibrationHealth"] = calibrationHealthMirrorState()
     }
 
     /// Recall health: the number that says whether "Tracking N balls"

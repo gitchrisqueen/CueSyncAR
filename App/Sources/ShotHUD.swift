@@ -45,7 +45,7 @@ struct ShotAdviceCluster: View {
     }
 
     private var isShowing: Bool {
-        model.isLiveTracking
+        model.isLiveTracking && !model.calibrationIsStale
             && (model.shotGuide != nil || model.activeShot != nil || model.shotEmptyState != nil)
     }
 

@@ -72,6 +72,7 @@ extension SessionModel {
         case .degraded(.fastMotion): .degraded(.fastMotion)
         case .degraded(.lowLight): .degraded(.lowLight)
         case .degraded(.trackingLost): .degraded(.trackingLost)
+        case .tableMoved: .tableMoved
         }
     }
 
