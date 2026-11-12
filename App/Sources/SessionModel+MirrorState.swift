@@ -246,6 +246,16 @@ extension SessionModel {
                 entry["hueSpread"] = (spread * 10).rounded() / 10
             }
             entry["peakWhite"] = (record.peakWhiteFraction * 100).rounded() / 100
+            // The numbers the colour and the eight are decided on, plain
+            // doubles only, so thresholds can be tuned from real data:
+            // raw mean RGB over the kept looks, its luma, and chroma and
+            // brightness relative to the cue ball.
+            if let rgb = record.meanRGB {
+                entry["avgRGB"] = [rgb.x, rgb.y, rgb.z].map { ($0 * 100).rounded() / 100 }
+            }
+            if let luma = record.meanLuma { entry["luma"] = (luma * 100).rounded() / 100 }
+            if let chroma = record.meanRelativeChroma { entry["relChroma"] = (chroma * 1000).rounded() / 1000 }
+            if let value = record.meanRelativeValue { entry["relValue"] = (value * 1000).rounded() / 1000 }
             if record.override != nil { entry["corrected"] = true }
         }
         entry["tentative"] = ballIdentity.isTentative(for: ball.id)

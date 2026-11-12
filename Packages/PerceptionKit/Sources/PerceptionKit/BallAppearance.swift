@@ -145,13 +145,35 @@ public struct AppearanceObservation: Sendable, Equatable {
     /// exactly like a solid and averaging hides the one look that told
     /// the truth.
     public var hueSpread: Double?
+    /// The patch's raw mean colour, passed through so the app can publish
+    /// it and a later session can tune thresholds from real numbers.
+    public var meanRGB: Vec3?
+    /// Chroma and brightness of the patch's mean colour, white-balanced on
+    /// the cue ball and divided by the cue ball's brightness: the two
+    /// numbers the eight is ranked on (see `BallAppearance.relativeColour`).
+    public var relativeChroma: Double?
+    public var relativeValue: Double?
+    /// The best CHROMATIC reading of a ball this look called black. Only
+    /// set on those looks. A ball that loses the eight's election falls
+    /// back to it: on a full table a dark blue, purple, maroon or dark
+    /// green ball can read as neutral against a bright cue ball, and only
+    /// one ball may be the eight.
+    public var fallbackFamily: ColorFamily?
+    public var fallbackConfidence: Double
 
     public init(family: ColorFamily, confidence: Double, whiteFraction: Double,
-                hueSpread: Double? = nil) {
+                hueSpread: Double? = nil, meanRGB: Vec3? = nil,
+                relativeChroma: Double? = nil, relativeValue: Double? = nil,
+                fallbackFamily: ColorFamily? = nil, fallbackConfidence: Double = 0) {
         self.family = family
         self.confidence = confidence
         self.whiteFraction = whiteFraction
         self.hueSpread = hueSpread
+        self.meanRGB = meanRGB
+        self.relativeChroma = relativeChroma
+        self.relativeValue = relativeValue
+        self.fallbackFamily = fallbackFamily
+        self.fallbackConfidence = fallbackConfidence
     }
 }
 
@@ -231,11 +253,20 @@ public enum BallAppearance {
         let meanChromaRelative = relative.chroma
         let valueRelative = relative.value
 
+        func observation(_ family: ColorFamily, _ confidence: Double,
+                         fallback: (family: ColorFamily, confidence: Double)? = nil)
+            -> AppearanceObservation {
+            AppearanceObservation(family: family, confidence: confidence,
+                                  whiteFraction: patch.whiteFraction,
+                                  hueSpread: patch.hueSpread, meanRGB: patch.meanRGB,
+                                  relativeChroma: meanChromaRelative, relativeValue: valueRelative,
+                                  fallbackFamily: fallback?.family,
+                                  fallbackConfidence: fallback?.confidence ?? 0)
+        }
+
         if patch.whiteFraction >= config.whiteFractionFloor,
            patch.chromaFraction <= config.blackChromaCeiling {
-            return AppearanceObservation(family: .white, confidence: 0.9,
-                                         whiteFraction: patch.whiteFraction,
-                                         hueSpread: patch.hueSpread)
+            return observation(.white, 0.9)
         }
         if meanChromaRelative < config.blackMeanChromaCeiling {
             // Neutral on average. The eight is the one ball that must
@@ -243,22 +274,37 @@ public enum BallAppearance {
             // game, so it is decided on the mean colour (3x margin each
             // side, see `blackMeanChromaCeiling`) and never on a count of
             // single pixels that looked coloured.
-            let family: ColorFamily = valueRelative < config.blackRelativeValueCeiling
-                ? .black : .white
-            return AppearanceObservation(family: family, confidence: 0.9,
-                                         whiteFraction: patch.whiteFraction,
-                                         hueSpread: patch.hueSpread)
+            //
+            // A dark look also carries its best chromatic reading. On a
+            // full table every dark ball (blue, purple, maroon, green and
+            // the eight) can land here against a bright cue ball, and only
+            // one may be the eight: `BallIdentity` ranks the dark balls
+            // and sends the losers to this reading.
+            if valueRelative < config.blackRelativeValueCeiling {
+                return observation(.black, 0.9,
+                                   fallback: hueFamily(of: balanced, value: valueRelative, config: config))
+            }
+            return observation(.white, 0.9)
         }
-        guard let hue = Self.hue(of: balanced) else { return nil }
+        guard let reading = hueFamily(of: balanced, value: valueRelative, config: config) else { return nil }
+        return observation(reading.family, reading.confidence)
+    }
 
-        // Score every chromatic family, then let the margin between the
-        // best two set the confidence. Yellow at 48 and orange at 25 are
-        // genuinely close under this light, and the honest output is a
-        // low number rather than a coin flip dressed as a decision.
+    /// The chromatic family whose hue centre is nearest a white-balanced
+    /// colour, with a confidence, or nil when the colour has no hue or
+    /// sits outside every family's tolerance.
+    ///
+    /// Scores every chromatic family, then lets the margin between the
+    /// best two set the confidence. Yellow at 48 and orange at 25 are
+    /// genuinely close under this light, and the honest output is a low
+    /// number rather than a coin flip dressed as a decision.
+    static func hueFamily(of balanced: Vec3, value valueRelative: Double,
+                          config: Config) -> (family: ColorFamily, confidence: Double)? {
+        guard let hue = hue(of: balanced) else { return nil }
         var scored: [(family: ColorFamily, fit: Double)] = []
         for family in ColorFamily.allCases {
             guard let centre = family.hueCentre else { continue }
-            let error = Self.hueDistance(hue, centre)
+            let error = hueDistance(hue, centre)
             scored.append((family, Swift.max(0, 1 - error / config.hueTolerance)))
         }
         scored.sort { $0.fit > $1.fit }
@@ -275,10 +321,7 @@ public enum BallAppearance {
         // with no near neighbour keeps its fit; one sitting between two
         // families loses almost all of it, which is the honest outcome
         // for the warm balls this room's light pushes together.
-        let confidence = Swift.max(0, Swift.min(1, best.fit - runnerUp))
-        return AppearanceObservation(family: family, confidence: confidence,
-                                     whiteFraction: patch.whiteFraction,
-                                     hueSpread: patch.hueSpread)
+        return (family, Swift.max(0, Swift.min(1, best.fit - runnerUp)))
     }
 
     /// How coloured (max minus min channel) and how bright (max channel)

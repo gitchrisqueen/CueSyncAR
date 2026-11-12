@@ -64,19 +64,38 @@ public struct BallIdentity: Sendable, Equatable {
         /// the tally crosses. The first name is not held back: it commits
         /// as soon as `minimumObservations` looks exist.
         public var switchObservations: Int
+        /// Only ONE ball is the eight. Of the balls reading dark and
+        /// neutral, the most neutral wins, and only if its mean chroma
+        /// (relative to the cue ball, see `BallAppearance.relativeColour`)
+        /// is at or under this; with none that clear, nobody is the eight.
+        ///
+        /// Measured eights: 0.020-0.079 (research 2026-11-10); the
+        /// per-look black ceiling is 0.15. This sits just over the top of
+        /// the eights, between the two. A starting point: the owner tunes
+        /// it from the `relChroma` published per ball in /state.json.
+        public var eightChromaCeiling: Double
+        /// A ball already holding the eight is displaced only by one whose
+        /// chroma is below the holder's times this, for
+        /// `switchObservations` elections running. 0.6 means "clearly more
+        /// neutral", not merely marginally.
+        public var eightSwitchRatio: Double
 
         public init(window: Int = 40,
                     stripeWhiteFraction: Double = 0.30,
                     stripeHueSpread: Double = 16,
                     namingConfidence: Double = 0.5,
                     minimumObservations: Int = 5,
-                    switchObservations: Int = 5) {
+                    switchObservations: Int = 5,
+                    eightChromaCeiling: Double = 0.10,
+                    eightSwitchRatio: Double = 0.6) {
             self.window = window
             self.stripeWhiteFraction = stripeWhiteFraction
             self.stripeHueSpread = stripeHueSpread
             self.namingConfidence = namingConfidence
             self.minimumObservations = minimumObservations
             self.switchObservations = switchObservations
+            self.eightChromaCeiling = eightChromaCeiling
+            self.eightSwitchRatio = eightSwitchRatio
         }
 
         public static let `default` = Config()
@@ -99,6 +118,33 @@ public struct BallIdentity: Sendable, Equatable {
         var challenger: ColorFamily?
         var challengerLooks = 0
 
+        /// The chromatic colour this ball is named when it is NOT the
+        /// eight, held by the same rule as `committedFamily`. Only
+        /// meaningful for a ball whose raw vote is black.
+        public internal(set) var committedFallback: ColorFamily?
+        var fallbackChallenger: ColorFamily?
+        var fallbackChallengerLooks = 0
+
+        /// Mean over the kept looks of what each one measured. Nil when no
+        /// look carried the number (observations built without it).
+        public var meanRGB: Vec3? {
+            let all = observations.compactMap(\.meanRGB)
+            guard !all.isEmpty else { return nil }
+            return all.reduce(Vec3(0, 0, 0), +) / Double(all.count)
+        }
+
+        /// Rec. 601 luma of `meanRGB`, matching the camera's own YCbCr.
+        public var meanLuma: Double? {
+            meanRGB.map { 0.299 * $0.x + 0.587 * $0.y + 0.114 * $0.z }
+        }
+
+        public var meanRelativeChroma: Double? { Self.mean(observations.compactMap(\.relativeChroma)) }
+        public var meanRelativeValue: Double? { Self.mean(observations.compactMap(\.relativeValue)) }
+
+        private static func mean(_ values: [Double]) -> Double? {
+            values.isEmpty ? nil : values.reduce(0, +) / Double(values.count)
+        }
+
         /// Highest white fraction ever seen. One clear look at a band is
         /// the evidence; averaging it away is the mistake.
         public var peakWhiteFraction: Double {
@@ -115,6 +161,10 @@ public struct BallIdentity: Sendable, Equatable {
 
     public var config: Config
     private var records: [BallID: Record] = [:]
+    private var eightElection = EightElection()
+
+    /// The one ball currently named the eight, if any.
+    public var eightHolder: BallID? { eightElection.holder }
 
     public init(config: Config = .default) {
         self.config = config
@@ -126,6 +176,11 @@ public struct BallIdentity: Sendable, Equatable {
     // MARK: - Accumulating
 
     public mutating func observe(_ observation: AppearanceObservation, for id: BallID) {
+        record(observation, for: id)
+        electEight()
+    }
+
+    private mutating func record(_ observation: AppearanceObservation, for id: BallID) {
         var record = records[id] ?? Record()
         record.observations.append(observation)
         if record.observations.count > config.window {
@@ -135,31 +190,51 @@ public struct BallIdentity: Sendable, Equatable {
         records[id] = record
     }
 
-    /// Advance the ball's committed colour by one look.
+    /// Advance the ball's committed colour, and its fallback colour, by
+    /// one look.
     private func commit(_ record: inout Record) {
-        guard record.observations.count >= config.minimumObservations,
-              let leader = Self.tally(record.observations)?.leader else { return }
-        guard let committed = record.committedFamily else {
-            record.committedFamily = leader
-            return
+        guard record.observations.count >= config.minimumObservations else { return }
+        if let leader = Self.tally(record.observations)?.leader {
+            Self.advance(&record.committedFamily, challenger: &record.challenger,
+                         looks: &record.challengerLooks, towards: leader,
+                         after: config.switchObservations)
         }
-        if leader == committed {
-            record.challenger = nil
-            record.challengerLooks = 0
-            return
-        }
-        record.challengerLooks = leader == record.challenger ? record.challengerLooks + 1 : 1
-        record.challenger = leader
-        if record.challengerLooks >= config.switchObservations {
-            record.committedFamily = leader
-            record.challenger = nil
-            record.challengerLooks = 0
+        if let leader = Self.tally(fallbackLooks: record.observations)?.leader {
+            Self.advance(&record.committedFallback, challenger: &record.fallbackChallenger,
+                         looks: &record.fallbackChallengerLooks, towards: leader,
+                         after: config.switchObservations)
         }
     }
 
-    /// Take a whole frame's readings at once.
+    /// The hold: the first name commits at once, a change of name only
+    /// after `after` consecutive looks in which another colour leads.
+    private static func advance(_ committed: inout ColorFamily?, challenger: inout ColorFamily?,
+                                looks: inout Int, towards leader: ColorFamily, after: Int) {
+        guard let current = committed else {
+            committed = leader
+            return
+        }
+        if leader == current {
+            challenger = nil
+            looks = 0
+            return
+        }
+        looks = leader == challenger ? looks + 1 : 1
+        challenger = leader
+        if looks >= after {
+            committed = leader
+            challenger = nil
+            looks = 0
+        }
+    }
+
+    /// Take a whole frame's readings at once. One election per frame, so
+    /// "elections running" counts frames and not balls.
     public mutating func observe(_ observations: [BallID: AppearanceObservation]) {
-        for (id, observation) in observations { observe(observation, for: id) }
+        for id in observations.keys.sorted(by: { $0.rawValue < $1.rawValue }) {
+            if let observation = observations[id] { record(observation, for: id) }
+        }
+        electEight()
     }
 
     /// The player's correction, pinned to the track for the session.
@@ -167,15 +242,39 @@ public struct BallIdentity: Sendable, Equatable {
         var record = records[id] ?? Record()
         record.override = kind
         records[id] = record
+        electEight()
     }
 
     /// Forget tracks that no longer exist, so ids reused by a restarted
     /// tracker do not inherit a previous ball's colour.
     public mutating func retain(_ live: Set<BallID>) {
         records = records.filter { live.contains($0.key) }
+        electEight()
     }
 
-    public mutating func clear() { records = [:] }
+    public mutating func clear() {
+        records = [:]
+        eightElection.reset()
+    }
+
+    /// Re-run the eight's election over the current records.
+    private mutating func electEight() {
+        let pinned = records.filter { $0.value.override == .eight }.keys
+            .min { $0.rawValue < $1.rawValue }
+        let candidates: [EightElection.Candidate] = records.compactMap { id, record in
+            guard record.override == nil,
+                  record.observations.count >= config.minimumObservations,
+                  record.committedFamily == .black else { return nil }
+            // Looks built without the measurement (older callers) count as
+            // perfectly neutral, which is how they were treated before.
+            return EightElection.Candidate(id: id, chroma: record.meanRelativeChroma ?? 0,
+                                           value: record.meanRelativeValue ?? 0)
+        }
+        eightElection.elect(candidates: candidates, pinned: pinned,
+                            chromaCeiling: config.eightChromaCeiling,
+                            switchRatio: config.eightSwitchRatio,
+                            switchElections: config.switchObservations)
+    }
 
     // MARK: - Deciding
 
@@ -202,6 +301,21 @@ public struct BallIdentity: Sendable, Equatable {
         // `isTentative`) shows the doubt.
         let family = record.committedFamily.flatMap { tally.scores[$0] == nil ? nil : $0 }
             ?? tally.leader
+        // Black belongs to the one ball elected the eight. Every other
+        // ball that reads dark and neutral is named by its hue instead,
+        // or by nothing when no hue was measurable.
+        if family == .black, eightElection.holder != id, records[id]?.override != .eight {
+            return fallbackFamily(for: record)
+        }
+        guard let score = tally.scores[family] else { return nil }
+        return (family, score.share * score.strength)
+    }
+
+    /// The chromatic colour of a dark ball that is not the eight, held
+    /// like any other name.
+    private func fallbackFamily(for record: Record) -> (family: ColorFamily, confidence: Double)? {
+        guard let tally = Self.tally(fallbackLooks: record.observations) else { return nil }
+        let family = record.committedFallback.flatMap { tally.scores[$0] == nil ? nil : $0 } ?? tally.leader
         guard let score = tally.scores[family] else { return nil }
         return (family, score.share * score.strength)
     }
@@ -211,11 +325,23 @@ public struct BallIdentity: Sendable, Equatable {
     /// the same way.
     private static func tally(_ observations: [AppearanceObservation])
         -> (leader: ColorFamily, scores: [ColorFamily: (share: Double, strength: Double)])? {
+        tally(observations.map { ($0.family, $0.confidence) })
+    }
+
+    /// The same vote over the chromatic readings of the looks that called
+    /// the ball black.
+    private static func tally(fallbackLooks observations: [AppearanceObservation])
+        -> (leader: ColorFamily, scores: [ColorFamily: (share: Double, strength: Double)])? {
+        tally(observations.compactMap { look in look.fallbackFamily.map { ($0, look.fallbackConfidence) } })
+    }
+
+    private static func tally(_ looks: [(family: ColorFamily, confidence: Double)])
+        -> (leader: ColorFamily, scores: [ColorFamily: (share: Double, strength: Double)])? {
         var weights: [ColorFamily: Double] = [:]
         var counts: [ColorFamily: Int] = [:]
-        for observation in observations {
-            weights[observation.family, default: 0] += observation.confidence
-            counts[observation.family, default: 0] += 1
+        for look in looks {
+            weights[look.family, default: 0] += look.confidence
+            counts[look.family, default: 0] += 1
         }
         let total = weights.values.reduce(0, +)
         guard total > 0,
@@ -239,6 +365,13 @@ public struct BallIdentity: Sendable, Equatable {
               let colour = family(for: id) else { return nil }
         if colour.family == .black { return .eight }
         if colour.family == .white { return .cue }
+        // A dark ball that lost the eight's election has a hue but no
+        // validated group. The stripe signals (hue spread, white band)
+        // were measured on bright balls only, and in dim light a dark
+        // ball's hue spread is mostly noise, so "no band seen" would read
+        // as "solid" and a noisy spread as a stripe. Say nothing instead;
+        // `BallGroup.includes` admits an unnamed ball into either half.
+        if record.committedFamily == .black { return nil }
         // Either signal is enough. Both are one-directional: they can
         // only ever have seen a band, never proved there isn't one, so a
         // ball that has shown neither is called solid provisionally and
@@ -274,6 +407,11 @@ public struct BallIdentity: Sendable, Equatable {
     /// designation are both stronger evidence than a colour vote, and a
     /// mis-renamed cue ball does not just mislabel one ball — it takes
     /// the aim line, the ghost ball and the whole ranking with it.
+    ///
+    /// At most one ball in the result is `.eight`: the player's tapped
+    /// one, else the elected one, else the lowest id. Any other is left
+    /// `.unknown` rather than renamed, so a stray eight from anywhere
+    /// cannot produce two.
     public func apply(to state: TableState) -> TableState {
         var updated = state
         updated.balls = state.balls.map { ball in
@@ -283,6 +421,17 @@ public struct BallIdentity: Sendable, Equatable {
             var renamed = ball
             renamed.kind = named
             return renamed
+        }
+        let eights = updated.balls.filter { $0.kind == .eight }.map(\.id)
+        guard eights.count > 1 else { return updated }
+        let keeper = eights.first { records[$0]?.override == .eight }
+            ?? eights.first { $0 == eightElection.holder }
+            ?? eights.min { $0.rawValue < $1.rawValue }
+        updated.balls = updated.balls.map { ball in
+            guard ball.kind == .eight, ball.id != keeper else { return ball }
+            var demoted = ball
+            demoted.kind = .unknown
+            return demoted
         }
         return updated
     }
