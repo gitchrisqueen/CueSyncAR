@@ -87,7 +87,7 @@ struct ScoreChip: View {
     let score: SessionScore
 
     var body: some View {
-        Label(score.chipText + " made", systemImage: "target")
+        Label(HUDCopy.scoreLine(chip: score.chipText, streak: score.streak), systemImage: "target")
             .hudFont(.caption, weight: .semibold)
             .monospacedDigit()
             .padding(.horizontal, 12)

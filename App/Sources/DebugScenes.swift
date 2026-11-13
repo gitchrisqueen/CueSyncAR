@@ -135,7 +135,8 @@ enum DebugScenes {
         },
         Scene(name: "guide-centre", about: "Aiming a medium cut: centre ball, no tile") { model in
             model.seedScene(layout: "open")
-            model.aim(at: Vec2(0.25, 0.30))
+            // A 20 degree cut on the 3-ball: the guide says centre ball, so no tile.
+            model.aim(at: Vec2(0.2415, 0.3181))
         },
     ]
 
@@ -158,13 +159,13 @@ enum DebugScenes {
             model.seedScene(layout: "open")
             model.trackingCondition = .relocalizing
         },
-        Scene(name: "losing-balls", about: "Only seeing 2 of 6 balls") { model in
-            model.seedScene(layout: "rack")
-            model.feedDetectionHealth(peak: 6, now: 2, luminance: 0.6)
+        Scene(name: "losing-balls", about: "Only seeing 2 of 5 balls") { model in
+            model.seedScene(layout: "open")
+            model.feedDetectionHealth(peak: 5, now: 2, luminance: 0.6, shownBalls: 2)
         },
-        Scene(name: "losing-balls-dark", about: "Only seeing 2 of 6 balls: more light would help") { model in
-            model.seedScene(layout: "rack")
-            model.feedDetectionHealth(peak: 6, now: 2, luminance: 0.15)
+        Scene(name: "losing-balls-dark", about: "Only seeing 2 of 5 balls: more light would help") { model in
+            model.seedScene(layout: "open")
+            model.feedDetectionHealth(peak: 5, now: 2, luminance: 0.15, shownBalls: 2)
         },
         Scene(name: "losing-one-of-fifteen", about: "Tracking 1 ball of 15: must not look healthy") { model in
             model.seedScene(layout: "rack")
@@ -179,46 +180,58 @@ enum DebugScenes {
 
     static let outcomes: [Scene] = [
         Scene(name: "shot-made", about: "A made shot: banner and score") { model in
+            await model.seedAndSettle(layout: "open", scoreboard: true)
             model.feedback.bannerHoldOverride = 3600
-            model.seedScene(layout: "open", group: .any, scoreboard: true)
             model.simulateShot(result: "made")
         },
         Scene(name: "shot-streak", about: "Made shots in a row: streak") { model in
+            await model.seedAndSettle(layout: "open", scoreboard: true)
             model.feedback.bannerHoldOverride = 3600
-            model.seedScene(layout: "open", group: .any, scoreboard: true)
-            for _ in 0..<3 where model.activeShot != nil { model.simulateShot(result: "made") }
+            for _ in 0..<3 where model.activeShot != nil {
+                model.simulateShot(result: "made")
+                try? await Task.sleep(for: .milliseconds(600))
+            }
         },
         Scene(name: "shot-missed", about: "A missed shot: banner") { model in
+            await model.seedAndSettle(layout: "open", scoreboard: true)
             model.feedback.bannerHoldOverride = 3600
-            model.seedScene(layout: "open", group: .any, scoreboard: true)
             model.simulateShot(result: "missed")
         },
         Scene(name: "shot-scratch", about: "The cue ball was pocketed") { model in
+            await model.seedAndSettle(layout: "open", scoreboard: true)
             model.feedback.bannerHoldOverride = 3600
-            model.seedScene(layout: "open", group: .any, scoreboard: true)
             model.simulateShot(result: "scratch")
         },
         Scene(name: "scoreboard", about: "The scoreboard chip after a made and a missed shot") { model in
-            model.seedScene(layout: "open", group: .any, scoreboard: true)
+            await model.seedAndSettle(layout: "open", scoreboard: true)
             model.simulateShot(result: "made")
+            try? await Task.sleep(for: .milliseconds(600))
             if model.activeShot != nil { model.simulateShot(result: "missed") }
+        },
+        Scene(name: "sheet-more-scored", about: "The More sheet with a score: shots made and best streak") { model in
+            await model.seedAndSettle(layout: "open", scoreboard: true)
+            for _ in 0..<2 where model.activeShot != nil {
+                model.simulateShot(result: "made")
+                try? await Task.sleep(for: .milliseconds(600))
+            }
+            model.openSheet("more")
         },
         Scene(name: "scoreboard-empty", about: "The scoreboard chip before any shot") { model in
             model.seedScene(layout: "open", group: .any, scoreboard: true)
         },
         Scene(name: "banner-tracking-lost", about: "Banner: tracking lost") { model in
+            await model.seedAndSettle(layout: "open")
             model.feedback.bannerHoldOverride = 3600
-            model.seedScene(layout: "open")
             model.postFeedback(.trackingLost, force: true)
         },
         Scene(name: "banner-tracking-recovered", about: "Banner: tracking recovered") { model in
+            await model.seedAndSettle(layout: "open")
             model.feedback.bannerHoldOverride = 3600
-            model.seedScene(layout: "open")
             model.postFeedback(.trackingRecovered, force: true)
         },
         Scene(name: "banner-calibration-refused", about: "Banner: the lock was refused") { model in
+            await model.seedAndSettle(layout: "open")
             model.feedback.bannerHoldOverride = 3600
-            model.seedScene(layout: "open")
             model.postFeedback(.calibrationRefused, detail: "Those corners do not make a table", force: true)
         },
     ]
@@ -243,6 +256,10 @@ enum DebugScenes {
         Scene(name: "recording", about: "Recording in progress (the real recorder)") { model in
             model.seedScene(layout: "open")
             await model.startRecording()
+            // Starting a recording restarts the live pipeline, which on a
+            // device then reports the table again within a frame. There is
+            // no pipeline here, so put the table back the way it would be.
+            model.reinstallTable(layout: "open")
         },
     ]
 
@@ -276,6 +293,21 @@ extension SessionModel {
             $0.deviceParked = false
         }
         seedSyntheticTable(named: layout, quiet: true)
+    }
+
+    /// `seedScene`, then wait out the sampler's lock tick (4 Hz), which
+    /// resets the score and the shot tracking when it sees a new lock. A
+    /// scene that plays shots must start after it, or the score is wiped.
+    func seedAndSettle(layout: String, scoreboard: Bool = false) async {
+        seedScene(layout: layout, group: .any, scoreboard: scoreboard)
+        try? await Task.sleep(for: .seconds(1))
+    }
+
+    /// Re-publish a layout as the pipeline's next output would.
+    func reinstallTable(layout: String) {
+        guard let state = DebugSeed.state(named: layout) else { return }
+        installDebugState(state)
+        recomputeRanking()
     }
 
     /// Put the camera above `point` (table metres), looking at it, and let

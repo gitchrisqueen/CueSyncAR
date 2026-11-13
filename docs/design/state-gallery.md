@@ -28,3 +28,9 @@ Capture recipe (local only, never commit a still): build for the Simulator,
 | Cue-ball guide words Follow, Left, Right | The app never produces them: `ShotGuide` recommends only centre (no tile), stun and draw. Showing them would mean drawing a view the app never shows. |
 | Tapping a pocket to call it | `PocketCallCatcher` is AR-only. The scene calls the pocket through `togglePocketCall`, the function the tap ends in. |
 | Anything over a live camera feed (contrast on a bright wall, glare) | The Simulator draws a placeholder. |
+| The recorder's numbers (frames, megabytes, a running clock) | The recording scene starts the real recorder, but no AR frames arrive in the Simulator, so the badge sits at "REC 0:00". The scene puts the table back after the recorder restarts the (absent) pipeline. |
+| A streak banner | The HUD shows a run on the score chip ("3 of 3 made · 3 in a row") and the More sheet shows the best streak; there is no separate streak banner. |
+
+Scenes that play shots (`shot-*`, `scoreboard`, `sheet-more-scored`) wait one
+second after seeding so the sampler's lock tick (which zeroes the score) has
+already happened.

@@ -135,4 +135,59 @@ struct HUDReadabilityTests {
         let typical = 25.0 * 0.68 * HUDTextRole.headline.regularSize
         #expect(typical + 36 + 120 <= HUDMetrics.cardWidthRegular)
     }
+
+    // MARK: State gallery fixes
+
+    @Test("A hyphen inside a word never breaks across lines; spaces still do")
+    func keepsHyphenatedWordsWhole() {
+        #expect(HUDCopy.keepingWordsWhole("ORANGE → NEAR-RIGHT CORNER")
+                == "ORANGE → NEAR\u{2011}RIGHT CORNER")
+        #expect(HUDCopy.keepingWordsWhole("8-BALL → FAR SIDE") == "8\u{2011}BALL → FAR SIDE")
+        #expect(HUDCopy.keepingWordsWhole("A - B") == "A - B")
+        #expect(HUDCopy.keepingWordsWhole("-X") == "-X")
+        #expect(HUDCopy.keepingWordsWhole("NEAR-").hasSuffix("-"))
+    }
+
+    @Test("A called pocket that is not on line says so, and differs from on line")
+    func calledOffLine() {
+        let off = HUDStatus.calledOffLine
+        #expect(off.label == "Pocket called — line up the shot")
+        #expect(off.label != HUDStatus.onLine.label)
+        #expect(off.systemImage != HUDStatus.onLine.systemImage)
+        #expect(off.allowsShotAdvice)
+        #expect(off.overlayOpacity == 1)
+        #expect(PlayerCopyAudit.violations(in: off.label).isEmpty)
+    }
+
+    @Test("The status icons are all different where the words differ")
+    func statusIconsAreDistinctForCalls() {
+        let calls = [HUDStatus.onLine, .calledOffLine, .tracking(ballCount: 3)]
+        #expect(Set(calls.map(\.systemImage)).count == calls.count)
+    }
+
+    @Test("The score chip shows the run once it is more than one")
+    func scoreLine() {
+        #expect(HUDCopy.scoreLine(chip: "0 of 0", streak: 0) == "0 of 0 made")
+        #expect(HUDCopy.scoreLine(chip: "1 of 1", streak: 1) == "1 of 1 made")
+        #expect(HUDCopy.scoreLine(chip: "3 of 3", streak: 3) == "3 of 3 made · 3 in a row")
+        #expect(PlayerCopyAudit.violations(in: HUDCopy.scoreLine(chip: "3 of 3", streak: 3)).isEmpty)
+    }
+
+    @Test("Table sizes read '9 ft' everywhere, never '9-ft'")
+    func tableSizeSpelling() {
+        #expect(HUDCopy.tableSizeName(feet: 9) == "9 ft")
+    }
+
+    #if canImport(SwiftUI)
+    @Test("A picked ball says how to let go once, not 'Your pick' twice")
+    func releaseHintIsNotARepeat() {
+        let card = ShotCard(ball: "Red ball", pocket: "near corner", confidence: .hard,
+                            chosenByPlayer: true)
+        #expect(card.provenance == "Your pick")
+        #expect(!card.releaseHint.contains("Your pick"))
+        #expect(card.releaseHint == "Tap the ball again to release")
+        // The long hint stays for VoiceOver and the mirror.
+        #expect(card.hint == "Your pick — tap again to release")
+    }
+    #endif
 }

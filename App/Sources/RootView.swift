@@ -188,7 +188,10 @@ struct RootView: View {
     private var statusCapsule: some View {
         if hudStatus == .tableMoved {
             Button { model.recalibrateFromBanner() } label: {
+                // Outlined, so a capsule that asks to be pressed does not
+                // look like the ones that only report.
                 StatusCapsule(status: hudStatus)
+                    .overlay(Capsule().stroke(Theme.fairText.color, lineWidth: 2))
             }
             .buttonStyle(.plain)
             .hudTapTarget()
@@ -229,6 +232,9 @@ struct RootView: View {
             if model.calledShotOnLine {
                 return .onLine
             }
+            if model.calledPocket != nil {
+                return .calledOffLine
+            }
             return .tracking(ballCount: model.tableState?.balls.count ?? 0)
         }
         // The calibration flow owns the capsule while it's on screen.
@@ -261,9 +267,9 @@ struct RootView: View {
     /// HUDControlBar.swift.
     static func sizeBadge(for size: TableSize) -> String {
         switch size {
-        case .sevenFoot: "7-ft"
-        case .eightFoot: "8-ft"
-        case .nineFoot: "9-ft"
+        case .sevenFoot: HUDCopy.tableSizeName(feet: 7)
+        case .eightFoot: HUDCopy.tableSizeName(feet: 8)
+        case .nineFoot: HUDCopy.tableSizeName(feet: 9)
         case .custom(let width, let height):
             String(format: "%.1f×%.1f m", width, height)
         }
