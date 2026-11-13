@@ -263,8 +263,10 @@ struct OverlayLayoutTargetTests {
         #expect(solidPlan.filter { $0.ballID == objectID }
             .allSatisfy { $0.color == OverlayStyle.heroObjectColor })
         #expect(OverlayStyle.heroCueColor != OverlayStyle.heroObjectColor)
+        // The object leg is the hero tier; the cue leg is its narrower lead.
         for strip in solidPlan {
-            #expect(OverlayStyle.tier(role: strip.role, dashed: strip.dashed) == .hero)
+            let want: OverlayStyle.Tier = strip.ballID == cueID ? .lead : .hero
+            #expect(OverlayStyle.tier(of: strip) == want)
         }
         // The live aim keeps amber, so the two never share a colour.
         let liveCue = layout.strips.filter { !$0.dashed && $0.color != OverlayStyle.shotColor }

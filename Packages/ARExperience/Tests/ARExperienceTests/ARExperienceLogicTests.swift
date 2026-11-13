@@ -245,16 +245,17 @@ struct OverlayLayoutTests {
         #expect(layout.strips.count == 3)
         // Aim strip: amber, solid, lies along +x.
         let aim = layout.strips[0]
-        #expect(aim.color == 0xF5A623)
+        #expect(aim.color == OverlayStyle.aimColor)
         #expect(!aim.dashed)
         #expect(aim.direction.map { abs($0.x - 1) < 1e-9 } == true)
-        // Post-contact cue strip: chalk blue, dashed.
+        // Post-contact cue strip: lavender, dashed.
         let tangent = layout.strips[1]
-        #expect(tangent.color == 0x4A90D9)
+        #expect(tangent.color == OverlayStyle.postContactColor)
         #expect(tangent.dashed)
-        // Object strip: green; world midpoint on the plane (y = 0 here).
+        // Object strip: white (the object path's colour); world midpoint on
+        // the plane (y = 0 here).
         let object = layout.strips[2]
-        #expect(object.color == 0x2FA36B)
+        #expect(object.color == OverlayStyle.objectPathColor)
         #expect(abs(object.midpoint.y) < 1e-9)
         #expect(abs(object.midpoint.x - 0.3) < 1e-9)
         #expect(abs(object.length - 0.6) < 1e-9)
@@ -280,7 +281,7 @@ struct OverlayLayoutTests {
             pocketedBalls: [cueID])
         let layout = OverlayLayout.compose(state: state, prediction: prediction,
                                            calibration: calibration)
-        #expect(layout.strips.last?.color == 0xE8604C)
+        #expect(layout.strips.last?.color == OverlayStyle.scratchColor)
         #expect(layout.highlightedPockets.count == 1)
     }
 

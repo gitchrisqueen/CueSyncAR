@@ -57,7 +57,7 @@ struct OverlayStyleTests {
 
     @Test("The shot colour is not the aim colour")
     func oneColourPerMeaning() {
-        let aim: UInt32 = 0xF5A623
+        let aim = OverlayStyle.aimColor
         #expect(OverlayStyle.shotColor != aim)
         #expect(OverlayStyle.ballRingColor != aim)
     }
