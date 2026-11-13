@@ -15,6 +15,21 @@ first. This file remains the running log of how each finding was reached,
 newest first, and is worth reading for the reasoning rather than the
 status.
 
+### 2026-11-12, 20:30 — resumed; the iPad is locked, the Simulator boots again
+
+The timer woke the thread on time and removed itself.
+
+- **iPad:** on the network and paired, but locked. The device link answers
+  "The device has not been unlocked recently" and the app's mirror refuses
+  connections. Nothing can be installed, launched or measured until the
+  owner unlocks it. A watcher checks once a minute for two hours and
+  resumes the device checks when it unlocks.
+- **Simulator:** boots again without a Mac restart (the stuck helper
+  processes had gone by evening). `claude/state-gallery` is capturing the 42
+  scenes and running the three unrun UI test files.
+- Next, with no device needed: an independent design re-score from the
+  gallery and the device stills of 2026-11-11 and 12.
+
 ### 2026-11-12, 04:00 — `65c86a8` green and on the iPad; the Simulator will not boot
 
 `claude/state-gallery` (`2f8aa8d`) is merged: 42 seeded HUD scenes behind
