@@ -55,4 +55,48 @@ public struct SheetHeader: View {
         Text(text).foregroundStyle(Theme.sheetSecondary)
     }
 }
+
+/// A picker row whose current value is readable. The system picker draws the
+/// value in the secondary grey, which measured 3.4 : 1 ("Open") and 4.0 : 1
+/// ("Medium") on the row; this draws it in `Theme.sheetSecondary`, at least
+/// 4.5 : 1 on the row in both appearances. It behaves as the menu picker
+/// does: a tap opens the same list with a check on the current one.
+public struct SheetPickerRow<Value: Hashable>: View {
+    private let title: String
+    private let selection: Binding<Value>
+    private let options: [(value: Value, title: String)]
+
+    public init(_ title: String, selection: Binding<Value>,
+                options: [(value: Value, title: String)]) {
+        self.title = title
+        self.selection = selection
+        self.options = options
+    }
+
+    private var currentTitle: String {
+        options.first { $0.value == selection.wrappedValue }?.title ?? ""
+    }
+
+    public var body: some View {
+        Menu {
+            Picker(title, selection: selection) {
+                ForEach(options.indices, id: \.self) { index in
+                    Text(options[index].title).tag(options[index].value)
+                }
+            }
+        } label: {
+            HStack {
+                Text(title).foregroundStyle(.primary)
+                Spacer()
+                Text(currentTitle).foregroundStyle(Theme.sheetSecondary)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.sheetSecondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel(title)
+        .accessibilityValue(currentTitle)
+    }
+}
 #endif

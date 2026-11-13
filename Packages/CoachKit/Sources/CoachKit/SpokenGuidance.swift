@@ -387,7 +387,7 @@ public struct SpokenGuidance: Sendable, Equatable {
             return moment("stage.needsCalibration", "Tap anywhere to calibrate the table.")
         case .confirmingRails:
             return moment("stage.confirmingRails",
-                          "Drag the dots onto the cushion noses, then lock it in.")
+                          "Drag each dot to a corner where the cushions meet, then lock it in.")
         case .awaitingCueBall:
             return moment("stage.awaitingCueBall",
                           "I cannot see the cue ball. Put it on the table, or tap a ball to mark it.")

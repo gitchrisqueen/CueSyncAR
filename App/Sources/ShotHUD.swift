@@ -30,35 +30,10 @@ struct ShotAdviceCluster: View {
     @Environment(SessionModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// What the slot shows now. A payoff outranks everything for its second;
-    /// the card outranks the bare guide.
-    private enum Content {
-        case payoff(PayoffEvent)
-        case empty(ShotEmptyState)
-        case shot(ShotRating)
-        case guide(ShotGuide)
-    }
-
-    private var content: Content? {
-        // No confident card while the app cannot stand behind it: a stale
-        // calibration, or a status that says tracking is degraded
-        // (`HUDStatus.allowsShotAdvice`). The capsule says why.
-        guard model.isLiveTracking, !model.calibrationIsStale,
-              model.hudStatus?.allowsShotAdvice ?? true else { return nil }
-        // A made shot, a miss or a scratch takes the card's slot for about
-        // 1.2 s, then the card comes back. Nothing stacks under the card.
-        if let payoff = model.feedback.payoff { return .payoff(payoff) }
-        // A full rack or no clean pot: say so, instead of the card
-        // vanishing and the player wondering if the app has stopped. A
-        // rack outranks any shot rated into it.
-        if let empty = model.shotEmptyState { return .empty(empty) }
-        if let shot = model.activeShot { return .shot(shot) }
-        // Aiming with no shot on offer: the strike advice alone, when it
-        // is not just "centre ball".
-        if let guide = model.shotGuide,
-           HUDCopy.guideWord(tipOffset: guide.tipOffset) != nil { return .guide(guide) }
-        return nil
-    }
+    /// What the slot shows now (SessionModel+ShotSlot decides: a payoff for
+    /// its second, the called pocket's shot when a pocket is called, else
+    /// the suggestion).
+    private var content: ShotSlotContent? { model.shotSlotContent }
 
     var body: some View {
         // The slot fades in and out instead of popping (Reduce Motion:
@@ -77,20 +52,20 @@ struct ShotAdviceCluster: View {
     }
 
     @ViewBuilder
-    private func slot(_ content: Content) -> some View {
+    private func slot(_ content: ShotSlotContent) -> some View {
         switch content {
         case .payoff(let event):
             PayoffCard(event: event)
                 .id(event.id)
         case .empty(let state):
             ShotEmptyCapsule(state: state)
-        case .shot(let shot):
+        case .shot(let shot, let isCalled):
             // Keyed on the shot, so a new suggestion cross-fades (~200 ms)
             // from the old card rather than the text changing under the
             // player's eyes.
-            card(for: shot)
+            card(for: shot, isCalled: isCalled)
                 .successPulse(model.feedback.madePulseCount)
-                .id(shotKey)
+                .id(shotKey(shot))
         case .guide(let guide):
             CueBallGuideCard(tipOffset: guide.tipOffset, headline: guide.headline)
         }
@@ -101,14 +76,14 @@ struct ShotAdviceCluster: View {
         switch content {
         case .payoff(let event): "payoff.\(event.id)"
         case .empty(let state): "empty.\(state.text)"
-        case .shot: "shot.\(shotKey)"
+        case .shot(let shot, _): "shot.\(shotKey(shot))"
         case .guide: "guide"
         case nil: "none"
         }
     }
 
-    private var shotKey: String {
-        model.activeShot.map { "\($0.ball.rawValue).\($0.pocket.rawValue)" } ?? "none"
+    private func shotKey(_ shot: ShotRating) -> String {
+        "\(shot.ball.rawValue).\(shot.pocket.rawValue)"
     }
 
     private var cardTransition: AnyTransition {
@@ -120,7 +95,7 @@ struct ShotAdviceCluster: View {
     /// line, how hard it is as a word, and the strike tile when the advice
     /// is not centre ball. The percentage is not shown; it stays in the
     /// mirror's state.json.
-    private func card(for shot: ShotRating) -> some View {
+    private func card(for shot: ShotRating, isCalled: Bool) -> some View {
         // The name comes from the rated ball's own id and nothing else
         // (`ShotCall.make`), the same id the overlay highlights.
         let call = model.shotCall(for: shot)
@@ -128,13 +103,16 @@ struct ShotAdviceCluster: View {
         let aim = blocked ? nil : model.aimLine
         return ShotCard(ball: call.ball,
                         leadBall: call.leadBall,
-                        pocket: blocked ? nil : call.pocket,
+                        // A blocked pick names no pocket unless the pocket is
+                        // the one called: then the reason is for that pocket.
+                        pocket: (blocked && !isCalled) ? nil : call.pocket,
                         confidence: ShotConfidence(model.shownDifficulty(of: shot)),
                         chosenByPlayer: model.targetIsPlayerChosen,
-                        blockedReason: blocked ? shot.headline : nil,
+                        blockedReason: blocked ? model.blockedReason(for: shot) : nil,
                         aimAdvice: aim?.text,
                         aimTone: aim?.tone ?? .neutral,
-                        calledPocket: model.calledPocketName,
+                        isCalled: isCalled,
+                        scoreText: model.cardScoreText,
                         tipOffset: model.shotGuide?.tipOffset)
     }
 }

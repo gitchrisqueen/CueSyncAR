@@ -74,7 +74,9 @@ extension SessionModel {
     /// two lines are directly comparable: the gap between them is exactly
     /// the correction the player has to make.
     func refreshTargetOverlay() {
-        guard let state = tableState, let shot = activeShot, shot.blocker == nil,
+        // `displayedShot`: the called pocket's shot when a pocket is called,
+        // so the overlay highlights the ball the card names.
+        guard let state = tableState, let shot = displayedShot, shot.blocker == nil,
               let prediction = TargetGuide.plan(state: state,
                                                 ghostBall: shot.ghostBall,
                                                 solver: targetSolver,
@@ -92,7 +94,7 @@ extension SessionModel {
 
     /// The aim that makes the offered shot, or nil when there is none.
     private var idealAim: AimRay? {
-        guard let state = tableState, let cue = state.cueBall, let shot = activeShot,
+        guard let state = tableState, let cue = state.cueBall, let shot = displayedShot,
               shot.blocker == nil else { return nil }
         return TargetGuide.aim(cueBall: cue, ghostBall: shot.ghostBall)
     }

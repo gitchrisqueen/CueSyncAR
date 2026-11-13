@@ -45,6 +45,8 @@ final class FeedbackCenter {
     struct Prefs {
         var sounds: Bool
         var haptics: Bool
+        /// Fold the score into a payoff ("+1 · 3 of 3") instead of a chip.
+        var scoreboard = false
     }
 
     // MARK: Observed by the views
@@ -129,7 +131,7 @@ final class FeedbackCenter {
             show(Banner(id: nextBannerID, text: text, tone: entry.tone, symbol: entry.symbol),
                  for: entry.bannerDuration)
         case .cardSlot:
-            showPayoff(for: event)
+            showPayoff(for: event, showsScore: prefs.scoreboard)
         case .none:
             break
         }
@@ -149,7 +151,7 @@ final class FeedbackCenter {
     }
 
     /// Put a payoff in the card's slot for `PayoffTiming.holdSeconds`.
-    private func showPayoff(for event: FeedbackEvent) {
+    private func showPayoff(for event: FeedbackEvent, showsScore: Bool) {
         let kind: PayoffEvent.Kind
         switch event {
         case .shotMade: kind = .made
@@ -160,7 +162,8 @@ final class FeedbackCenter {
         }
         nextBannerID += 1
         payoff = PayoffEvent(id: nextBannerID, kind: kind, streak: score.streak,
-                             made: score.made, attempted: score.attempted)
+                             made: score.made, attempted: score.attempted,
+                             showsScore: showsScore)
         payoffTask?.cancel()
         let hold = max(PayoffTiming.holdSeconds(for: kind), bannerHoldOverride ?? 0)
         payoffTask = Task { [weak self] in

@@ -124,6 +124,39 @@ private struct HUDFontModifier: ViewModifier {
     }
 }
 
+/// A status icon in a box of fixed size, so no glyph can change the height
+/// of the line it sits in.
+///
+/// The called-shot capsule's crosshair is taller than the tick it replaces,
+/// which made the capsule 11 px taller and pushed the shot card down 9 px
+/// every time the aim crossed the line: a flicker, at exactly the moment the
+/// player is fine-tuning the cue. Every glyph now gets the same box.
+public struct HUDIcon: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @ScaledMetric private var compact: CGFloat
+    @ScaledMetric private var regular: CGFloat
+    private let name: String
+    private let weight: Font.Weight
+
+    public init(_ systemName: String, role: HUDTextRole = .body, weight: Font.Weight = .regular) {
+        name = systemName
+        self.weight = weight
+        _compact = ScaledMetric(wrappedValue: CGFloat(role.compactSize), relativeTo: .callout)
+        _regular = ScaledMetric(wrappedValue: CGFloat(role.regularSize), relativeTo: .callout)
+    }
+
+    /// The box is a little taller than a line of the same text, so the icon
+    /// (not the glyph) sets the line's height, and it is always the same.
+    public static let boxFactor: CGFloat = 1.25
+
+    public var body: some View {
+        let size = sizeClass == .regular ? regular : compact
+        Image(systemName: name)
+            .font(.system(size: size, weight: weight))
+            .frame(width: size * Self.boxFactor, height: size * Self.boxFactor)
+    }
+}
+
 private struct HUDCardWidthModifier: ViewModifier {
     @Environment(\.horizontalSizeClass) private var sizeClass
 

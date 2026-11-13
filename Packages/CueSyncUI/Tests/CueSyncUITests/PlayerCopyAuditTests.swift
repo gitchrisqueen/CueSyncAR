@@ -52,7 +52,7 @@ struct PlayerCopyAuditTests {
         let fine = [
             "Point at the table",
             "Only seeing 2 of 6 balls — more light would help",
-            "Tap the cushion-nose corners (0/4)",
+            "Tap the four corners where the cushions meet (0/4)",
             "On line — send it",
             "Voice guidance on. Key moments only.",
             "Mirror it to a TV over AirPlay from an iPhone or iPad",

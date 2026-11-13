@@ -109,6 +109,10 @@ final class StateGalleryUITests: XCTestCase {
         let label = cardLabel(blocked)
         XCTAssertFalse(label.hasPrefix("Suggested shot"), label)
         expectText(blocked, "BLOCKED")
+        // The reason a player can see on the table: another ball is on the
+        // line, not "that cut is past 90°" for a pocket behind the ball.
+        XCTAssertTrue(label.contains("in the cue ball's way"), label)
+        XCTAssertFalse(label.contains("90"), label)
         blocked.terminate()
 
         let noCue = launch("no-cue-ball")
@@ -124,7 +128,7 @@ final class StateGalleryUITests: XCTestCase {
             ("hold-steady", "Hold steady"),
             ("table-lost", "Re-finding the table"),
             ("losing-balls", "Only seeing 6 of 15 balls"),
-            ("losing-balls-dark", "more light would help"),
+            ("losing-balls-lowlight", "more light would help"),
             ("losing-one-of-fifteen", "Only seeing 1 of 15 balls"),
             ("one-ball", "Tracking 1 ball"),
             ("cue-ball-only", "No balls to shoot at"),
@@ -186,8 +190,10 @@ final class StateGalleryUITests: XCTestCase {
     // MARK: Outcomes
 
     func testScoreboardAndOutcomes() {
+        // With a card showing, the score is part of the card ("0 of 0").
         let empty = launch("scoreboard-empty")
-        XCTAssertEqual(element(empty, "score-chip").label, "No shots yet this session")
+        expectText(empty, "0 of 0")
+        XCTAssertFalse(element(empty, "score-chip").exists, "a score chip under the card")
         empty.terminate()
 
         let made = launch("shot-made")
@@ -195,7 +201,9 @@ final class StateGalleryUITests: XCTestCase {
         XCTAssertTrue(element(made, "payoff-card").waitForExistence(timeout: 60))
         XCTAssertFalse(element(made, "shot-card").exists, "the card and the payoff at once")
         XCTAssertFalse(element(made, "feedback-banner").exists, "a pill under the payoff")
-        XCTAssertTrue(element(made, "score-chip").exists)
+        // The score is inside the payoff, not a chip stacked under it.
+        XCTAssertTrue(element(made, "payoff-card").label.contains("1 of 1"), element(made, "payoff-card").label)
+        XCTAssertFalse(element(made, "score-chip").exists, "a score chip under the payoff")
         made.terminate()
 
         let missed = launch("shot-missed")
@@ -210,25 +218,61 @@ final class StateGalleryUITests: XCTestCase {
         let none = launch("called-no-pocket")
         expectText(none, "Call your pocket")
         XCTAssertFalse(none.staticTexts.containing(NSPredicate(format: "label == 'On line'")).firstMatch.exists)
-        XCTAssertFalse(none.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'CALLED'")).firstMatch.exists)
         none.terminate()
 
+        // On line: ONE "On line" (the card's; the capsule keeps the count),
+        // and the card is about the called pocket only.
         let on = launch("called-on-line")
         expectText(on, "On line")
-        expectText(on, "CALLED:")
+        expectText(on, "Called")
+        expectText(on, "Tracking")
+        XCTAssertEqual(on.staticTexts.matching(NSPredicate(format: "label == 'On line'")).count, 1)
+        XCTAssertFalse(on.staticTexts.containing(NSPredicate(format: "label CONTAINS 'send it'")).firstMatch.exists)
+        XCTAssertFalse(on.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'CALLED:'")).firstMatch.exists)
         on.terminate()
 
-        // The called pocket is not the one the aim goes to.
+        // A different pocket called: the card is about THAT pocket, so its
+        // headline names the far-left corner and no other.
         let off = launch("called-off-line")
-        expectText(off, "Pocket called")
-        expectText(off, "Off line")
-        XCTAssertFalse(off.staticTexts.containing(NSPredicate(format: "label CONTAINS 'send it'")).firstMatch.exists)
+        expectText(off, "FAR-LEFT CORNER")
+        XCTAssertFalse(off.staticTexts.containing(NSPredicate(format: "label CONTAINS 'FAR-RIGHT'")).firstMatch.exists)
         XCTAssertFalse(off.staticTexts.containing(NSPredicate(format: "label == 'On line'")).firstMatch.exists)
         off.terminate()
 
-        // The suggested pocket is called and the aim is a little off: which way.
+        // The called pocket's own shot, aim a little off: which way.
         let aimed = launch("called-off-line-aimed")
         expectText(aimed, "Off line — move your aim")
+        aimed.terminate()
+
+        // No ball can go into the called pocket: say so, show no other shot.
+        let none2 = launch("called-no-shot")
+        expectText(none2, "No clean shot into the")
+        XCTAssertFalse(element(none2, "shot-card").exists, "a shot card for a pocket nothing can go into")
+    }
+
+    /// A blocked pick with a called pocket: the reason is for that pocket.
+    func testBlockedCalledCard() {
+        let app = launch("blocked-called")
+        let label = cardLabel(app)
+        XCTAssertTrue(label.contains("in the cue ball's way"), label)
+        expectText(app, "FAR-RIGHT CORNER")
+    }
+
+    /// The card does not move when the aim crosses the line: the capsule
+    /// above it never changes height, so the card's top edge is the same on
+    /// and off line.
+    func testCardTopDoesNotMoveBetweenOnAndOffLine() {
+        let on = launch("called-on-line")
+        let onCard = element(on, "shot-card")
+        XCTAssertTrue(onCard.waitForExistence(timeout: 60))
+        let onTop = onCard.frame.minY
+        on.terminate()
+
+        let off = launch("called-off-line-aimed")
+        let offCard = element(off, "shot-card")
+        XCTAssertTrue(offCard.waitForExistence(timeout: 60))
+        let offTop = offCard.frame.minY
+        XCTAssertEqual(onTop, offTop, accuracy: 1.0, "the card jumped \(abs(onTop - offTop)) pt")
     }
 
     // MARK: Ball names

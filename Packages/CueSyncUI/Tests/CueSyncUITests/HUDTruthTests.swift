@@ -244,7 +244,6 @@ struct ShotCardTruthTests {
                             chosenByPlayer: true, blockedReason: "A ball is in the way")
         #expect(card.headline == "3 RED")
         #expect(card.accessibilityText == "Red ball: A ball is in the way")
-        #expect(card.calledLine == nil)
     }
 
     @Test("The headline leads with the number when it is known, the colour alone when not")
@@ -258,15 +257,6 @@ struct ShotCardTruthTests {
         // No colour, no number: no invented colour.
         #expect(ShotCard(ball: "Ball", leadBall: "Ball", pocket: nil, confidence: .easy,
                          chosenByPlayer: false).headline == "BALL")
-    }
-
-    @Test("The called pocket has its own line")
-    func calledLine() {
-        let card = ShotCard(ball: "Red ball", pocket: "far-right corner", confidence: .medium,
-                            chosenByPlayer: false, calledPocket: "far-right corner")
-        #expect(card.calledLine == "CALLED: FAR-RIGHT CORNER")
-        #expect(ShotCard(ball: "Red ball", pocket: nil, confidence: .medium, chosenByPlayer: false)
-                    .calledLine == nil)
     }
 
     @Test("The headline length bound holds with numbers in front")

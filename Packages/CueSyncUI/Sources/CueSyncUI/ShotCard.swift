@@ -94,11 +94,17 @@ public enum ShotEmptyState: Sendable, Equatable {
     case noCleanShot
     /// A full rack: nothing to rank, but a break to play.
     case breakRack
+    /// A pocket is called and no ball can go into it cleanly. The card is
+    /// about the called pocket only, so it says so rather than showing a
+    /// shot into a different pocket. `pocket` is in the player's words
+    /// ("far-left corner").
+    case noShotToCalledPocket(pocket: String)
 
     public var text: String {
         switch self {
         case .noCleanShot: "No clean shot — try a safety"
         case .breakRack: "Break the rack"
+        case .noShotToCalledPocket(let pocket): "No clean shot into the \(pocket) — call another pocket"
         }
     }
 
@@ -106,6 +112,7 @@ public enum ShotEmptyState: Sendable, Equatable {
         switch self {
         case .noCleanShot: "shield.lefthalf.filled"
         case .breakRack: "triangle.fill"
+        case .noShotToCalledPocket: "scope"
         }
     }
 }
@@ -143,10 +150,13 @@ public struct ShotCard: View {
     /// line, plain white for a nudge. Never the tier's colour: the guide
     /// subtitle is about the aim, not the difficulty.
     public let aimTone: AimLine.Tone
-    /// The pocket the player called, in the player's words ("far-right
-    /// corner"), shown as its own line. Nil when none is called or the
-    /// view of the table is unknown.
-    public let calledPocket: String?
+    /// True when a pocket is called: the card is then about that pocket
+    /// only (the headline names it, the aim line is about it) and the tier
+    /// row says "Called" instead of "Best shot".
+    public let isCalled: Bool
+    /// The score, folded into the card's first row ("2 of 5") instead of a
+    /// chip stacked under it. Nil when the scoreboard is off.
+    public let scoreText: String?
     /// Where on the cue ball to strike. The tile is drawn only when this
     /// is not a centre hit.
     public let tipOffset: Vec2?
@@ -154,10 +164,11 @@ public struct ShotCard: View {
     public init(ball: String?, leadBall: String? = nil, pocket: String?, confidence: ShotConfidence,
                 chosenByPlayer: Bool, blockedReason: String? = nil,
                 aimAdvice: String? = nil, aimTone: AimLine.Tone = .neutral,
-                calledPocket: String? = nil, tipOffset: Vec2? = nil) {
+                isCalled: Bool = false, scoreText: String? = nil, tipOffset: Vec2? = nil) {
         self.aimAdvice = aimAdvice
         self.aimTone = aimTone
-        self.calledPocket = calledPocket
+        self.isCalled = isCalled
+        self.scoreText = scoreText
         self.ball = ball
         self.leadBall = leadBall
         self.pocket = pocket
@@ -202,11 +213,16 @@ public struct ShotCard: View {
     /// does ("release" read as a stroke, not as "undo my pick").
     var releaseHint: String { "Tap it again to go back to the suggested shot" }
 
-    /// "CALLED: FAR-RIGHT CORNER".
-    var calledLine: String? {
-        guard blockedReason == nil, let calledPocket else { return nil }
-        return "CALLED: " + calledPocket.uppercased()
+    /// The card's third and last row: why it is blocked, else the aim, else
+    /// (for a pick the player made) what a second tap does. Never more than
+    /// three rows in any state, so the card cannot grow down over the far
+    /// rail and pockets.
+    var thirdRow: String? {
+        blockedReason ?? aimAdvice ?? (chosenByPlayer ? releaseHint : nil)
     }
+
+    /// Rows the card draws: the tier row, the call, and the third row if any.
+    var rowCount: Int { 2 + (thirdRow == nil ? 0 : 1) }
 
     /// The tint of the aim line.
     private var aimColor: Color {
@@ -219,6 +235,9 @@ public struct ShotCard: View {
 
     /// Who chose this, in two words, beside the tier chip.
     var provenance: String {
+        // A blocked pick: the one thing to know is how to get out of it.
+        if blockedReason != nil { return "Tap again to go back" }
+        if isCalled { return "Called" }
         if chosenByPlayer { return "Your pick" }
         switch confidence {
         case .easy, .medium: return "Best shot"
@@ -274,7 +293,8 @@ public struct ShotCard: View {
         .accessibilityIdentifier("shot-card")
     }
 
-    /// The text column: tier, who chose it, the call, the aim advice.
+    /// The text column, three rows at most: tier (with who chose it and the
+    /// score), the call, and one line more.
     private var details: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 12) {
@@ -286,47 +306,39 @@ public struct ShotCard: View {
                     .foregroundStyle(Theme.hudTextSecondary.color)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
-            }
-            if let blockedReason {
-                // Names the ball, then why: a blocked card that does not
-                // say which ball leaves the player to guess.
-                if let headline {
-                    Text(HUDCopy.keepingWordsWhole(headline))
-                        .hudFont(.headline, weight: .heavy)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                if let scoreText {
+                    Label(scoreText, systemImage: "target")
+                        .hudFont(.body, weight: .semibold)
+                        .foregroundStyle(Theme.hudTextSecondary.color)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .fixedSize()
                 }
-                Text(blockedReason)
-                    .hudFont(.body, weight: .semibold)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if let headline {
+            }
+            if let headline {
                 // One line at the default text size; wraps rather than
-                // clips when Dynamic Type or a narrow phone needs it.
+                // clips when Dynamic Type or a narrow phone needs it. A
+                // blocked card names the ball (no pocket).
                 Text(HUDCopy.keepingWordsWhole(headline))
                     .hudFont(.headline, weight: .heavy)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if let aimAdvice, blockedReason == nil {
-                Text(aimAdvice)
+            if let thirdRow {
+                Text(thirdRow)
                     .hudFont(.body, weight: .semibold)
-                    .foregroundStyle(aimColor)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if let calledLine {
-                Text(HUDCopy.keepingWordsWhole(calledLine))
-                    .hudFont(.body, weight: .bold)
-                    .foregroundStyle(Theme.hudTextSecondary.color)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if chosenByPlayer {
-                Text(releaseHint)
-                    .hudFont(.caption)
-                    .foregroundStyle(Theme.hudTextSecondary.color)
+                    .foregroundStyle(thirdRowColor)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var thirdRowColor: Color {
+        if blockedReason != nil { return Theme.hudText.color }
+        if aimAdvice != nil { return aimColor }
+        return Theme.hudTextSecondary.color
     }
 
     /// The tier as an icon AND a word: colour is the third signal, not
@@ -351,7 +363,7 @@ public struct ShotCard: View {
             guard let ball else { return blockedReason }
             return "\(ball): \(blockedReason)"
         }
-        let who = chosenByPlayer ? "Your pick" : "Suggested shot"
+        let who = isCalled ? "Called shot" : (chosenByPlayer ? "Your pick" : "Suggested shot")
         let tier = confidence.tierWord.lowercased()
         var shot = "\(who), \(tier)"
         if let ball {
@@ -359,8 +371,9 @@ public struct ShotCard: View {
             if let pocket { call += " into the " + pocket }
             shot = "\(who): \(call), \(tier)"
         }
-        guard let aimAdvice else { return shot }
-        return shot + ". " + aimAdvice
+        if let aimAdvice { shot += ". " + aimAdvice }
+        if let scoreText { shot += ". Score \(scoreText)" }
+        return shot
     }
 }
 

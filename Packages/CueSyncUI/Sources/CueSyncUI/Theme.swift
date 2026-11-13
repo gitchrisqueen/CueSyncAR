@@ -71,6 +71,9 @@ public enum Theme {
     /// The grouped backgrounds they sit on, for the contrast test.
     public static let sheetGroundLight = ColorToken(0xF2F2F7)
     public static let sheetGroundDark = ColorToken(0x1C1C1E)
+    /// The row plates a picker's value sits on.
+    public static let sheetRowLight = ColorToken(0xFFFFFF)
+    public static let sheetRowDark = ColorToken(0x2C2C2E)
 
     /// Every (text colour, what it is) the HUD draws over the scrim. The
     /// contrast test walks this list, so a new text colour has to be added

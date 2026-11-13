@@ -34,13 +34,18 @@ public struct PayoffEvent: Equatable, Sendable, Identifiable {
     public let streak: Int
     public let made: Int
     public let attempted: Int
+    /// The scoreboard is on: fold "3 of 3" into the detail line, so the
+    /// result is said once, in the card, with no chip stacked under it.
+    public let showsScore: Bool
 
-    public init(id: Int, kind: Kind, streak: Int = 0, made: Int = 0, attempted: Int = 0) {
+    public init(id: Int, kind: Kind, streak: Int = 0, made: Int = 0, attempted: Int = 0,
+                showsScore: Bool = false) {
         self.id = id
         self.kind = kind
         self.streak = streak
         self.made = made
         self.attempted = attempted
+        self.showsScore = showsScore
     }
 
     /// The big words: "MADE IT".
@@ -53,16 +58,19 @@ public struct PayoffEvent: Equatable, Sendable, Identifiable {
         }
     }
 
-    /// The second line: "+1 · 3 IN A ROW", "Line it up again".
+    /// The second line: "+1 · 3 IN A ROW · 3 of 3", "Line it up again".
     public var detail: String? {
+        var parts: [String]
         switch kind {
         case .made, .madeOther:
-            streak >= 2 ? "+1 · \(streak) IN A ROW" : "+1"
+            parts = streak >= 2 ? ["+1", "\(streak) IN A ROW"] : ["+1"]
         case .missed:
-            "Line it up again"
+            parts = ["Line it up again"]
         case .scratch:
-            "Cue ball down"
+            parts = ["Cue ball down"]
         }
+        if showsScore { parts.append("\(made) of \(attempted)") }
+        return parts.joined(separator: " · ")
     }
 
     /// Green for a make, amber for a miss, red for a scratch. The word and

@@ -83,12 +83,9 @@ struct SettingsView: View {
 
     private var tableSection: some View {
         Section {
-            Picker(SheetCopy.Settings.tableSize, selection: binding(\.tableSize)) {
-                ForEach(TableSizeSetting.selectable, id: \.self) { size in
-                    Text(size.title).tag(size)
-                }
-            }
-            .accessibilityIdentifier("settings-table-size")
+            SheetPickerRow(SheetCopy.Settings.tableSize, selection: binding(\.tableSize),
+                           options: TableSizeSetting.selectable.map { ($0, $0.title) })
+                .accessibilityIdentifier("settings-table-size")
         } header: {
             SheetHeader(SheetCopy.Settings.tableHeader)
         } footer: {
@@ -226,22 +223,16 @@ struct SettingsView: View {
 
     private var practiceSection: some View {
         Section {
-            Picker(SheetCopy.Settings.practiceMode, selection: binding(\.practiceMode)) {
-                ForEach(PracticeMode.allCases, id: \.self) { mode in
-                    Text(mode.title).tag(mode)
-                }
-            }
-            .accessibilityIdentifier("settings-practice-mode")
+            SheetPickerRow(SheetCopy.Settings.practiceMode, selection: binding(\.practiceMode),
+                           options: PracticeMode.allCases.map { ($0, $0.title) })
+                .accessibilityIdentifier("settings-practice-mode")
             // The HUD chip only appears while a rack is being tracked, so
             // this is the group's permanent home — and it makes true what
             // `cycleBallGroup`'s comment has always claimed, that the eight
             // is reachable "from Settings" and never by a stray tap.
-            Picker(SheetCopy.Settings.ballGroup, selection: binding(\.ballGroup)) {
-                ForEach(BallGroup.allCases, id: \.self) { group in
-                    Text(group.label).tag(group)
-                }
-            }
-            .accessibilityIdentifier("settings-ball-group")
+            SheetPickerRow(SheetCopy.Settings.ballGroup, selection: binding(\.ballGroup),
+                           options: BallGroup.allCases.map { ($0, $0.label) })
+                .accessibilityIdentifier("settings-ball-group")
             if let hint = model.practiceMode.pendingHint(
                 hasCalledPocket: model.calledPocket != nil) {
                 Text(hint)
@@ -261,13 +252,10 @@ struct SettingsView: View {
     /// indistinguishable from a broken build.
     private var voiceSection: some View {
         Section {
-            Picker(SheetCopy.Settings.spokenGuidance, selection: Binding(
-                get: { model.settings.speechVerbosity },
-                set: { model.setSpeechVerbosity($0) })) {
-                    ForEach(SpeechVerbosity.allCases, id: \.self) { level in
-                        Text(level.title).tag(level)
-                    }
-                }
+            SheetPickerRow(SheetCopy.Settings.spokenGuidance,
+                           selection: Binding(get: { model.settings.speechVerbosity },
+                                              set: { model.setSpeechVerbosity($0) }),
+                           options: SpeechVerbosity.allCases.map { ($0, $0.title) })
                 .accessibilityIdentifier("settings-speech-verbosity")
             if model.settings.speechVerbosity.isOn {
                 Button(SheetCopy.Settings.sayNow) {
@@ -418,7 +406,7 @@ struct SettingsView: View {
                 Spacer()
                 Text(readout)
                     .font(.footnote.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.sheetSecondary)
             }
             Slider(value: value, in: range, step: step)
                 .accessibilityLabel(label)
