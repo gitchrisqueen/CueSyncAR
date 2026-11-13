@@ -41,6 +41,25 @@ From clean: `Scripts/test-all.sh` exit 0 (11 test runs), Release iphoneos
 the iPad: it was still locked at 22:30, so the iPad runs `65c86a8`. The
 design re-score is in flight on `claude/ux-rescore-2`.
 
+**23:15. Design re-score: 63/100** (`docs/design/2026-11-12-ux-rescore-2.md`,
+merged at `c3d872d`). The baseline's lens scores add up to 48, not the 46 it
+printed, so the comparison is 48 to 63. Target 70. Two of the eight checks
+pass (overlay clutter, no developer text). Trust did not move (2.5) because
+the HUD says things that are not true: a tick and a shot card beside "Lost
+the table", "On line" when the shot is off line or no pocket is called, and
+ball counts that include the cue ball in one message and not in another.
+The object leg to the pocket is the faintest mark (11 px at 3.4-3.7:1; the
+cue leg is 14 px at 9.9:1). Status text misses the size floor by 1 px.
+
+In flight on that report, neither needs the device:
+- `claude/hud-truth`: the ten HUD items (one truth when tracking is lost,
+  "On line" only when true, one counting rule, a make as an event in the
+  card slot, 28 pt status text, HARD distinct from BLOCKED, number-first
+  ball names when the number is known, Settings copy, footnote contrast).
+- `claude/overlay-contrast`: the object leg as the strongest mark, one hue
+  per meaning, and contrast held on black, green and blue cloth.
+After both merge: a third independent re-score.
+
 ### 2026-11-12, 04:00 — `65c86a8` green and on the iPad; the Simulator will not boot
 
 `claude/state-gallery` (`2f8aa8d`) is merged: 42 seeded HUD scenes behind
