@@ -78,7 +78,10 @@ struct MetricPaletteTests {
     }
 
     @Test func designStripTokensMapToDistinctMetricMarkers() {
-        let tokens: [UInt32] = [0xF5A623, 0x2FA36B, 0x4A90D9, 0xE8604C]
+        // The design colours of the four live strips (the palette changed:
+        // the old amber, green, blue and coral are no longer drawn).
+        let tokens: [UInt32] = [OverlayStyle.aimColor, OverlayStyle.objectPathColor,
+                                OverlayStyle.postContactColor, OverlayStyle.scratchColor]
         let mapped = Set(tokens.map(MetricPalette.stripMarker(forDesignColor:)))
         #expect(mapped.count == 4)
         #expect(MetricPalette.stripMarker(forDesignColor: 0x123456) == .stripAim)

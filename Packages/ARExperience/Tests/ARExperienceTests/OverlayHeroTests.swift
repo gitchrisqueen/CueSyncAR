@@ -307,22 +307,29 @@ struct OverlayRingStyleTests {
         #expect(OverlayStyle.pocketRingOpacity > OverlayStyle.involvedRingOpacity)
     }
 
-    @Test("One colour per meaning, all from the theme")
+    // Was "all from the theme" (white cue leg, green object leg and pocket
+    // ring): the object leg measured 3.4 to 3.7 : 1 on the real cloth and
+    // shared its green with the pocket ring. The palette is now
+    // OverlayPalette's; OverlayContrastTests holds the contrast and the hues.
+    @Test("One colour per meaning, all from the overlay palette")
     func oneColourPerMeaning() {
-        #expect(OverlayStyle.heroCueColor == Theme.hudText.rgb)
-        #expect(OverlayStyle.heroObjectColor == Theme.feltGreen.rgb)
+        #expect(OverlayStyle.heroCueColor == OverlayPalette.cuePath.rgb)
+        #expect(OverlayStyle.heroObjectColor == OverlayPalette.objectPath.rgb)
         let roles: [UInt32] = [
-            OverlayStyle.heroCueColor, OverlayStyle.heroObjectColor,
-            Theme.cueAmber.rgb, Theme.chalkBlue.rgb, Theme.warnCoral.rgb
+            OverlayStyle.heroCueColor, OverlayStyle.heroObjectColor, OverlayStyle.aimColor,
+            OverlayStyle.postContactColor, OverlayStyle.scratchColor,
+            OverlayStyle.pocketRingColor, OverlayStyle.calledPocketColor
         ]
         #expect(Set(roles).count == roles.count, "no two roles share a colour")
         #expect(OverlayStyle.shotColor == OverlayStyle.heroCueColor)
-        #expect(OverlayStyle.pocketRingColor == OverlayStyle.heroObjectColor)
+        #expect(OverlayStyle.pocketRingColor == OverlayPalette.targetPocket.rgb)
+        #expect(OverlayStyle.pocketRingColor != OverlayStyle.heroObjectColor,
+                "the pocket ring is not the line's colour")
         #expect(OverlayStyle.cueRingColor == OverlayStyle.heroCueColor)
         #expect(OverlayStyle.targetRingColor == OverlayStyle.heroObjectColor)
     }
 
-    @Test("The compose defaults are the theme's amber, green, blue and coral")
+    @Test("The compose defaults are the palette's amber, white, lavender and salmon")
     func composeDefaultsAreTheTheme() {
         let cue = BallID(0), object = BallID(1)
         let state = TableState(table: Table(size: .nineFoot), balls: [
@@ -340,7 +347,8 @@ struct OverlayRingStyleTests {
             pocketedBalls: [])
         let layout = OverlayLayout.compose(state: state, prediction: prediction,
                                            calibration: calibration)
-        #expect(layout.strips.map(\.color) == [Theme.cueAmber.rgb, Theme.chalkBlue.rgb, Theme.feltGreen.rgb])
+        #expect(layout.strips.map(\.color) == [OverlayPalette.aim.rgb, OverlayPalette.postContact.rgb,
+                                                OverlayPalette.objectPath.rgb])
     }
 }
 

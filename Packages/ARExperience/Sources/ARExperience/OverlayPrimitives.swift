@@ -81,6 +81,10 @@ public struct OverlayPrimitive: Sendable, Equatable {
     public var scale: Vec3
     /// A strip's direction along the cloth; nil for everything else.
     public var heading: Vec3?
+
+    /// A dark edge laid under a mark. The recorder's opaque metric palette
+    /// leaves these out: they would only darken the edges of the keyed colours.
+    public var isCasing: Bool { look.metricMarker == .casing }
 }
 
 public enum OverlayDiff {
@@ -182,7 +186,7 @@ extension OverlayLayout {
                 position: lifted(point, spec.lift), scale: Vec3(1, 1, 1), heading: nil)
         }
         func strip(_ key: String, _ group: OverlayPrimitive.Group, _ strip: Strip) -> OverlayPrimitive {
-            let tier = OverlayStyle.tier(role: strip.role, dashed: strip.dashed)
+            let tier = OverlayStyle.tier(of: strip)
             let width = OverlayStyle.width(tier)
             return OverlayPrimitive(
                 key: key, group: group,
@@ -207,12 +211,27 @@ extension OverlayLayout {
                 lift: lift)))
         }
         for (index, line) in strips.enumerated() { list.append(strip("base.strip.\(index)", .base, line)) }
-        for (index, line) in targetStrips.enumerated() { list.append(strip("hero.strip.\(index)", .hero, line)) }
+        // The suggested shot's lines sit on a dark casing, so they read on
+        // any cloth (OverlayPalette). The casing comes first in the list and
+        // floats a little below its line.
+        for (index, line) in targetStrips.enumerated() {
+            let tier = OverlayStyle.tier(of: line)
+            if tier == .hero || tier == .lead {
+                let width = OverlayStyle.width(tier) + OverlayStyle.casingExtraWidth
+                list.append(OverlayPrimitive(
+                    key: "hero.casing.\(index)", group: .hero,
+                    look: .init(shape: .box, colour: OverlayStyle.casingColor, metricMarker: .casing,
+                                opacityPermille: permille(OverlayStyle.casingOpacity)),
+                    position: lifted(line.midpoint, OverlayStyle.lift(tier) - OverlayStyle.casingDrop),
+                    scale: Vec3(line.length, OverlayStyle.width(tier) / 2, width), heading: line.direction))
+            }
+            list.append(strip("hero.strip.\(index)", .hero, line))
+        }
 
         if let ghostBall {
             list.append(OverlayPrimitive(
                 key: "base.ghost", group: .base,
-                look: .init(shape: .sphere, colour: 0xFFFFFF, metricMarker: .ghostBall,
+                look: .init(shape: .sphere, colour: OverlayStyle.shotColor, metricMarker: .ghostBall,
                             opacityPermille: permille(OverlayStyle.liveGhostOpacity)),
                 position: lifted(ghostBall.position, ghostBall.radius),
                 scale: Vec3(repeating: ghostBall.radius), heading: nil))
@@ -227,16 +246,23 @@ extension OverlayLayout {
             let satisfied = calledPocketSatisfied
             list.append(OverlayPrimitive(
                 key: "base.called", group: .base,
-                look: .init(shape: .disc, colour: satisfied ? 0x2FA36B : 0xF5A623,
+                look: .init(shape: .disc, colour: OverlayStyle.calledPocketColor,
                             metricMarker: satisfied ? .calledPocketOnLine : .calledPocket,
-                            opacityPermille: permille(satisfied ? 0.85 : 0.6)),
+                            opacityPermille: permille(satisfied ? OverlayStyle.calledPocketOnLineOpacity
+                                : OverlayStyle.calledPocketOpacity)),
                 position: lifted(calledPocket.position, lift * 2),
                 scale: Vec3(calledPocket.radius, OverlayStyle.markerThickness, calledPocket.radius),
                 heading: nil))
         }
         if let targetPocket {
+            // The pocket to hit: a thick ring 1.5 capture radii out, on its
+            // own casing (OverlayStyle explains the size).
+            list.append(ring("hero.pocket.casing", .hero, at: targetPocket.position, RingSpec(
+                radii: OverlayStyle.targetPocketCasing(captureRadius: targetPocket.radius),
+                colour: OverlayStyle.casingColor, marker: .casing,
+                opacity: OverlayStyle.casingOpacity, lift: lift * 1.5)))
             list.append(ring("hero.pocket", .hero, at: targetPocket.position, RingSpec(
-                radii: OverlayStyle.pocketRing(captureRadius: targetPocket.radius),
+                radii: OverlayStyle.targetPocketRing(captureRadius: targetPocket.radius),
                 colour: OverlayStyle.pocketRingColor, marker: .pocket,
                 opacity: OverlayStyle.pocketRingOpacity, lift: lift * 1.6)))
         }

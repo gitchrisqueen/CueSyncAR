@@ -32,6 +32,10 @@ public enum MetricPalette {
         case stripObject
         case stripCueAfter
         case stripScratch
+        /// The dark edge under a hero mark. The recorder does not draw it
+        /// (it would only darken the keyed colours' edges); it has a colour
+        /// so every overlay primitive has a marker.
+        case casing
     }
 
     /// Guaranteed Chebyshev distance (max per-channel difference, 0–255)
@@ -52,6 +56,7 @@ public enum MetricPalette {
         case .stripObject: 0x00FF80        // spring green
         case .stripCueAfter: 0x8000FF      // violet
         case .stripScratch: 0xFFFFFF       // white
+        case .casing: 0x000000             // black
         }
     }
 
@@ -60,10 +65,10 @@ public enum MetricPalette {
     /// Unknown tokens map to the aim strip so nothing renders invisible.
     public static func stripMarker(forDesignColor rgb: UInt32) -> Marker {
         switch rgb {
-        case 0xF5A623: .stripAim
-        case 0x2FA36B: .stripObject
-        case 0x4A90D9: .stripCueAfter
-        case 0xE8604C: .stripScratch
+        case OverlayStyle.aimColor: .stripAim
+        case OverlayStyle.objectPathColor: .stripObject
+        case OverlayStyle.postContactColor: .stripCueAfter
+        case OverlayStyle.scratchColor: .stripScratch
         default: .stripAim
         }
     }

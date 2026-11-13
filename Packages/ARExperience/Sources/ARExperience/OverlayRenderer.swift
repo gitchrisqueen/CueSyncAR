@@ -72,7 +72,9 @@ public final class OverlayRenderer {
     /// When the suggested shot last changed, and what the cross-fade and the
     /// pocket pulse should look like right now.
     private var transition = HeroTransition()
-    private var pocketRing: ModelEntity?
+    /// The entities that pulse when the suggestion changes: the pocket ring
+    /// and its casing, scaled together.
+    private var pocketRings: [ModelEntity] = []
     private var animationTask: Task<Void, Never>?
 
     /// One drawn primitive: its entity, and the primitive it was last set to.
@@ -241,7 +243,9 @@ public final class OverlayRenderer {
             drawn = drawn.filter { $0.value.primitive.group != .hero }
         }
 
-        let plan = OverlayDiff.plan(drawn: drawn.mapValues(\.primitive), wanted: layout.primitives)
+        // The recorder's opaque palette draws no casings.
+        let wanted = layout.primitives.filter { !(metric && $0.isCasing) }
+        let plan = OverlayDiff.plan(drawn: drawn.mapValues(\.primitive), wanted: wanted)
 
         for key in plan.remove {
             drawn.removeValue(forKey: key)?.entity.removeFromParent()
@@ -260,7 +264,7 @@ public final class OverlayRenderer {
                            normal: layout.planeNormal, normalUp: planeNormalUp)
             drawn[primitive.key] = Drawn(entity: item.entity, primitive: primitive)
         }
-        pocketRing = drawn["hero.pocket"]?.entity
+        pocketRings = ["hero.pocket", "hero.pocket.casing"].compactMap { drawn[$0]?.entity }
         stats.note(built: plan.build.count, moved: plan.move.count, kept: plan.keep, removed: plan.remove.count)
 
         if suggestionChanged || !transition.isSettled(at: now) {
@@ -277,7 +281,8 @@ public final class OverlayRenderer {
         let outgoing = transition.outgoingOpacity(at: now)
         outgoingGroup.components.set(OpacityComponent(opacity: Float(outgoing)))
         if outgoing <= 0, !outgoingGroup.children.isEmpty { outgoingGroup.children.removeAll() }
-        pocketRing?.scale = SIMD3<Float>(repeating: Float(transition.ringScale(at: now)))
+        let pulse = SIMD3<Float>(repeating: Float(transition.ringScale(at: now)))
+        for ring in pocketRings { ring.scale = pulse }
         return transition.isSettled(at: now)
     }
 
@@ -301,7 +306,7 @@ public final class OverlayRenderer {
         animationTask = nil
         for group in [staticGroup, heroGroup, outgoingGroup] { group.children.removeAll() }
         drawn.removeAll()
-        pocketRing = nil
+        pocketRings = []
         transition = HeroTransition()
         renderedMarkers = []
     }

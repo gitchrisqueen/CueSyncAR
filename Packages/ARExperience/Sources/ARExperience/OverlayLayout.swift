@@ -40,10 +40,22 @@ public struct OverlayLayout: Sendable, Equatable {
         /// Whether this strip is the live aim or the recommended shot.
         ///
         /// The live aim keeps the semantic colours (amber for the cue's
-        /// approach, green for the object ball's path). The plan is the
-        /// hero: one colour, `OverlayStyle.shotColor`, drawn heaviest
-        /// (see OverlayStyle for the weights).
+        /// approach, white for the object ball's path). The plan is the
+        /// hero: the object ball's leg is the heaviest mark on the table and
+        /// the cue ball's leg a narrower one in its own colour (see
+        /// OverlayStyle for the weights).
         public var role: Role = .live
+        /// Which leg of the recommended shot this is. Only the plan's solid
+        /// strips carry one; it tells the two legs apart for styling.
+        public var leg: Leg = .none
+
+        public enum Leg: String, Sendable, Equatable {
+            case none
+            /// The cue ball's approach to the ghost ball.
+            case cue
+            /// The target ball's path to the pocket.
+            case object
+        }
 
         public enum Role: String, Sendable, Equatable {
             /// Where the player's current aim actually goes.
@@ -190,10 +202,10 @@ public struct OverlayLayout: Sendable, Equatable {
                                calledPocket calledPocketID: PocketID? = nil,
                                target: Target? = nil,
                                showsSecondaryLines: Bool = false,
-                               aimColor: UInt32 = 0xF5A623,
-                               objectColor: UInt32 = 0x2FA36B,
-                               cueAfterColor: UInt32 = 0x4A90D9,
-                               scratchColor: UInt32 = 0xE8604C) -> OverlayLayout {
+                               aimColor: UInt32 = OverlayStyle.aimColor,
+                               objectColor: UInt32 = OverlayStyle.objectPathColor,
+                               cueAfterColor: UInt32 = OverlayStyle.postContactColor,
+                               scratchColor: UInt32 = OverlayStyle.scratchColor) -> OverlayLayout {
         let cueID = state.cueBall?.id
 
         func buildStrips(_ prediction: ShotPrediction, role: Strip.Role) -> [Strip] {
@@ -250,7 +262,8 @@ public struct OverlayLayout: Sendable, Equatable {
                          length: vector.length,
                          dashed: dashed,
                          color: color,
-                         role: role)
+                         role: role,
+                         leg: role == .plan && !dashed ? (isCue ? .cue : .object) : .none)
         }
         }
 
@@ -357,7 +370,7 @@ public struct OverlayLayout: Sendable, Equatable {
                                midpoint: (start + end) * 0.5,
                                length: (pocket.position - ball.position).length,
                                dashed: false, color: OverlayStyle.heroObjectColor,
-                               role: .plan)]
+                               role: .plan, leg: .object)]
         } else {
             // The ball or pocket is not in this state: draw what the solver
             // predicted rather than no object leg at all.
