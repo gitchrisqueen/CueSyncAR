@@ -40,7 +40,7 @@ public struct SessionScore: Sendable, Equatable, Codable {
     public var spokenText: String {
         attempted == 0
             ? "No shots yet this session"
-            : "\(made) made out of \(attempted) shots this session"
+            : "\(made) made out of \(attempted) \(attempted == 1 ? "shot" : "shots") this session"
     }
 
     // MARK: Persistence

@@ -54,7 +54,7 @@ extension SessionModel {
 
     /// The HUD's status in the voice's terms.
     ///
-    /// `.tracking` and `.onLine` both collapse to `.tracking`: the ball
+    /// `.tracking`, `.onLine` and `.calledOffLine` all collapse to `.tracking`: the ball
     /// count is not worth saying, and "on line" is decided from the aim
     /// correction rather than the capsule, so that it is said about the
     /// shot the player is actually aiming at.
@@ -66,7 +66,7 @@ extension SessionModel {
         case .confirmingRails: .confirmingRails
         case .needsCalibration: .needsCalibration
         case .awaitingCueBall: .awaitingCueBall
-        case .tracking, .onLine: .tracking
+        case .tracking, .onLine, .calledOffLine: .tracking
         case .losingBalls(let seen, let peak, let dark):
             .losingBalls(seen: seen, peak: peak, dark: dark)
         case .degraded(.fastMotion): .degraded(.fastMotion)

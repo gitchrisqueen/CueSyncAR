@@ -27,6 +27,10 @@ public enum HUDStatus: Sendable, Equatable {
     /// Called-shot mode: the prediction sends an object ball into the
     /// called pocket.
     case onLine
+    /// Called-shot mode: a pocket is called and the aim does not send a
+    /// ball into it yet. Without this the screen looked the same as "no
+    /// pocket called" (the called pocket itself is drawn in the AR view).
+    case calledOffLine
     case tracking(ballCount: Int)
     /// A detector is loaded and firing, but the table is not calibrated,
     /// so the pipeline is not running and NOTHING is being tracked.
@@ -65,6 +69,7 @@ public enum HUDStatus: Sendable, Equatable {
         case .confirmingRails: "Drag dots onto the cushion noses, then lock"
         case .awaitingCueBall: "Place the cue ball — or tap a ball to mark it"
         case .onLine: "On line — send it"
+        case .calledOffLine: "Pocket called — line up the shot"
         case .tracking(let count): "Tracking \(HUDCopy.count(count, "ball"))"
         case .needsCalibration(let seeing):
             seeing > 0
@@ -93,6 +98,7 @@ public enum HUDStatus: Sendable, Equatable {
         case .confirmingRails: "rectangle.dashed"
         case .awaitingCueBall: "circle.dashed"
         case .onLine: "target"
+        case .calledOffLine: "scope"
         case .tracking: "checkmark.circle"
         // Not a checkmark: nothing is working yet, and the icon should not
         // say otherwise before the words are read.

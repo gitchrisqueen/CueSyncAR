@@ -33,6 +33,25 @@ public enum HUDCopy {
         }
     }
 
+    /// A hyphen between letters becomes a non-breaking hyphen, so a narrow
+    /// card wraps "NEAR-RIGHT CORNER" before "NEAR-RIGHT", never inside it.
+    public static func keepingWordsWhole(_ text: String) -> String {
+        var out = ""
+        let chars = Array(text)
+        for (index, char) in chars.enumerated() {
+            let betweenLetters = index > 0 && index + 1 < chars.count
+                && (chars[index - 1].isLetter || chars[index - 1].isNumber) && chars[index + 1].isLetter
+            out.append(char == "-" && betweenLetters ? "\u{2011}" : char)
+        }
+        return out
+    }
+
+    /// The scoreboard chip: "3 of 5 made", with the run once it is more
+    /// than one: "3 of 3 made · 3 in a row".
+    public static func scoreLine(chip: String, streak: Int) -> String {
+        streak >= 2 ? "\(chip) made · \(streak) in a row" : "\(chip) made"
+    }
+
     /// The most characters the headline may use.
     public static let headlineMaxLength = 40
 

@@ -118,6 +118,7 @@ struct ShotAdviceCluster: View {
                         chosenByPlayer: model.targetIsPlayerChosen,
                         blockedReason: shot.blocker == nil ? nil : shot.headline,
                         aimAdvice: model.targetCorrection?.advice,
+                        aimOnLine: model.targetCorrection == .onLine,
                         tipOffset: model.shotGuide?.tipOffset)
     }
 }

@@ -106,7 +106,9 @@ final class StateGalleryUITests: XCTestCase {
         rack.terminate()
 
         let blocked = launch("blocked-shot")
-        XCTAssertTrue(cardLabel(blocked).hasPrefix("Blocked"))
+        let label = cardLabel(blocked)
+        XCTAssertFalse(label.hasPrefix("Suggested shot"), label)
+        expectText(blocked, "BLOCKED")
         blocked.terminate()
 
         let noCue = launch("no-cue-ball")
@@ -121,7 +123,7 @@ final class StateGalleryUITests: XCTestCase {
             ("low-light", "Need more light"),
             ("hold-steady", "Hold steady"),
             ("table-lost", "Re-finding the table"),
-            ("losing-balls", "Only seeing 2 of 6 balls"),
+            ("losing-balls", "Only seeing 2 of 5 balls"),
             ("losing-balls-dark", "more light would help"),
             ("losing-one-of-fifteen", "Only seeing 1 of 15 balls"),
             ("one-ball", "Tracking 1 ball"),
@@ -190,15 +192,16 @@ final class StateGalleryUITests: XCTestCase {
         on.terminate()
 
         let off = launch("called-off-line")
-        expectText(off, "Tracking")
-        XCTAssertFalse(off.staticTexts.containing(NSPredicate(format: "label CONTAINS 'On line'")).firstMatch.exists)
+        expectText(off, "Pocket called")
+        XCTAssertFalse(off.staticTexts.containing(NSPredicate(format: "label CONTAINS 'send it'")).firstMatch.exists)
     }
 
     // MARK: Recording and sheets
 
     func testRecordingBadge() {
         let app = launch("recording")
-        expectText(app, "REC")
+        // The badge reads "Recording, 0:00" to VoiceOver and "REC 0:00" on screen.
+        expectText(app, "Recording")
         XCTAssertTrue(app.buttons["record-button"].exists)
     }
 

@@ -41,9 +41,9 @@ public enum TableSizeSetting: Sendable, Equatable, Hashable {
     public var title: String {
         switch self {
         case .useMeasured: "Use measured"
-        case .standard(.sevenFoot): "7-ft"
-        case .standard(.eightFoot): "8-ft"
-        case .standard(.nineFoot): "9-ft"
+        case .standard(.sevenFoot): "7 ft"
+        case .standard(.eightFoot): "8 ft"
+        case .standard(.nineFoot): "9 ft"
         case .standard(.custom(let width, let height)):
             String(format: "%.2f × %.2f m", width, height)
         }

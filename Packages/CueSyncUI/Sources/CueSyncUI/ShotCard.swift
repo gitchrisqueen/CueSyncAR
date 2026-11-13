@@ -133,14 +133,18 @@ public struct ShotCard: View {
     /// the player is aiming at all. The actionable line, so it carries the
     /// tint rather than the grey.
     public let aimAdvice: String?
+    /// True when `aimAdvice` says the aim is already on line: that is good
+    /// news, so it is not tinted with a hard shot's coral.
+    public let aimOnLine: Bool
     /// Where on the cue ball to strike. The tile is drawn only when this
     /// is not a centre hit.
     public let tipOffset: Vec2?
 
     public init(ball: String?, pocket: String?, confidence: ShotConfidence,
                 chosenByPlayer: Bool, blockedReason: String? = nil,
-                aimAdvice: String? = nil, tipOffset: Vec2? = nil) {
+                aimAdvice: String? = nil, aimOnLine: Bool = false, tipOffset: Vec2? = nil) {
         self.aimAdvice = aimAdvice
+        self.aimOnLine = aimOnLine
         self.ball = ball
         self.pocket = pocket
         self.confidence = confidence
@@ -179,6 +183,10 @@ public struct ShotCard: View {
         }
     }
 
+    /// The line under the call when the player picked the ball. The tier
+    /// row already says "Your pick", so this only says how to let go.
+    var releaseHint: String { "Tap the ball again to release" }
+
     /// Who chose this, in two words, beside the tier chip.
     var provenance: String {
         if chosenByPlayer { return "Your pick" }
@@ -193,44 +201,30 @@ public struct ShotCard: View {
         return HUDCopy.guideWord(tipOffset: tipOffset) != nil
     }
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// On a phone at a large text size the column beside the tile is too
+    /// narrow for the call (the tier word broke into "HA / RD" and the
+    /// pocket was cut off), so the tile moves under the text instead.
+    private var guideGoesBelow: Bool {
+        showsGuide && sizeClass != .regular && typeSize >= .xLarge
+    }
+
     public var body: some View {
-        HStack(alignment: .center, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .center, spacing: 12) {
-                    tierChip
-                    Text(provenance)
-                        .hudFont(.body, weight: .semibold)
-                        .foregroundStyle(Theme.hudTextSecondary.color)
-                        .lineLimit(1)
+        Group {
+            if guideGoesBelow, let tipOffset {
+                VStack(alignment: .trailing, spacing: 8) {
+                    details
+                    CueBallGuideView(tipOffset: tipOffset)
                 }
-                if let blockedReason {
-                    Text(blockedReason)
-                        .hudFont(.body, weight: .semibold)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else if let headline {
-                    // One line at the default text size; wraps rather than
-                    // clips when Dynamic Type or a narrow phone needs it.
-                    Text(headline)
-                        .hudFont(.headline, weight: .heavy)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+            } else {
+                HStack(alignment: .center, spacing: 16) {
+                    details
+                    if showsGuide, let tipOffset {
+                        CueBallGuideView(tipOffset: tipOffset)
+                    }
                 }
-                if let aimAdvice, blockedReason == nil {
-                    Text(aimAdvice)
-                        .hudFont(.body, weight: .semibold)
-                        .foregroundStyle(textTint)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if chosenByPlayer {
-                    Text(hint)
-                        .hudFont(.caption)
-                        .foregroundStyle(Theme.hudTextSecondary.color)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            if showsGuide, let tipOffset {
-                CueBallGuideView(tipOffset: tipOffset)
             }
         }
         .padding(.horizontal, 18)
@@ -250,6 +244,47 @@ public struct ShotCard: View {
         .accessibilityIdentifier("shot-card")
     }
 
+    /// The text column: tier, who chose it, the call, the aim advice.
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .center, spacing: 12) {
+                tierChip
+                // Wraps instead of truncating ("Best availa…") when the
+                // guide tile leaves the column narrow.
+                Text(provenance)
+                    .hudFont(.body, weight: .semibold)
+                    .foregroundStyle(Theme.hudTextSecondary.color)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let blockedReason {
+                Text(blockedReason)
+                    .hudFont(.body, weight: .semibold)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let headline {
+                // One line at the default text size; wraps rather than
+                // clips when Dynamic Type or a narrow phone needs it.
+                Text(HUDCopy.keepingWordsWhole(headline))
+                    .hudFont(.headline, weight: .heavy)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let aimAdvice, blockedReason == nil {
+                Text(aimAdvice)
+                    .hudFont(.body, weight: .semibold)
+                    .foregroundStyle(aimOnLine ? Theme.easyText.color : textTint)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if chosenByPlayer {
+                Text(releaseHint)
+                    .hudFont(.caption)
+                    .foregroundStyle(Theme.hudTextSecondary.color)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     /// The tier as an icon AND a word: colour is the third signal, not
     /// the only one.
     private var tierChip: some View {
@@ -263,6 +298,8 @@ public struct ShotCard: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 4)
         .overlay(Capsule().stroke(tint, lineWidth: 2))
+        // The tier word is never allowed to break ("HA / RD").
+        .fixedSize()
     }
 
     var accessibilityText: String {
