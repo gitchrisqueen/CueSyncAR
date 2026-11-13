@@ -80,6 +80,25 @@ The third re-score is in flight on `claude/ux-rescore-3`. It can judge the
 HUD from the gallery, but not the new overlay: the iPad stayed locked all
 evening, so no device still of the current build exists.
 
+**02:15. Third re-score: 70.0/100, plus or minus 6**
+(`docs/design/2026-11-13-ux-rescore-3.md`, merged at `5473712`). Three
+scores on one rubric: 48, 63, 70. Four of the eight checks pass (size,
+overlay clutter, no developer text, state coverage). Trust 2.5 to 3.5.
+**This does not show the target is met.** The score rests on Simulator
+stills for the HUD and on an OLD device still for the overlay (the
+reviewer kept that lens at 3.5 and says the old still alone would earn 3,
+which would make 69). Its first recommendation is a capture of the
+current build on the iPad in a dim and a bright room.
+
+New defects it found, in flight on `claude/hud-called`: a called shot can
+name two different pockets on one card; the called card is four rows tall;
+the card jumps 9 px when the aim goes off line; the blocked card's reason
+does not match what is drawn; Settings picker values under 4.5:1; "Open"
+in Settings against "Any group" in the bar; "cushion-nose" in setup words.
+
+Blocked on the owner: unlocking the iPad (it runs `65c86a8`), the
+accuracy-target decision, and the tape measurement of the table.
+
 ### 2026-11-12, 04:00 — `65c86a8` green and on the iPad; the Simulator will not boot
 
 `claude/state-gallery` (`2f8aa8d`) is merged: 42 seeded HUD scenes behind
