@@ -56,7 +56,6 @@ struct SettingsView: View {
                     computeSection
                 }
                 guidesSection
-                trackingSection
                 practiceSection
                 FeedbackSettingsSection()
                 voiceSection
@@ -91,9 +90,9 @@ struct SettingsView: View {
             }
             .accessibilityIdentifier("settings-table-size")
         } header: {
-            Text(SheetCopy.Settings.tableHeader)
+            SheetHeader(SheetCopy.Settings.tableHeader)
         } footer: {
-            Text(SheetCopy.Settings.tableFooter)
+            SheetFootnote(SheetCopy.Settings.tableFooter)
         }
     }
 
@@ -129,9 +128,9 @@ struct SettingsView: View {
                     reloadSavedTables()
                 }
             } header: {
-                Text(SheetCopy.Settings.savedHeader)
+                SheetHeader(SheetCopy.Settings.savedHeader)
             } footer: {
-                Text(savedTables.count >= SavedTableIndex.capacity
+                SheetFootnote(savedTables.count >= SavedTableIndex.capacity
                      ? SheetCopy.Settings.savedFooterFull
                      : SheetCopy.Settings.savedFooter)
             }
@@ -160,9 +159,9 @@ struct SettingsView: View {
             .accessibilityIdentifier("settings-detection-provider")
             LabeledContent("Running on", value: model.effectiveDetectionProviderTitle)
         } header: {
-            Text("Detection")
+            SheetHeader("Detection")
         } footer: {
-            Text(model.canUseHostedDetection
+            SheetFootnote(model.canUseHostedDetection
                  ? "The hosted detector also needs a model picked under Developer; without one the bundled model keeps running."
                  : "The hosted detector needs a Roboflow API key in Secrets.xcconfig. Without one the bundled model is used.")
         }
@@ -196,9 +195,9 @@ struct SettingsView: View {
             .disabled(!computePinnedToCPU)
             .accessibilityIdentifier("settings-detector-compute-reset")
         } header: {
-            Text("Detector compute")
+            SheetHeader("Detector compute")
         } footer: {
-            Text("""
+            SheetFootnote("""
                 The bundled model asks for the Neural Engine unless the last \
                 run crashed inside it (then it stays on the CPU until you \
                 retry) or you pin the CPU here. Both take effect on the next \
@@ -214,33 +213,19 @@ struct SettingsView: View {
             slider(binding(\.guideSpeed),
                    range: SettingsModel.guideSpeedRange,
                    step: 0.1,
-                   label: SheetCopy.Settings.guideSpeed,
-                   value: String(format: "%.1f m/s", model.settings.guideSpeed))
+                   label: SheetCopy.Settings.shotStrength,
+                   value: HUDCopy.shotStrengthWord(speed: model.settings.guideSpeed,
+                                                   range: SettingsModel.guideSpeedRange))
                 .accessibilityIdentifier("settings-guide-speed")
         } header: {
-            Text(SheetCopy.Settings.guidesHeader)
+            SheetHeader(SheetCopy.Settings.guidesHeader)
         } footer: {
-            Text(SheetCopy.Settings.guidesFooter)
-        }
-    }
-
-    private var trackingSection: some View {
-        Section {
-            slider(binding(\.visibleMissGrace),
-                   range: SettingsModel.visibleMissGraceRange,
-                   step: 0.05,
-                   label: SheetCopy.Settings.missGrace,
-                   value: String(format: "%.2f s", model.settings.visibleMissGrace))
-                .accessibilityIdentifier("settings-visible-miss-grace")
-        } header: {
-            Text(SheetCopy.Settings.trackingHeader)
-        } footer: {
-            Text(SheetCopy.Settings.trackingFooter)
+            SheetFootnote(SheetCopy.Settings.guidesFooter)
         }
     }
 
     private var practiceSection: some View {
-        Section(SheetCopy.Settings.practiceHeader) {
+        Section {
             Picker(SheetCopy.Settings.practiceMode, selection: binding(\.practiceMode)) {
                 ForEach(PracticeMode.allCases, id: \.self) { mode in
                     Text(mode.title).tag(mode)
@@ -263,6 +248,8 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+        } header: {
+            SheetHeader(SheetCopy.Settings.practiceHeader)
         }
     }
 
@@ -289,9 +276,9 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings-speech-test")
             }
         } header: {
-            Text(SheetCopy.Settings.voiceHeader)
+            SheetHeader(SheetCopy.Settings.voiceHeader)
         } footer: {
-            Text("""
+            SheetFootnote("""
                 \(model.settings.speechVerbosity.detail)
 
                 \(SheetCopy.Settings.voiceFooterTail)
@@ -324,7 +311,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings-lock-developer")
             }
         } header: {
-            Text(SheetCopy.Settings.aboutHeader)
+            SheetHeader(SheetCopy.Settings.aboutHeader)
         }
     }
 
@@ -337,6 +324,12 @@ struct SettingsView: View {
                     .font(.footnote.monospaced())
                     .textSelection(.enabled)
             }
+            slider(binding(\.visibleMissGrace),
+                   range: SettingsModel.visibleMissGraceRange,
+                   step: 0.05,
+                   label: "Visible-miss grace",
+                   value: String(format: "%.2f s", model.settings.visibleMissGrace))
+                .accessibilityIdentifier("settings-visible-miss-grace")
             Toggle("Show record button in HUD", isOn: $showRecordButton)
                 .accessibilityIdentifier("settings-pin-record-button")
             Toggle("Front camera preview", isOn: Binding(
@@ -366,9 +359,9 @@ struct SettingsView: View {
                     .textSelection(.enabled)
             }
         } header: {
-            Text("Developer")
+            SheetHeader("Developer")
         } footer: {
-            Text("""
+            SheetFootnote("""
                 The mirror serves the live screen and tracking state to any \
                 browser on this Wi-Fi; it is also on the More sheet, one tap \
                 from the HUD, because it is how a parked iPad is watched.

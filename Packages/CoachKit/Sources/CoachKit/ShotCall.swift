@@ -196,6 +196,38 @@ public enum BallNaming {
         }
     }
 
+    /// The name that LEADS the shot card's headline: the number first when
+    /// it is known, then the colour, so two maroon balls on a full rack
+    /// ("7 MAROON", "15 MAROON STRIPE") cannot be mistaken for each other.
+    ///
+    /// - A number is shown only when the tracker's `kind` carries one (it
+    ///   does so only past its own confidence gate, or from a player's
+    ///   correction) and the measured colour does not contradict it. A
+    ///   contradiction drops the number and keeps what was actually seen.
+    /// - No number: the colour alone ("Maroon ball").
+    /// - Neither: "Ball". A colour is never invented.
+    public static func leadName(kind: Ball.Kind, colour: String? = nil) -> String {
+        let seen = colour?.lowercased()
+        switch kind {
+        case .cue: return "Cue ball"
+        case .eight: return "8-ball"
+        case .solid(let number):
+            guard let implied = colourOfSolid(number) else { return name(kind: .unknown, colour: seen) }
+            if let seen, seen != implied { return name(kind: .unknown, colour: seen) }
+            return "\(number) \(capitalised(implied))"
+        case .stripe(let number):
+            guard let implied = colourOfSolid(number - 8) else { return name(kind: .unknown, colour: seen) }
+            if let seen, seen != implied { return word(seen, noun: "stripe") }
+            return "\(number) \(capitalised(implied)) stripe"
+        case .unknown:
+            return name(kind: .unknown, colour: seen)
+        }
+    }
+
+    private static func capitalised(_ text: String) -> String {
+        "\(text.prefix(1).uppercased())\(text.dropFirst())"
+    }
+
     private static func colourOfSolid(_ number: Int) -> String? {
         guard (1...setColours.count).contains(number) else { return nil }
         return setColours[number - 1]
@@ -216,10 +248,36 @@ public struct ShotCall: Sendable, Equatable {
     /// "right side pocket", or nil while the view of the table is unknown.
     /// Never the table-axis name: a wrong direction is worse than none.
     public let pocket: String?
+    /// The ball as the card's headline leads with it: number first when
+    /// known ("7 Maroon"), see `BallNaming.leadName`. Equal to `ball`
+    /// when not given.
+    public let leadBall: String
 
-    public init(ball: String, pocket: String?) {
+    public init(ball: String, pocket: String?, leadBall: String? = nil) {
         self.ball = ball
         self.pocket = pocket
+        self.leadBall = leadBall ?? ball
+    }
+
+    /// The call for ONE ball, built from that ball's own entry in `state`
+    /// and that ball's own measured colour and nothing else. The card and
+    /// the overlay's highlight both start from the same `BallID`, and this
+    /// is the only place that turns the id into words, so they cannot name
+    /// different balls: a table with two maroon balls still gives each its
+    /// own name.
+    ///
+    /// - Parameters:
+    ///   - id: the rated ball.
+    ///   - state: the table the rating was made on.
+    ///   - colour: that ball's measured colour family, if any.
+    ///   - pocket: the camera-relative pocket name, nil while unknown.
+    public static func make(ball id: BallID, in state: TableState?, colour: String?,
+                            pocket: String?) -> ShotCall {
+        guard let kind = state?.ball(id)?.kind else {
+            return ShotCall(ball: "Ball", pocket: pocket, leadBall: "Ball")
+        }
+        return ShotCall(ball: BallNaming.name(kind: kind, colour: colour), pocket: pocket,
+                        leadBall: BallNaming.leadName(kind: kind, colour: colour))
     }
 
     /// The card's line: "Blue ball → right side pocket".

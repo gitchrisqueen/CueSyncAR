@@ -52,7 +52,7 @@ final class SeededHUDUITests: XCTestCase {
 
     func testSeededTableShowsTheLiveHUD() {
         let app = launchSeeded("open")
-        waitForCapsule(app, containing: "Tracking 5 balls")
+        waitForCapsule(app, containing: "Tracking 4 balls")
 
         let card = element(app, "shot-card")
         XCTAssertTrue(card.waitForExistence(timeout: 10),
@@ -94,7 +94,7 @@ final class SeededHUDUITests: XCTestCase {
         // Pinned off, so an earlier run's stored choice cannot decide this one.
         off.launchArguments += ["-seedTable", "open", "-ballGroup", "any", "-showScoreboard", "0"]
         off.launch()
-        waitForCapsule(off, containing: "Tracking 5 balls")
+        waitForCapsule(off, containing: "Tracking 4 balls")
         XCTAssertFalse(element(off, "score-chip").exists, "scoreboard is on by default")
         off.terminate()
 
@@ -108,7 +108,7 @@ final class SeededHUDUITests: XCTestCase {
 
     func testChoosingAGroupReRanksAndChangesTheCard() {
         let app = launchSeeded("open")
-        waitForCapsule(app, containing: "Tracking 5 balls")
+        waitForCapsule(app, containing: "Tracking 4 balls")
         let card = element(app, "shot-card")
         let menu = element(app, "hud-state-menu")
         XCTAssertTrue(card.waitForExistence(timeout: 30), "no shot card")
@@ -140,7 +140,7 @@ final class SeededHUDUITests: XCTestCase {
     /// shows no card rather than a card for a shot that cannot be made.
     func testBlockedLayoutOffersNoShot() {
         let app = launchSeeded("blocked")
-        waitForCapsule(app, containing: "Tracking 2 balls")
+        waitForCapsule(app, containing: "Tracking 1 ball")
         // Tracking and the ranking are installed by one call, so the
         // capsule being up means the (empty) suggestion is already settled.
         XCTAssertFalse(element(app, "shot-card").exists,
@@ -154,7 +154,7 @@ final class SeededHUDUITests: XCTestCase {
     /// A full rack has nothing to rank: the card area says to break.
     func testFullRackSaysBreakTheRack() {
         let app = launchSeeded("rack")
-        waitForCapsule(app, containing: "Tracking 16 balls")
+        waitForCapsule(app, containing: "Tracking 15 balls")
         XCTAssertTrue(element(app, "shot-empty").waitForExistence(timeout: 10),
                       "no 'Break the rack' capsule on a full rack")
         XCTAssertFalse(element(app, "shot-card").exists)
@@ -167,7 +167,7 @@ final class SeededHUDUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-seedTable", "open"]
         app.launch()
-        waitForCapsule(app, containing: "Tracking 5 balls")
+        waitForCapsule(app, containing: "Tracking 4 balls")
         XCTAssertFalse(element(app, "build-badge").exists, "build badge visible without the argument")
         let more = app.buttons["more-button"]
         XCTAssertTrue(more.waitForExistence(timeout: 10))
@@ -183,7 +183,7 @@ final class SeededHUDUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-seedTable", "open", "-developerModeUnlocked", "YES"]
         app.launch()
-        waitForCapsule(app, containing: "Tracking 5 balls")
+        waitForCapsule(app, containing: "Tracking 4 balls")
         XCTAssertTrue(element(app, "build-badge").waitForExistence(timeout: 10),
                       "build badge missing with -developerModeUnlocked YES")
         let more = app.buttons["more-button"]

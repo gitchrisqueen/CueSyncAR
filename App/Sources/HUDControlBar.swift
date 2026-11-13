@@ -74,7 +74,10 @@ struct HUDControlBar: View {
                 if model.usingFrontCamera {
                     backCameraButton
                 } else {
-                    if model.tableCalibration == nil || model.calibrationVisible {
+                    // Also when the locked table no longer fits (the capsule
+                    // says "Table moved?"): the way to fix it is in the bar too.
+                    if model.tableCalibration == nil || model.calibrationVisible
+                        || model.calibrationIsStale {
                         setUpTableButton
                     }
                     stateMenu

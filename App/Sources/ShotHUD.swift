@@ -30,8 +30,10 @@ struct ShotAdviceCluster: View {
     @Environment(SessionModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// What the slot shows now. The card outranks the bare guide.
+    /// What the slot shows now. A payoff outranks everything for its second;
+    /// the card outranks the bare guide.
     private enum Content {
+        case payoff(PayoffEvent)
         case empty(ShotEmptyState)
         case shot(ShotRating)
         case guide(ShotGuide)
@@ -43,6 +45,9 @@ struct ShotAdviceCluster: View {
         // (`HUDStatus.allowsShotAdvice`). The capsule says why.
         guard model.isLiveTracking, !model.calibrationIsStale,
               model.hudStatus?.allowsShotAdvice ?? true else { return nil }
+        // A made shot, a miss or a scratch takes the card's slot for about
+        // 1.2 s, then the card comes back. Nothing stacks under the card.
+        if let payoff = model.feedback.payoff { return .payoff(payoff) }
         // A full rack or no clean pot: say so, instead of the card
         // vanishing and the player wondering if the app has stopped. A
         // rack outranks any shot rated into it.
@@ -66,7 +71,7 @@ struct ShotAdviceCluster: View {
                     .transition(cardTransition)
             }
         }
-        .animation(reduceMotion ? .easeInOut(duration: 0.15) : .easeInOut(duration: 0.22),
+        .animation(.easeInOut(duration: PayoffTiming.fadeSeconds(reduceMotion: reduceMotion)),
                    value: contentKey)
         .allowsHitTesting(false)
     }
@@ -74,6 +79,9 @@ struct ShotAdviceCluster: View {
     @ViewBuilder
     private func slot(_ content: Content) -> some View {
         switch content {
+        case .payoff(let event):
+            PayoffCard(event: event)
+                .id(event.id)
         case .empty(let state):
             ShotEmptyCapsule(state: state)
         case .shot(let shot):
@@ -91,6 +99,7 @@ struct ShotAdviceCluster: View {
     /// Changes when the slot changes what it shows, so the fade runs.
     private var contentKey: String {
         switch content {
+        case .payoff(let event): "payoff.\(event.id)"
         case .empty(let state): "empty.\(state.text)"
         case .shot: "shot.\(shotKey)"
         case .guide: "guide"
@@ -103,7 +112,8 @@ struct ShotAdviceCluster: View {
     }
 
     private var cardTransition: AnyTransition {
-        reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96))
+        PayoffTiming.scalesIn(reduceMotion: reduceMotion)
+            ? .opacity.combined(with: .scale(scale: 0.96)) : .opacity
     }
 
     /// The card: the ball and the pocket in the player's words as one big
@@ -111,14 +121,20 @@ struct ShotAdviceCluster: View {
     /// is not centre ball. The percentage is not shown; it stays in the
     /// mirror's state.json.
     private func card(for shot: ShotRating) -> some View {
-        let call = shot.blocker == nil ? model.shotCall(for: shot) : nil
-        return ShotCard(ball: call?.ball,
-                        pocket: call?.pocket,
+        // The name comes from the rated ball's own id and nothing else
+        // (`ShotCall.make`), the same id the overlay highlights.
+        let call = model.shotCall(for: shot)
+        let blocked = shot.blocker != nil
+        let aim = blocked ? nil : model.aimLine
+        return ShotCard(ball: call.ball,
+                        leadBall: call.leadBall,
+                        pocket: blocked ? nil : call.pocket,
                         confidence: ShotConfidence(model.shownDifficulty(of: shot)),
                         chosenByPlayer: model.targetIsPlayerChosen,
-                        blockedReason: shot.blocker == nil ? nil : shot.headline,
-                        aimAdvice: model.targetCorrection?.advice,
-                        aimOnLine: model.targetCorrection == .onLine,
+                        blockedReason: blocked ? shot.headline : nil,
+                        aimAdvice: aim?.text,
+                        aimTone: aim?.tone ?? .neutral,
+                        calledPocket: model.calledPocketName,
                         tipOffset: model.shotGuide?.tipOffset)
     }
 }

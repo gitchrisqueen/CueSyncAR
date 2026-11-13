@@ -17,6 +17,7 @@
 
 import CoachKit
 import CueSyncCore
+import CueSyncUI
 import Foundation
 import Observation
 import os
@@ -49,6 +50,9 @@ final class FeedbackCenter {
     // MARK: Observed by the views
 
     private(set) var banner: Banner?
+    /// A made shot, a miss or a scratch, while it holds the shot card's slot
+    /// (CueSyncUI.PayoffEvent). Nil the rest of the time.
+    private(set) var payoff: PayoffEvent?
     /// Bumped on each table lock and made ball; the views animate on change.
     private(set) var lockFlashCount = 0
     private(set) var madePulseCount = 0
@@ -68,6 +72,7 @@ final class FeedbackCenter {
     @ObservationIgnored private let haptics = FeedbackHaptics()
     @ObservationIgnored private let sounds = FeedbackSounds()
     @ObservationIgnored private var bannerTask: Task<Void, Never>?
+    @ObservationIgnored private var payoffTask: Task<Void, Never>?
     @ObservationIgnored private var samplingTask: Task<Void, Never>?
     @ObservationIgnored private var nextBannerID = 0
     /// Keeps a banner up at least this long. Set only by the Simulator's
@@ -116,8 +121,18 @@ final class FeedbackCenter {
         }
 
         guard let text else { return }
-        show(Banner(id: nextBannerID, text: text, tone: entry.tone, symbol: entry.symbol),
-             for: entry.bannerDuration)
+        // Where a sighted player sees it: a pill, the shot card's slot, or
+        // nowhere because something else on screen already says it. It is
+        // announced and spoken either way.
+        switch entry.placement {
+        case .pill:
+            show(Banner(id: nextBannerID, text: text, tone: entry.tone, symbol: entry.symbol),
+                 for: entry.bannerDuration)
+        case .cardSlot:
+            showPayoff(for: event)
+        case .none:
+            break
+        }
         if entry.announce {
             #if canImport(UIKit)
             UIAccessibility.post(notification: .announcement, argument: text)
@@ -131,6 +146,28 @@ final class FeedbackCenter {
     private func record(_ record: FeedbackRecord) {
         records.append(record)
         Self.log.notice("\(record.logLine, privacy: .public)")
+    }
+
+    /// Put a payoff in the card's slot for `PayoffTiming.holdSeconds`.
+    private func showPayoff(for event: FeedbackEvent) {
+        let kind: PayoffEvent.Kind
+        switch event {
+        case .shotMade: kind = .made
+        case .shotMadeOther: kind = .madeOther
+        case .shotMissed: kind = .missed
+        case .scratch: kind = .scratch
+        default: return
+        }
+        nextBannerID += 1
+        payoff = PayoffEvent(id: nextBannerID, kind: kind, streak: score.streak,
+                             made: score.made, attempted: score.attempted)
+        payoffTask?.cancel()
+        let hold = max(PayoffTiming.holdSeconds(for: kind), bannerHoldOverride ?? 0)
+        payoffTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(hold))
+            guard !Task.isCancelled else { return }
+            self?.payoff = nil
+        }
     }
 
     private func show(_ next: Banner, for duration: TimeInterval) {

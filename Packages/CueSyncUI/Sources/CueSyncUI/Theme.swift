@@ -50,14 +50,35 @@ public enum Theme {
     /// Text-grade siblings of the three shot-tier colours.
     public static let easyText = ColorToken(0x5FE3A1)
     public static let fairText = ColorToken(0xFFC247)
+    /// Red-family text: a blocked shot, a scratch, a failure. NOT a hard
+    /// shot: a playable shot that is difficult is not a fault.
     public static let hardText = ColorToken(0xFFA595)
+
+    /// A hard shot has a colour of its own, orange, apart from FAIR's amber
+    /// and from the red a blocked shot and an error use. The independent
+    /// review read the shared red as "this shot is a fault". The shape (a
+    /// triangle) and the word still carry the meaning.
+    public static let hardTier = ColorToken(0xFF8A3D)
+    public static let hardTierText = ColorToken(0xFFB070)
+
+    // MARK: Sheet text
+    //
+    // Section footnotes and headers in the More and Settings sheets used
+    // the system secondary grey: 3.29 : 1 on the grouped background. These
+    // are the same quiet grey, at least 4.5 : 1 in both appearances.
+    public static let sheetSecondaryLight = ColorToken(0x636366)
+    public static let sheetSecondaryDark = ColorToken(0xAEAEB2)
+    /// The grouped backgrounds they sit on, for the contrast test.
+    public static let sheetGroundLight = ColorToken(0xF2F2F7)
+    public static let sheetGroundDark = ColorToken(0x1C1C1E)
 
     /// Every (text colour, what it is) the HUD draws over the scrim. The
     /// contrast test walks this list, so a new text colour has to be added
     /// here to be used and is checked the moment it is.
     public static let hudTextColors: [(name: String, token: ColorToken)] = [
         ("primary", hudText), ("secondary", hudTextSecondary),
-        ("easy", easyText), ("fair", fairText), ("hard", hardText)
+        ("easy", easyText), ("fair", fairText), ("hard", hardText),
+        ("hard tier", hardTierText)
     ]
 }
 

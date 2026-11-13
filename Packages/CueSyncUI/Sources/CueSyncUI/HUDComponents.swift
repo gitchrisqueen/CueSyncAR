@@ -31,6 +31,9 @@ public enum HUDStatus: Sendable, Equatable {
     /// ball into it yet. Without this the screen looked the same as "no
     /// pocket called" (the called pocket itself is drawn in the AR view).
     case calledOffLine
+    /// Live tracking is healthy. `ballCount` is OBJECT balls (the cue ball
+    /// is not counted, see `TableState.objectBallCount`), the same rule as
+    /// every other count a player reads.
     case tracking(ballCount: Int)
     /// A detector is loaded and firing, but the table is not calibrated,
     /// so the pipeline is not running and NOTHING is being tracked.
@@ -70,7 +73,9 @@ public enum HUDStatus: Sendable, Equatable {
         case .awaitingCueBall: "Place the cue ball — or tap a ball to mark it"
         case .onLine: "On line — send it"
         case .calledOffLine: "Pocket called — line up the shot"
-        case .tracking(let count): "Tracking \(HUDCopy.count(count, "ball"))"
+        case .tracking(let count):
+            // A table with only the cue ball is not "tracking 0 balls".
+            count == 0 ? "No balls to shoot at" : "Tracking \(HUDCopy.count(count, "ball"))"
         case .needsCalibration(let seeing):
             seeing > 0
                 ? "Tap anywhere to calibrate — seeing \(HUDCopy.count(seeing, "object")), tracking none"
@@ -129,15 +134,24 @@ public enum HUDStatus: Sendable, Equatable {
     /// Whether a shot card may be shown under this status.
     ///
     /// A card says "EASY" in confident type. While ARKit has lost the table,
-    /// the device is moving fast, the room is too dark, or the calibration no
-    /// longer fits, the app does not know enough to say that, and dimming
+    /// the device is moving fast, the room is too dark, the calibration no
+    /// longer fits, or fewer than half the balls the app saw a moment ago are
+    /// still in view, the app does not know enough to say that, and dimming
     /// the card instead would drop its text below the contrast floor. So the
-    /// card goes and the capsule explains. `losingBalls` keeps the card: the
-    /// table is still tracked, and the overlay already fades for it.
+    /// card goes and the capsule explains.
     public var allowsShotAdvice: Bool {
         switch self {
-        case .degraded, .tableMoved: false
+        case .degraded, .tableMoved, .losingBalls: false
         default: true
+        }
+    }
+
+    /// True for a status that says the app cannot fully stand behind what
+    /// it shows. Drawn in amber, with no tick and no "Tracking N".
+    public var isWarning: Bool {
+        switch self {
+        case .degraded, .tableMoved, .losingBalls: true
+        default: false
         }
     }
 }
@@ -159,7 +173,11 @@ public struct StatusCapsule: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 8)
             .frame(minHeight: HUDMetrics.minimumTarget)
+            // Amber for a status that says "do not trust the screen yet":
+            // a fill under the text (the plate goes behind it) and a stroke.
+            .background(Capsule().fill(Theme.fairText.color.opacity(status.isWarning ? 0.20 : 0)))
             .hudPlate(Capsule())
+            .overlay(Capsule().stroke(Theme.fairText.color, lineWidth: status.isWarning ? 2 : 0))
             .accessibilityIdentifier("status-capsule")
     }
 }

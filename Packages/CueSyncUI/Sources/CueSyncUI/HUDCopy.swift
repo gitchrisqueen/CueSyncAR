@@ -46,6 +46,25 @@ public enum HUDCopy {
         return out
     }
 
+    /// "Move your aim left" / "Move your aim a little left": which way, and
+    /// of what. ("Aim left" left the player asking left of the ball, the
+    /// ghost ball or the cue.)
+    public static func aimMove(side: AimLine.Side, degrees: Double) -> String {
+        degrees < 5 ? "Move your aim a little \(side.rawValue)" : "Move your aim \(side.rawValue)"
+    }
+
+    /// The shot-strength slider's readout: a word, not metres a second.
+    public static func shotStrengthWord(speed: Double, range: ClosedRange<Double>) -> String {
+        let span = range.upperBound - range.lowerBound
+        guard span > 0 else { return "Medium" }
+        let position = (speed - range.lowerBound) / span
+        switch position {
+        case ..<(1.0 / 3.0): return "Soft"
+        case ..<(2.0 / 3.0): return "Medium"
+        default: return "Firm"
+        }
+    }
+
     /// The scoreboard chip: "3 of 5 made", with the run once it is more
     /// than one: "3 of 3 made · 3 in a row".
     public static func scoreLine(chip: String, streak: Int) -> String {

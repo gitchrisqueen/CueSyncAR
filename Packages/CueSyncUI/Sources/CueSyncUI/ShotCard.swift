@@ -35,7 +35,9 @@ public enum ShotConfidence: String, Sendable, Equatable, CaseIterable {
         switch self {
         case .easy: Theme.feltGreen
         case .medium: Theme.cueAmber
-        case .hard, .longShot, .blocked: Theme.warnCoral
+        // Orange: a hard shot is playable, so it is not the red of a block.
+        case .hard, .longShot: Theme.hardTier
+        case .blocked: Theme.warnCoral
         }
     }
 
@@ -68,7 +70,8 @@ public enum ShotConfidence: String, Sendable, Equatable, CaseIterable {
         switch self {
         case .easy: Theme.easyText
         case .medium: Theme.fairText
-        case .hard, .longShot, .blocked: Theme.hardText
+        case .hard, .longShot: Theme.hardTierText
+        case .blocked: Theme.hardText
         }
     }
 
@@ -120,6 +123,9 @@ import SwiftUI
 public struct ShotCard: View {
     /// What the ball is called: "Blue ball". Nil only when nothing is known.
     public let ball: String?
+    /// The ball as the headline leads with it, number first when known
+    /// ("7 Maroon"). Falls back to `ball`.
+    public let leadBall: String?
     /// Where the ball is going, as seen from where the player stands
     /// ("right side pocket"). Nil while the view of the table is unknown:
     /// no pocket beats a pocket named from the wrong side.
@@ -133,19 +139,27 @@ public struct ShotCard: View {
     /// the player is aiming at all. The actionable line, so it carries the
     /// tint rather than the grey.
     public let aimAdvice: String?
-    /// True when `aimAdvice` says the aim is already on line: that is good
-    /// news, so it is not tinted with a hard shot's coral.
-    public let aimOnLine: Bool
+    /// How `aimAdvice` is coloured: green when on line, amber when off
+    /// line, plain white for a nudge. Never the tier's colour: the guide
+    /// subtitle is about the aim, not the difficulty.
+    public let aimTone: AimLine.Tone
+    /// The pocket the player called, in the player's words ("far-right
+    /// corner"), shown as its own line. Nil when none is called or the
+    /// view of the table is unknown.
+    public let calledPocket: String?
     /// Where on the cue ball to strike. The tile is drawn only when this
     /// is not a centre hit.
     public let tipOffset: Vec2?
 
-    public init(ball: String?, pocket: String?, confidence: ShotConfidence,
+    public init(ball: String?, leadBall: String? = nil, pocket: String?, confidence: ShotConfidence,
                 chosenByPlayer: Bool, blockedReason: String? = nil,
-                aimAdvice: String? = nil, aimOnLine: Bool = false, tipOffset: Vec2? = nil) {
+                aimAdvice: String? = nil, aimTone: AimLine.Tone = .neutral,
+                calledPocket: String? = nil, tipOffset: Vec2? = nil) {
         self.aimAdvice = aimAdvice
-        self.aimOnLine = aimOnLine
+        self.aimTone = aimTone
+        self.calledPocket = calledPocket
         self.ball = ball
+        self.leadBall = leadBall
         self.pocket = pocket
         self.confidence = confidence
         self.chosenByPlayer = chosenByPlayer
@@ -170,13 +184,13 @@ public struct ShotCard: View {
     }
 
     /// The card's big line: "BLUE → RIGHT SIDE". See `HUDCopy.headline`.
-    var headline: String? { HUDCopy.headline(ball: ball, pocket: pocket) }
+    var headline: String? { HUDCopy.headline(ball: leadBall ?? ball, pocket: pocket) }
 
     /// The hint under the call. A suggestion must never look like the
     /// player's own decision, and one that is not good should not claim to
     /// be the best.
     var hint: String {
-        if chosenByPlayer { return "Your pick — tap again to release" }
+        if chosenByPlayer { return "Your pick — tap again to go back to the suggested shot" }
         switch confidence {
         case .easy, .medium: return "Best shot — tap a ball to pick another"
         default: return "Best available — tap a ball to pick another"
@@ -184,8 +198,24 @@ public struct ShotCard: View {
     }
 
     /// The line under the call when the player picked the ball. The tier
-    /// row already says "Your pick", so this only says how to let go.
-    var releaseHint: String { "Tap the ball again to release" }
+    /// row already says "Your pick", so this only says what a second tap
+    /// does ("release" read as a stroke, not as "undo my pick").
+    var releaseHint: String { "Tap it again to go back to the suggested shot" }
+
+    /// "CALLED: FAR-RIGHT CORNER".
+    var calledLine: String? {
+        guard blockedReason == nil, let calledPocket else { return nil }
+        return "CALLED: " + calledPocket.uppercased()
+    }
+
+    /// The tint of the aim line.
+    private var aimColor: Color {
+        switch aimTone {
+        case .good: Theme.easyText.color
+        case .caution: Theme.fairText.color
+        case .neutral: Theme.hudText.color
+        }
+    }
 
     /// Who chose this, in two words, beside the tier chip.
     var provenance: String {
@@ -239,7 +269,7 @@ public struct ShotCard: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
-        .accessibilityHint(chosenByPlayer ? "Tap the ball again to release it"
+        .accessibilityHint(chosenByPlayer ? "Tap the ball again to go back to the suggested shot"
                                           : "Tap a ball to pick another")
         .accessibilityIdentifier("shot-card")
     }
@@ -258,6 +288,14 @@ public struct ShotCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let blockedReason {
+                // Names the ball, then why: a blocked card that does not
+                // say which ball leaves the player to guess.
+                if let headline {
+                    Text(HUDCopy.keepingWordsWhole(headline))
+                        .hudFont(.headline, weight: .heavy)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Text(blockedReason)
                     .hudFont(.body, weight: .semibold)
                     .fixedSize(horizontal: false, vertical: true)
@@ -272,7 +310,13 @@ public struct ShotCard: View {
             if let aimAdvice, blockedReason == nil {
                 Text(aimAdvice)
                     .hudFont(.body, weight: .semibold)
-                    .foregroundStyle(aimOnLine ? Theme.easyText.color : textTint)
+                    .foregroundStyle(aimColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let calledLine {
+                Text(HUDCopy.keepingWordsWhole(calledLine))
+                    .hudFont(.body, weight: .bold)
+                    .foregroundStyle(Theme.hudTextSecondary.color)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if chosenByPlayer {
@@ -303,7 +347,10 @@ public struct ShotCard: View {
     }
 
     var accessibilityText: String {
-        if let blockedReason { return blockedReason }
+        if let blockedReason {
+            guard let ball else { return blockedReason }
+            return "\(ball): \(blockedReason)"
+        }
         let who = chosenByPlayer ? "Your pick" : "Suggested shot"
         let tier = confidence.tierWord.lowercased()
         var shot = "\(who), \(tier)"

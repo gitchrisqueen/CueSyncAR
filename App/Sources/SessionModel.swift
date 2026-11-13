@@ -323,7 +323,7 @@ final class SessionModel {
     }
 
     func noteDetectionHealth(_ output: PerceptionOutput) {
-        detectionHealth.observe(detected: output.state.balls.count,
+        detectionHealth.observe(detected: output.state.objectBallCount,
                                 luminance: output.luminance,
                                 at: output.state.timestamp)
         let verdict = detectionHealth.verdict(at: output.state.timestamp)

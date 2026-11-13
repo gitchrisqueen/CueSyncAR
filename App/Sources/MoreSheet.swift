@@ -71,9 +71,9 @@ struct MoreSheet: View {
                 }
             }
         } header: {
-            Text(SheetCopy.More.tableHeader)
+            SheetHeader(SheetCopy.More.tableHeader)
         } footer: {
-            Text(developerMode.isUnlocked
+            SheetFootnote(developerMode.isUnlocked
                  ? """
                    The mirror serves the live screen and tracking state to any \
                    browser on this Wi-Fi. The recorder writes a replayable \
@@ -93,7 +93,7 @@ struct MoreSheet: View {
             }
             .accessibilityIdentifier("more-settings")
         } footer: {
-            Text(SheetCopy.More.settingsFooter)
+            SheetFootnote(SheetCopy.More.settingsFooter)
         }
     }
 
@@ -104,7 +104,7 @@ struct MoreSheet: View {
                 .foregroundStyle(AppBuild.identity.isDirty ? .orange : .secondary)
                 .textSelection(.enabled)
         } footer: {
-            Text("The build this app was made from. The same string is on the HUD badge and in the mirror's header.")
+            SheetFootnote("The build this app was made from. The same string is on the HUD badge and in the mirror's header.")
         }
     }
 }
