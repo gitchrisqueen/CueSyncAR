@@ -30,8 +30,11 @@ extension SessionModel {
                         calledPocketSet: calledPocket != nil,
                         calledPocketOnLine: calledShotOnLine,
                         correction: aimCorrection,
+                        // The card is about the called pocket's own shot, so
+                        // the correction (against `displayedShot`'s ideal
+                        // aim) is always for the called pocket.
                         correctionIsForCalledPocket: calledPocket != nil
-                            && activeShot?.pocket == calledPocket)
+                            && displayedShot?.pocket == calledPocket)
     }
 
     /// The called pocket in the player's words ("far-right corner"), nil

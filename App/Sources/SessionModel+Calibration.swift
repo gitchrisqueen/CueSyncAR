@@ -137,7 +137,7 @@ extension SessionModel {
                               field.width, field.height, comparison.summary)
             if case .custom = locked.size {
                 line += " — using your measurement. Re-tap if the corners "
-                    + "weren't on the cushion noses."
+                    + "weren't where the cushions meet."
             }
             showTapFeedback(line)
             Self.log.notice("calibration locked: \(comparison.summary, privacy: .public) (max delta \(Int(comparison.maxDelta * 1000)) mm)")

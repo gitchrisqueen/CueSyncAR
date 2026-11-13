@@ -43,7 +43,10 @@ struct FeedbackSlot: View {
             } else if let message {
                 HUDToast(message: message)
             }
-            if model.settings.showScoreboard, model.isLiveTracking {
+            // The score lives IN the card (and the payoff) whenever one is
+            // showing, so nothing stacks under it; the chip is only for a
+            // screen with no card.
+            if model.settings.showScoreboard, model.isLiveTracking, model.shotSlotContent == nil {
                 ScoreChip(score: model.feedback.score)
             }
         }

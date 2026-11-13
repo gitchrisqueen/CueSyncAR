@@ -231,12 +231,11 @@ struct RootView: View {
             if case .thin(let seen, let peak, let dark) = model.detectionVerdict {
                 return .losingBalls(seen: seen, peak: peak, dark: dark)
             }
-            if model.calledShotOnLine {
-                return .onLine
-            }
-            if model.calledPocket != nil {
-                return .calledOffLine
-            }
+            // Called shots: the card carries "On line" / "Off line" (it is
+            // about the called pocket), so the capsule keeps the tracking
+            // count. Before, the capsule said "On line — send it" too (the
+            // same words twice) and hid the count while aiming, so a drop in
+            // balls showed nothing until it became a loss.
             return .tracking(ballCount: model.tableState?.objectBallCount ?? 0)
         }
         // The calibration flow owns the capsule while it's on screen.
@@ -367,7 +366,7 @@ struct SimulatorPlaceholderView: View {
                         .font(.system(size: 44))
                     Text("AR requires a physical device")
                         .font(.headline)
-                    Text("Run on an iPhone to see the table.")
+                    Text("Run on an iPhone or iPad to see the table.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

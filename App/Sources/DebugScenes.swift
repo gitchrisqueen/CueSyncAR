@@ -166,7 +166,7 @@ enum DebugScenes {
             model.seedScene(layout: "rack")
             model.feedDetectionHealth(peak: 15, now: 6, luminance: 0.6)
         },
-        Scene(name: "losing-balls-dark", about: "Only seeing 6 of 15 balls: more light would help") { model in
+        Scene(name: "losing-balls-lowlight", about: "Only seeing 6 of 15 balls in a dim room: more light would help") { model in
             model.seedScene(layout: "rack")
             model.feedDetectionHealth(peak: 15, now: 6, luminance: 0.15)
         },
@@ -258,15 +258,24 @@ enum DebugScenes {
             model.callPocket(near: Vec2(1.27, 0.635))
             model.aim(at: Vec2(0.5, 0.25))
         },
-        Scene(name: "called-off-line-aimed", about: "Called shots: the suggested pocket called, aim off: which way") { model in
+        Scene(name: "called-off-line-aimed", about: "Called shots: aim a little off the called pocket: which way") { model in
             model.seedScene(layout: "straight", mode: .calledShots)
             model.callPocket(near: Vec2(1.27, 0.635))
             model.aim(at: Vec2(0.5, 0.31))
         },
-        Scene(name: "called-off-line", about: "Called shots: pocket called, not on line") { model in
+        Scene(name: "called-off-line", about: "Called shots: a pocket the ball cannot go into is called") { model in
             model.seedScene(layout: "straight", mode: .calledShots)
             model.callPocket(near: Vec2(-1.27, 0.635))
             model.aim(at: Vec2(0.5, 0.25))
+        },
+        Scene(name: "called-no-shot", about: "Called shots: no ball can go into the called pocket") { model in
+            model.seedScene(layout: "straight", mode: .calledShots)
+            model.callPocket(near: Vec2(-1.27, -0.635))
+        },
+        Scene(name: "blocked-called", about: "Called shots: a blocked pick, the reason is for the called pocket") { model in
+            model.seedScene(layout: "pickblock", mode: .calledShots)
+            model.callPocket(near: Vec2(1.27, 0.635))
+            model.pickAnotherBall(preferring: BallID(4))
         },
         Scene(name: "recording", about: "Recording in progress (the real recorder)") { model in
             model.seedScene(layout: "open")

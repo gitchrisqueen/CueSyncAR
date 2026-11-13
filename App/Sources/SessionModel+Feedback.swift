@@ -22,7 +22,8 @@ import Foundation
 extension SessionModel {
 
     var feedbackPrefs: FeedbackCenter.Prefs {
-        .init(sounds: settings.soundsEnabled, haptics: settings.hapticsEnabled)
+        .init(sounds: settings.soundsEnabled, haptics: settings.hapticsEnabled,
+              scoreboard: settings.showScoreboard)
     }
 
     /// Post one event through the throttle, with the player's settings.

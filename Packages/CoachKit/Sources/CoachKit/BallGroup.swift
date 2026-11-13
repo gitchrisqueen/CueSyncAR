@@ -56,10 +56,12 @@ public enum BallGroup: String, Sendable, Codable, CaseIterable, Equatable {
         }
     }
 
-    /// Short label for the HUD ("Solids", "Stripes", "8-ball", "Open").
+    /// Short label for the HUD and Settings ("Solids", "Stripes", "8-ball",
+    /// "Any group"). One name for one setting: the bar and Settings both say
+    /// "Any group".
     public var label: String {
         switch self {
-        case .any: "Open"
+        case .any: "Any group"
         case .solids: "Solids"
         case .stripes: "Stripes"
         case .eight: "8-ball"

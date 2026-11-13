@@ -88,7 +88,7 @@ final class SeededHUDUITests: XCTestCase {
         XCTAssertTrue(banner.label.hasPrefix("Table locked"), banner.label)
     }
 
-    /// The scoreboard is off until asked for, and a chip once it is on.
+    /// The scoreboard is off until asked for, and folded into the card once it is on.
     func testScoreboardChipFollowsTheSetting() {
         let off = XCUIApplication()
         // Pinned off, so an earlier run's stored choice cannot decide this one.
@@ -96,14 +96,18 @@ final class SeededHUDUITests: XCTestCase {
         off.launch()
         waitForCapsule(off, containing: "Tracking 4 balls")
         XCTAssertFalse(element(off, "score-chip").exists, "scoreboard is on by default")
+        XCTAssertFalse(off.staticTexts.containing(NSPredicate(format: "label == '0 of 0'")).firstMatch.exists,
+                       "a score on the card with the scoreboard off")
         off.terminate()
 
         let on = XCUIApplication()
         on.launchArguments += ["-seedTable", "open", "-ballGroup", "any", "-showScoreboard", "1"]
         on.launch()
-        let chip = element(on, "score-chip")
-        XCTAssertTrue(chip.waitForExistence(timeout: 60), "no scoreboard chip with the setting on")
-        XCTAssertEqual(chip.label, "No shots yet this session")
+        // With a shot card showing, the score is part of the card ("0 of 0"),
+        // so nothing stacks under it; the chip is only for a screen with no card.
+        let score = on.staticTexts.containing(NSPredicate(format: "label == '0 of 0'")).firstMatch
+        XCTAssertTrue(score.waitForExistence(timeout: 60), "no score on the card with the setting on")
+        XCTAssertFalse(element(on, "score-chip").exists, "a score chip stacked under the card")
     }
 
     func testChoosingAGroupReRanksAndChangesTheCard() {

@@ -26,9 +26,12 @@ public enum HUDStatus: Sendable, Equatable {
     case awaitingCueBall
     /// Called-shot mode: the prediction sends an object ball into the
     /// called pocket.
+    /// Not produced by the app any more: the shot card carries "On line" and
+    /// "Off line" (it is about the called pocket), and the capsule keeps the
+    /// tracking count. Kept for the mirror and the speech switch.
     case onLine
     /// Called-shot mode: a pocket is called and the aim does not send a
-    /// ball into it yet. Without this the screen looked the same as "no
+    /// ball into it yet. Not produced by the app any more (see `onLine`). Without this the screen looked the same as "no
     /// pocket called" (the called pocket itself is drawn in the AR view).
     case calledOffLine
     /// Live tracking is healthy. `ballCount` is OBJECT balls (the cue ball
@@ -68,8 +71,8 @@ public enum HUDStatus: Sendable, Equatable {
         switch self {
         case .launching: "Starting…"
         case .findingTable: "Point at the table"
-        case .placingCorners(let placed): "Tap the cushion-nose corners (\(placed)/4)"
-        case .confirmingRails: "Drag dots onto the cushion noses, then lock"
+        case .placingCorners(let placed): "Tap the four corners where the cushions meet (\(placed)/4)"
+        case .confirmingRails: "Drag each dot to a corner where the cushions meet, then lock"
         case .awaitingCueBall: "Place the cue ball — or tap a ball to mark it"
         case .onLine: "On line — send it"
         case .calledOffLine: "Pocket called — line up the shot"
@@ -94,6 +97,10 @@ public enum HUDStatus: Sendable, Equatable {
         case .tableMoved: "Table moved? Re-calibrate"
         }
     }
+
+    /// Labels up to this many characters are drawn on one line at their
+    /// natural width.
+    public static let singleLineLimit = 20
 
     public var systemImage: String {
         switch self {
@@ -167,9 +174,17 @@ public struct StatusCapsule: View {
     }
 
     public var body: some View {
-        Label(status.label, systemImage: status.systemImage)
-            .hudFont(.body)
-            .multilineTextAlignment(.center)
+        HStack(spacing: 8) {
+            HUDIcon(status.systemImage)
+            Text(status.label)
+                .hudFont(.body)
+                .multilineTextAlignment(.center)
+                // A short status is never squeezed onto two lines or cut to
+                // "Tracking 4 ba…" by whatever width it was offered (seen in
+                // the scoreboard scene); a long one wraps instead of
+                // overflowing a narrow screen.
+                .fixedSize(horizontal: status.label.count <= HUDStatus.singleLineLimit, vertical: true)
+        }
             .padding(.horizontal, 18)
             .padding(.vertical, 8)
             .frame(minHeight: HUDMetrics.minimumTarget)
