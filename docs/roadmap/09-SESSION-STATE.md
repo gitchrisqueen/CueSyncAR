@@ -60,6 +60,26 @@ In flight on that report, neither needs the device:
   per meaning, and contrast held on black, green and blue cloth.
 After both merge: a third independent re-score.
 
+**2026-11-13, 01:30. Both merged at `299ffce`, green and pushed.** From clean:
+`Scripts/test-all.sh` exit 0 (11 test runs), Release iphoneos
+`** BUILD SUCCEEDED **`, swiftlint 16 violations, 0 serious.
+- `claude/overlay-contrast` (`8c1229a`): the object leg is white and 26 mm
+  wide, the cue leg cyan and 16 mm, the pocket ring pink and larger, every
+  role its own hue, each on a dark casing so it holds at least 6.8:1 on
+  black, green and blue cloth. It edited the four golden replay fixtures;
+  a token-by-token comparison shows only the three recorded colour values
+  changed. Nothing of this has been seen on real cloth.
+- `claude/hud-truth` (`c08cab0`): one amber capsule when tracking is lost
+  (no tick, no count, no card, no pill), "On line" only with a called
+  pocket and a matching aim, object-ball counts everywhere, a made shot as
+  a 1.2 s event in the card slot, 28 pt status text on iPad, HARD orange
+  and BLOCKED red, number-first ball names when the tracker has a number,
+  Settings in player words. 24 of 24 UI tests pass on the SE; the gallery
+  is re-captured (182 stills, 46 scenes).
+The third re-score is in flight on `claude/ux-rescore-3`. It can judge the
+HUD from the gallery, but not the new overlay: the iPad stayed locked all
+evening, so no device still of the current build exists.
+
 ### 2026-11-12, 04:00 — `65c86a8` green and on the iPad; the Simulator will not boot
 
 `claude/state-gallery` (`2f8aa8d`) is merged: 42 seeded HUD scenes behind
