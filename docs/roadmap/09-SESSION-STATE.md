@@ -99,6 +99,32 @@ in Settings against "Any group" in the bar; "cushion-nose" in setup words.
 Blocked on the owner: unlocking the iPad (it runs `65c86a8`), the
 accuracy-target decision, and the tape measurement of the table.
 
+**03:30. `claude/hud-called` (`a5de2fb`) merged at `09edfd3`, green and
+pushed.** From clean: `Scripts/test-all.sh` exit 0 (11 test runs), Release
+iphoneos `** BUILD SUCCEEDED **`, swiftlint 16 violations, 0 serious. A
+called card names one pocket, every card is three rows at most, the capsule
+no longer makes the card jump, the blocked card gives the true reason,
+Settings values clear 4.5:1, and setup prompts use plain words. 26 of 26 UI
+tests pass on the iPad simulator; the gallery is 212 stills.
+
+Known and left:
+- "Device on a stand" is off by default on a fresh install. Whether a
+  tripod product should ship with it on is the owner's decision.
+- `ShotRanking.best` keeps the first pocket by id when every pocket of a
+  ball is blocked, so its blocker can be a cut for a pocket behind the ball
+  while another ball is squarely in the way. `ShotRankingPropertyTests`
+  pins that ordering as the ranking's contract, so it was not changed. The
+  card builds its own reason from all six pockets (`BlockedReason`); the
+  mirror, the log and the spoken line still use the first-pocket reason.
+- Three card rows still reach the far rail slightly on the iPad's framing
+  (estimated from the Simulator).
+
+**Nothing is running.** Every remaining item needs the owner or the device:
+install and verify the current build on the iPad (16 of 16 with the paced
+tile, true latency, ball names, the new overlay colours on real cloth, the
+HUD over a live camera, the stale-lock banner on the new HUD), capture it in
+a dim and a bright room, then a fourth re-score from device stills.
+
 ### 2026-11-12, 04:00 — `65c86a8` green and on the iPad; the Simulator will not boot
 
 `claude/state-gallery` (`2f8aa8d`) is merged: 42 seeded HUD scenes behind
