@@ -45,3 +45,11 @@ with neither number nor colour (the card says BALL). `cue-ball-only` and
 `one-ball` are the two readings of "one ball": only the cue ball ("No balls to
 shoot at") and one object ball ("Tracking 1 ball"). Every ball count is
 object balls: a full rack is 15.
+
+## Scenes for the called-shot pass
+
+`called-on-line`, `called-off-line-aimed`, `called-off-line` (a pocket the ball
+cannot go into is called: the slot says so), `called-no-shot` and
+`blocked-called` (a blocked pick with a pocket called: the reason is for that
+pocket). `losing-balls-lowlight` is the dim-room variant of `losing-balls`
+(it was `losing-balls-dark`, a name that read as the dark appearance).

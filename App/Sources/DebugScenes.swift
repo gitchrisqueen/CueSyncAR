@@ -263,7 +263,7 @@ enum DebugScenes {
             model.callPocket(near: Vec2(1.27, 0.635))
             model.aim(at: Vec2(0.5, 0.31))
         },
-        Scene(name: "called-off-line", about: "Called shots: a different pocket called, aim at the ball") { model in
+        Scene(name: "called-off-line", about: "Called shots: a pocket the ball cannot go into is called") { model in
             model.seedScene(layout: "straight", mode: .calledShots)
             model.callPocket(near: Vec2(-1.27, 0.635))
             model.aim(at: Vec2(0.5, 0.25))

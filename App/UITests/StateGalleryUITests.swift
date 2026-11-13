@@ -58,7 +58,7 @@ final class StateGalleryUITests: XCTestCase {
             ("calibrate-find", "Point at the table"),
             ("calibrate-corners-2", "(2/4)"),
             ("calibrate-corners-3", "(3/4)"),
-            ("calibrate-adjust", "Drag dots onto the cushion noses"),
+            ("calibrate-adjust", "Drag each dot to a corner where the cushions meet"),
         ]
         for (scene, text) in cases {
             let app = launch(scene)
@@ -231,11 +231,12 @@ final class StateGalleryUITests: XCTestCase {
         XCTAssertFalse(on.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'CALLED:'")).firstMatch.exists)
         on.terminate()
 
-        // A different pocket called: the card is about THAT pocket, so its
-        // headline names the far-left corner and no other.
+        // A pocket called that the ball cannot go into: the slot is about
+        // THAT pocket, so it says so, and shows no shot into another pocket.
         let off = launch("called-off-line")
-        expectText(off, "FAR-LEFT CORNER")
-        XCTAssertFalse(off.staticTexts.containing(NSPredicate(format: "label CONTAINS 'FAR-RIGHT'")).firstMatch.exists)
+        expectText(off, "No clean shot into the far-left corner")
+        XCTAssertFalse(element(off, "shot-card").exists, "a shot card for a pocket nothing can go into")
+        XCTAssertFalse(off.staticTexts.containing(NSPredicate(format: "label CONTAINS 'RIGHT CORNER'")).firstMatch.exists)
         XCTAssertFalse(off.staticTexts.containing(NSPredicate(format: "label == 'On line'")).firstMatch.exists)
         off.terminate()
 
@@ -255,7 +256,7 @@ final class StateGalleryUITests: XCTestCase {
         let app = launch("blocked-called")
         let label = cardLabel(app)
         XCTAssertTrue(label.contains("in the cue ball's way"), label)
-        expectText(app, "FAR-RIGHT CORNER")
+        expectText(app, "RIGHT CORNER")
     }
 
     /// The card does not move when the aim crosses the line: the capsule

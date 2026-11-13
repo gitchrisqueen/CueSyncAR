@@ -95,6 +95,9 @@ public struct SheetPickerRow<Value: Hashable>: View {
             }
             .contentShape(Rectangle())
         }
+        // A menu tints its label with the accent; the row's own text is
+        // primary, as the system picker draws it.
+        .tint(.primary)
         .accessibilityLabel(title)
         .accessibilityValue(currentTitle)
     }
