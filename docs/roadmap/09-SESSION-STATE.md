@@ -30,6 +30,17 @@ The timer woke the thread on time and removed itself.
 - Next, with no device needed: an independent design re-score from the
   gallery and the device stills of 2026-11-11 and 12.
 
+**22:45.** `claude/state-gallery` (`bf1a9d1`) merged at `e957ee8`: 160 stills
+of 43 scenes on the iPad and iPhone SE simulators (kept locally), 20 of 20
+UI tests passing on the SE, and the layout defects the stills showed fixed
+(a headline breaking inside a word, a truncated label, a tier chip wrapping
+at the largest text size, a called pocket that looked like no call, a
+"table moved" capsule that did not look tappable, mixed "9-ft" and "9 ft").
+From clean: `Scripts/test-all.sh` exit 0 (11 test runs), Release iphoneos
+`** BUILD SUCCEEDED **`, swiftlint 16 violations, 0 serious. Pushed. Not on
+the iPad: it was still locked at 22:30, so the iPad runs `65c86a8`. The
+design re-score is in flight on `claude/ux-rescore-2`.
+
 ### 2026-11-12, 04:00 — `65c86a8` green and on the iPad; the Simulator will not boot
 
 `claude/state-gallery` (`2f8aa8d`) is merged: 42 seeded HUD scenes behind
