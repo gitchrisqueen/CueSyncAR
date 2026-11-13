@@ -34,6 +34,10 @@ public enum HUDTextRole: CaseIterable, Sendable {
     case body
     /// Quiet secondary lines: the bar's state line, hints.
     case caption
+    /// "MADE IT": a made shot takes the card's slot for a moment.
+    case payoff
+    /// A miss or a scratch in the same slot, and the second line of a make.
+    case payoffDetail
 
     /// Point size on a compact-width screen (a phone) at the default
     /// Dynamic Type size. Never below 17 pt: a phone is held, but it is
@@ -41,21 +45,27 @@ public enum HUDTextRole: CaseIterable, Sendable {
     public var compactSize: Double {
         switch self {
         case .headline: 20
-        case .tier: 17
+        case .tier: 18
         case .body: 17
         case .caption: 17
+        case .payoff: 30
+        case .payoffDetail: 22
         }
     }
 
     /// Point size on a regular-width screen (an iPad) at the default
-    /// Dynamic Type size: headline at least 36 pt, tier chip at least 28,
-    /// everything else at least 22.
+    /// Dynamic Type size. The independent re-score measured 22 pt text at a
+    /// 31 px cap height, one pixel under the 32 px floor, at 2 m. 28 pt is
+    /// a cap of about 39 px: headline 36, tier chip 32, every other
+    /// persistent string 28, a made shot 48 and a miss 34.
     public var regularSize: Double {
         switch self {
         case .headline: 36
-        case .tier: 28
-        case .body: 22
-        case .caption: 22
+        case .tier: 32
+        case .body: 28
+        case .caption: 28
+        case .payoff: 48
+        case .payoffDetail: 34
         }
     }
 
@@ -101,6 +111,8 @@ private struct HUDFontModifier: ViewModifier {
         case .tier: .headline
         case .body: .callout
         case .caption: .footnote
+        case .payoff: .largeTitle
+        case .payoffDetail: .title2
         }
         _compact = ScaledMetric(wrappedValue: CGFloat(role.compactSize), relativeTo: style)
         _regular = ScaledMetric(wrappedValue: CGFloat(role.regularSize), relativeTo: style)

@@ -185,9 +185,11 @@ struct HUDReadabilityTests {
                             chosenByPlayer: true)
         #expect(card.provenance == "Your pick")
         #expect(!card.releaseHint.contains("Your pick"))
-        #expect(card.releaseHint == "Tap the ball again to release")
+        // "Release" read as a stroke; say what the tap does.
+        #expect(card.releaseHint == "Tap it again to go back to the suggested shot")
+        #expect(!card.releaseHint.lowercased().contains("release"))
         // The long hint stays for VoiceOver and the mirror.
-        #expect(card.hint == "Your pick — tap again to release")
+        #expect(card.hint == "Your pick — tap again to go back to the suggested shot")
     }
     #endif
 }

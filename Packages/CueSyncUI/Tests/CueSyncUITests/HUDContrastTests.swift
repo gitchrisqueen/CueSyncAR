@@ -55,12 +55,20 @@ struct HUDContrastTests {
             #expect(role.baseSize == role.compactSize, "\(role)")
             #expect(role.regularSize >= role.compactSize, "\(role)")
         }
-        // On an iPad: headline at least 36, tier chip at least 28, every
-        // other persistent string at least 22.
+        // On an iPad: headline at least 36, tier chip at least 32, every
+        // other persistent string (capsule, bar, buttons, pills) at least 28,
+        // a made shot 48 and a miss 34 (the independent re-score measured 22
+        // pt text one pixel under the 32 px cap-height floor).
         #expect(HUDTextRole.headline.regularSize >= 36)
-        #expect(HUDTextRole.tier.regularSize >= 28)
-        #expect(HUDTextRole.body.regularSize >= 22)
-        #expect(HUDTextRole.caption.regularSize >= 22)
+        #expect(HUDTextRole.tier.regularSize >= 32)
+        #expect(HUDTextRole.body.regularSize >= 28)
+        #expect(HUDTextRole.caption.regularSize >= 28)
+        #expect(HUDTextRole.payoff.regularSize >= 48)
+        #expect(HUDTextRole.payoffDetail.regularSize >= 34)
+        // Cap height of the system font is about 0.705 em, at 2 px per pt.
+        for role in [HUDTextRole.body, .caption] {
+            #expect(role.regularSize * 0.705 * 2 >= 32, "\(role)")
+        }
         #expect(HUDTextRole.headline.size(regularWidth: true) == HUDTextRole.headline.regularSize)
         #expect(HUDTextRole.headline.size(regularWidth: false) == HUDTextRole.headline.compactSize)
     }

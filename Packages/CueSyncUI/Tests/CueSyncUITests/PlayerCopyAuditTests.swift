@@ -103,7 +103,9 @@ struct PlayerCopyAuditTests {
             #expect(!PlayerCopyAudit.hasWrongPlural(in: text), "\(text)")
         }
         #expect(HUDStatus.tracking(ballCount: 1).label == "Tracking 1 ball")
-        #expect(HUDStatus.tracking(ballCount: 0).label == "Tracking 0 balls")
+        // Zero object balls is a table with only the cue ball on it, which is
+        // not "tracking 0 balls".
+        #expect(HUDStatus.tracking(ballCount: 0).label == "No balls to shoot at")
         #expect(HUDStatus.tracking(ballCount: 15).label == "Tracking 15 balls")
     }
 

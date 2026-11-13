@@ -21,10 +21,33 @@ struct HUDStatusAdviceTests {
         #expect(!HUDStatus.tableMoved.allowsShotAdvice)
     }
 
-    @Test("Losing balls keeps the card: the table is still tracked")
-    func losingBallsKeepsTheCard() {
-        #expect(HUDStatus.losingBalls(seen: 5, peak: 15, dark: false).allowsShotAdvice)
-        #expect(HUDStatus.losingBalls(seen: 5, peak: 15, dark: true).allowsShotAdvice)
+    @Test("Fewer than half the balls in view: no card, the capsule says so")
+    func losingBallsHidesTheCard() {
+        #expect(!HUDStatus.losingBalls(seen: 5, peak: 15, dark: false).allowsShotAdvice)
+        #expect(!HUDStatus.losingBalls(seen: 5, peak: 15, dark: true).allowsShotAdvice)
+    }
+
+    @Test("Every status that hides the card is drawn as a warning, and no other is")
+    func hidingTheCardIsTheWarningSet() {
+        let all: [HUDStatus] = [.launching, .findingTable, .placingCorners(placed: 1), .confirmingRails,
+                                .awaitingCueBall, .onLine, .calledOffLine, .tracking(ballCount: 5),
+                                .needsCalibration(seeing: 3), .losingBalls(seen: 2, peak: 6, dark: false),
+                                .degraded(reason: .fastMotion), .degraded(reason: .lowLight),
+                                .degraded(reason: .trackingLost), .tableMoved]
+        for status in all {
+            #expect(status.isWarning == !status.allowsShotAdvice, "\(status)")
+        }
+    }
+
+    @Test("A warning status never carries a tick or a ball count")
+    func warningsHaveNoTickAndNoTrackingCount() {
+        let warnings: [HUDStatus] = [.losingBalls(seen: 2, peak: 6, dark: false),
+                                     .degraded(reason: .fastMotion), .degraded(reason: .lowLight),
+                                     .degraded(reason: .trackingLost), .tableMoved]
+        for status in warnings {
+            #expect(status.systemImage != "checkmark.circle", "\(status)")
+            #expect(!status.label.hasPrefix("Tracking "), "\(status)")
+        }
     }
 
     @Test("Ordinary tracking states keep the card")
@@ -35,7 +58,8 @@ struct HUDStatusAdviceTests {
     @Test("A status that hides the card never draws overlays at full strength")
     func hidingTheCardGoesWithFadedOverlays() {
         let hiding: [HUDStatus] = [.degraded(reason: .fastMotion), .degraded(reason: .lowLight),
-                                   .degraded(reason: .trackingLost), .tableMoved]
+                                   .degraded(reason: .trackingLost), .tableMoved,
+                                   .losingBalls(seen: 2, peak: 6, dark: false)]
         for status in hiding {
             #expect(status.overlayOpacity < 1, "\(status) hides the card but draws overlays at full strength")
         }

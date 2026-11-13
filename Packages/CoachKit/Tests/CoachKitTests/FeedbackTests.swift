@@ -278,3 +278,37 @@ struct FeedbackWatcherTests {
         #expect(events(&watcher, again) == [.ballsFound])
     }
 }
+
+@Suite("Where a banner is drawn")
+struct BannerPlacementTests {
+    @Test("A made shot, a miss and a scratch take the card's slot; nothing stacks under it")
+    func payoffsUseTheCardSlot() {
+        for event in [FeedbackEvent.shotMade, .shotMadeOther, .shotMissed, .scratch] {
+            #expect(FeedbackPlan.entry(for: event).placement == .cardSlot, "\(event)")
+        }
+    }
+
+    @Test("Events something else already says are not drawn twice")
+    func duplicatesAreNotDrawn() {
+        // Tracking lost: the status capsule carries it. Ball count changed:
+        // the capsule's own count. Shot selected: the card says "Your pick".
+        // No clean shot: the empty-shot card says it.
+        for event in [FeedbackEvent.trackingLost, .ballCountChanged, .shotSelected, .noCleanShot] {
+            #expect(FeedbackPlan.entry(for: event).placement == .none, "\(event)")
+        }
+    }
+
+    @Test("Everything that still shows a pill is a short, one-off confirmation")
+    func pillsAreTheRest() {
+        let pills = FeedbackEvent.allCases.filter { FeedbackPlan.entry(for: $0).placement == .pill
+            && FeedbackPlan.entry(for: $0).banner != nil }
+        #expect(Set(pills) == [.tableLocked, .calibrationRefused, .ballsFound, .trackingRecovered,
+                               .recordingStarted, .recordingStopped])
+    }
+
+    @Test("Words that are not drawn are still announced to VoiceOver")
+    func hiddenWordsAreStillAnnounced() {
+        #expect(FeedbackPlan.entry(for: .trackingLost).announce)
+        #expect(FeedbackPlan.entry(for: .trackingLost).banner == "Lost the table")
+    }
+}

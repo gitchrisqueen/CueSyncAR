@@ -84,6 +84,20 @@ public enum FeedbackPriority: Int, Sendable, Equatable, Comparable {
     public static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
 }
 
+/// Where an event's words are drawn. Words are always announced to
+/// VoiceOver; this says what a sighted player sees.
+public enum BannerPlacement: String, Sendable, Equatable, CaseIterable {
+    /// A small pill under the shot card.
+    case pill
+    /// Takes the shot card's own slot for a moment (a made shot, a miss,
+    /// a scratch), so nothing stacks under the card.
+    case cardSlot
+    /// Nothing: something else on screen already says it. The status
+    /// capsule carries tracking lost, the shot card says "Your pick",
+    /// the empty-shot card says "No clean shot".
+    case none
+}
+
 /// What one event does.
 public struct FeedbackEntry: Sendable, Equatable {
     public var haptic: HapticStyle
@@ -103,6 +117,8 @@ public struct FeedbackEntry: Sendable, Equatable {
     /// How long the banner stays.
     public var bannerDuration: TimeInterval
     public var priority: FeedbackPriority
+    /// Where a sighted player sees the words. Defaults to a pill.
+    public var placement: BannerPlacement = .pill
 }
 
 public enum FeedbackPlan {
@@ -126,11 +142,13 @@ public enum FeedbackPlan {
         case .ballCountChanged:
             FeedbackEntry(haptic: .none, sound: .none, banner: "Now tracking",
                           tone: .neutral, symbol: "circle.grid.3x3", speak: false,
-                          announce: false, cooldown: 4, bannerDuration: 1.4, priority: .ambient)
+                          announce: false, cooldown: 4, bannerDuration: 1.4, priority: .ambient,
+                          placement: .none)
         case .shotSelected:
             FeedbackEntry(haptic: .selection, sound: .select, banner: "Shot selected",
                           tone: .neutral, symbol: "scope", speak: false,
-                          announce: false, cooldown: 0.4, bannerDuration: 1.4, priority: .normal)
+                          announce: false, cooldown: 0.4, bannerDuration: 1.4, priority: .normal,
+                          placement: .none)
         case .shotChanged:
             FeedbackEntry(haptic: .none, sound: .none, banner: nil,
                           tone: .neutral, symbol: "scope", speak: false,
@@ -138,23 +156,28 @@ public enum FeedbackPlan {
         case .shotMade:
             FeedbackEntry(haptic: .success, sound: .made, banner: "Made it",
                           tone: .good, symbol: "checkmark.circle.fill", speak: true,
-                          announce: true, cooldown: 1.5, bannerDuration: 2.4, priority: .important)
+                          announce: true, cooldown: 1.5, bannerDuration: 2.4, priority: .important,
+                          placement: .cardSlot)
         case .shotMadeOther:
             FeedbackEntry(haptic: .success, sound: .made, banner: "Ball down",
                           tone: .good, symbol: "checkmark.circle", speak: true,
-                          announce: true, cooldown: 1.5, bannerDuration: 2.4, priority: .important)
+                          announce: true, cooldown: 1.5, bannerDuration: 2.4, priority: .important,
+                          placement: .cardSlot)
         case .shotMissed:
             FeedbackEntry(haptic: .warning, sound: .miss, banner: "Missed. Line it up again",
                           tone: .caution, symbol: "arrow.uturn.left.circle", speak: true,
-                          announce: true, cooldown: 1.5, bannerDuration: 2.4, priority: .important)
+                          announce: true, cooldown: 1.5, bannerDuration: 2.4, priority: .important,
+                          placement: .cardSlot)
         case .scratch:
             FeedbackEntry(haptic: .error, sound: .miss, banner: "Scratch",
                           tone: .bad, symbol: "exclamationmark.circle.fill", speak: true,
-                          announce: true, cooldown: 1.5, bannerDuration: 2.4, priority: .important)
+                          announce: true, cooldown: 1.5, bannerDuration: 2.4, priority: .important,
+                          placement: .cardSlot)
         case .trackingLost:
             FeedbackEntry(haptic: .warning, sound: .error, banner: "Lost the table",
                           tone: .bad, symbol: "exclamationmark.triangle.fill", speak: false,
-                          announce: true, cooldown: 5, bannerDuration: 2.2, priority: .important)
+                          announce: true, cooldown: 5, bannerDuration: 2.2, priority: .important,
+                          placement: .none)
         case .trackingRecovered:
             FeedbackEntry(haptic: .light, sound: .select, banner: "Tracking again",
                           tone: .good, symbol: "checkmark.circle", speak: false,
@@ -162,7 +185,8 @@ public enum FeedbackPlan {
         case .noCleanShot:
             FeedbackEntry(haptic: .none, sound: .none, banner: "No clean shot. Pick a ball to try",
                           tone: .caution, symbol: "scope", speak: false,
-                          announce: false, cooldown: 8, bannerDuration: 2.2, priority: .normal)
+                          announce: false, cooldown: 8, bannerDuration: 2.2, priority: .normal,
+                          placement: .none)
         case .recordingStarted:
             FeedbackEntry(haptic: .medium, sound: .select, banner: "Recording",
                           tone: .neutral, symbol: "record.circle", speak: false,

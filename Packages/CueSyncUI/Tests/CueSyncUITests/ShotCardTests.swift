@@ -9,10 +9,13 @@ struct ShotConfidenceTests {
     func tokensMatchTheDesignSystem() {
         #expect(ShotConfidence.easy.token == Theme.feltGreen)
         #expect(ShotConfidence.medium.token == Theme.cueAmber)
-        // Everything a player should think twice about shares one colour.
-        for band in [ShotConfidence.hard, .longShot, .blocked] {
-            #expect(band.token == Theme.warnCoral)
+        // A hard shot has its own colour (orange); only a block is red.
+        for band in [ShotConfidence.hard, .longShot] {
+            #expect(band.token == Theme.hardTier)
         }
+        #expect(ShotConfidence.blocked.token == Theme.warnCoral)
+        #expect(ShotConfidence.hard.token != ShotConfidence.blocked.token)
+        #expect(ShotConfidence.hard.textToken != ShotConfidence.blocked.textToken)
     }
 
     @Test("Every band has a distinct word a person could hear")
@@ -80,7 +83,7 @@ struct ShotCardTests {
                             confidence: .easy, chosenByPlayer: true)
         #expect(card.accessibilityText.hasPrefix("Your pick"))
         #expect(card.accessibilityText.hasSuffix(", easy"))
-        #expect(card.hint == "Your pick — tap again to release")
+        #expect(card.hint == "Your pick — tap again to go back to the suggested shot")
     }
 
     @Test("A suggestion that is not good does not claim to be the best")

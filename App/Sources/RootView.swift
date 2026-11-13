@@ -188,14 +188,16 @@ struct RootView: View {
     private var statusCapsule: some View {
         if hudStatus == .tableMoved {
             Button { model.recalibrateFromBanner() } label: {
-                // Outlined, so a capsule that asks to be pressed does not
-                // look like the ones that only report.
+                // Amber like every warning (StatusCapsule); the whole capsule
+                // is the button.
                 StatusCapsule(status: hudStatus)
-                    .overlay(Capsule().stroke(Theme.fairText.color, lineWidth: 2))
             }
             .buttonStyle(.plain)
             .hudTapTarget()
+            .accessibilityLabel("Table moved? Re-calibrate")
             .accessibilityHint("Starts table calibration again")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier("table-moved-button")
         } else {
             StatusCapsule(status: hudStatus)
         }
@@ -235,7 +237,7 @@ struct RootView: View {
             if model.calledPocket != nil {
                 return .calledOffLine
             }
-            return .tracking(ballCount: model.tableState?.balls.count ?? 0)
+            return .tracking(ballCount: model.tableState?.objectBallCount ?? 0)
         }
         // The calibration flow owns the capsule while it's on screen.
         if model.calibrationVisible, !model.calibration.isLocked {
@@ -243,7 +245,8 @@ struct RootView: View {
             case .searchingPlane: return .findingTable
             case .planeFound: return .placingCorners(placed: model.pendingCorners.count)
             case .adjusting: return .confirmingRails
-            case .locked: return .tracking(ballCount: 0)
+            // Locked but not yet live: the pipeline is starting.
+            case .locked: return .launching
             }
         }
         // A detector is loaded and firing, but with no calibrated table

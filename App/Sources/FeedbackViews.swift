@@ -287,9 +287,9 @@ struct FeedbackSettingsSection: View {
                 set: { on in model.updateSettings { $0.showScoreboard = on } }))
                 .accessibilityIdentifier("settings-scoreboard")
         } header: {
-            Text("Sounds and haptics")
+            SheetHeader("Sounds and haptics")
         } footer: {
-            Text("""
+            SheetFootnote("""
                 Short tones and taps when the table locks, when you pick a \
                 shot, and when a ball goes down or a shot misses. Sounds \
                 follow the ring switch, so silent mode silences them. The \
@@ -316,9 +316,9 @@ struct ScoreboardSection: View {
                 Button("Reset score") { model.feedback.resetScore() }
                     .accessibilityIdentifier("more-score-reset")
             } header: {
-                Text("This session")
+                SheetHeader("This session")
             } footer: {
-                Text("Counted from the last time the table was locked.")
+                SheetFootnote("Counted from the last time the table was locked.")
             }
         }
     }

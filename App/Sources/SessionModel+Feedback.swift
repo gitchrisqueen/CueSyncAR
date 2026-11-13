@@ -58,7 +58,7 @@ extension SessionModel {
             refusal: calibrationVisible ? calibration.lastError.map { String(describing: $0) } : nil,
             live: isLiveTracking,
             degraded: trackingCondition.degradedReason != nil,
-            ballCount: tableState?.balls.count ?? 0,
+            ballCount: tableState?.objectBallCount ?? 0,
             shot: activeShot.map { "\($0.ball.rawValue).\($0.pocket.rawValue)" },
             shotChosenByPlayer: targetIsPlayerChosen,
             noCleanShot: shotEmptyState == .noCleanShot,

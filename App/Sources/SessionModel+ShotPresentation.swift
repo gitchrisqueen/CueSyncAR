@@ -127,8 +127,9 @@ extension SessionModel {
     /// pocket is left out, not guessed, until the table has been seen on
     /// screen.
     func shotCall(for rating: ShotRating) -> ShotCall {
-        ShotCall(ball: ballName(for: rating.ball),
-                 pocket: presentation.pocketNames[rating.pocket])
+        ShotCall.make(ball: rating.ball, in: tableState,
+                      colour: ballIdentity.family(for: rating.ball)?.family.rawValue,
+                      pocket: presentation.pocketNames[rating.pocket])
     }
 
     /// The call for the shot on offer, for the card, the voice and the mirror.

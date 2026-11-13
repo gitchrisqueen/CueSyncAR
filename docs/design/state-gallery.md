@@ -31,6 +31,17 @@ Capture recipe (local only, never commit a still): build for the Simulator,
 | The recorder's numbers (frames, megabytes, a running clock) | The recording scene starts the real recorder, but no AR frames arrive in the Simulator, so the badge sits at "REC 0:00". The scene puts the table back after the recorder restarts the (absent) pipeline. |
 | A streak banner | The HUD shows a run on the score chip ("3 of 3 made · 3 in a row") and the More sheet shows the best streak; there is no separate streak banner. |
 
-Scenes that play shots (`shot-*`, `scoreboard`, `sheet-more-scored`) wait one
-second after seeding so the sampler's lock tick (which zeroes the score) has
-already happened.
+Scenes that play shots (`shot-*`, `scoreboard`, `sheet-more-scored`) wait three
+seconds after seeding so the sampler's lock tick (which zeroes the score) and
+the "Table locked" pill have already happened.
+
+## Scenes added for the truth pass
+
+`banner-tracking-lost` now sets ARKit's tracking condition first, as the app
+does, so the screen is the amber capsule alone (no tick, no card, no pill).
+`called-off-line-aimed` calls the suggested shot's pocket with the aim a
+little off ("Off line — move your aim right"). `ball-unknown` seeds balls
+with neither number nor colour (the card says BALL). `cue-ball-only` and
+`one-ball` are the two readings of "one ball": only the cue ball ("No balls to
+shoot at") and one object ball ("Tracking 1 ball"). Every ball count is
+object balls: a full rack is 15.

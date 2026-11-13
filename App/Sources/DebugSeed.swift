@@ -27,7 +27,7 @@ import TableSpace
 
 enum DebugSeed {
     static let layoutNames = ["open", "blocked", "rack", "straight", "fair", "pickblock", "nocue",
-                              "scratch", "oneball"]
+                              "scratch", "oneball", "oneobject", "unknownballs"]
 
     /// Table-space metres on a nine-foot table (x along the long rail).
     static func state(named name: String) -> TableState? {
@@ -85,6 +85,19 @@ enum DebugSeed {
             ])
         case "oneball":
             return TableState(table: table, balls: [ball(0, .cue, -0.30, 0.10)])
+        case "oneobject":
+            return TableState(table: table, balls: [
+                ball(0, .cue, -0.30, 0.10),
+                ball(3, .solid(3), 0.35, 0.20)
+            ])
+        case "unknownballs":
+            // Balls the tracker has not named: no number, no colour. The
+            // card must say "BALL", not invent a colour.
+            return TableState(table: table, balls: [
+                ball(0, .cue, -0.60, -0.10),
+                ball(21, .unknown, 0.25, 0.30),
+                ball(22, .unknown, 0.55, -0.25)
+            ])
         case "straight":
             // Cue ball, object ball and the far-right corner pocket on one
             // line: a near-straight shot, which the guide answers with a

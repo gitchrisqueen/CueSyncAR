@@ -123,10 +123,11 @@ final class StateGalleryUITests: XCTestCase {
             ("low-light", "Need more light"),
             ("hold-steady", "Hold steady"),
             ("table-lost", "Re-finding the table"),
-            ("losing-balls", "Only seeing 2 of 5 balls"),
+            ("losing-balls", "Only seeing 6 of 15 balls"),
             ("losing-balls-dark", "more light would help"),
             ("losing-one-of-fifteen", "Only seeing 1 of 15 balls"),
             ("one-ball", "Tracking 1 ball"),
+            ("cue-ball-only", "No balls to shoot at"),
         ]
         for (scene, text) in cases {
             let app = launch(scene)
@@ -136,13 +137,31 @@ final class StateGalleryUITests: XCTestCase {
         }
     }
 
-    /// The stale-lock capsule is a button, and the shot card is held back.
+    /// The stale-lock capsule is a real button, with a hint, and tapping it
+    /// starts calibration again; the shot card is held back; and the bar
+    /// carries "Set up table" too.
     func testTableMovedIsAButtonAndHidesTheCard() {
         let app = launch("table-moved")
         expectText(app, "Table moved? Re-calibrate")
-        XCTAssertTrue(app.buttons["Table moved? Re-calibrate"].exists
-                      || app.buttons.containing(NSPredicate(format: "label CONTAINS 'Re-calibrate'")).firstMatch.exists)
+        let button = app.buttons["table-moved-button"]
+        XCTAssertTrue(button.waitForExistence(timeout: 30), "the capsule is not a button")
+        XCTAssertEqual(button.label, "Table moved? Re-calibrate")
         XCTAssertFalse(element(app, "shot-card").exists, "a shot card on a table that has moved")
+        XCTAssertTrue(app.buttons["calibrate-button"].exists, "no Set up table in the bar")
+        button.tap()
+        // Calibration starts over: the capsule leaves the warning.
+        expectText(app, "Point at the table")
+        XCTAssertFalse(app.buttons["table-moved-button"].exists)
+    }
+
+    /// Tracking lost: the capsule carries it. No tick, no "Tracking N", no
+    /// shot card, and no separate pill saying the same thing.
+    func testTrackingLostSaysItOnce() {
+        let app = launch("banner-tracking-lost")
+        expectText(app, "Re-finding the table")
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Tracking '")).firstMatch.exists)
+        XCTAssertFalse(element(app, "shot-card").exists)
+        XCTAssertFalse(element(app, "feedback-banner").exists, "a pill repeating the capsule")
     }
 
     // MARK: Guide tile
@@ -172,28 +191,54 @@ final class StateGalleryUITests: XCTestCase {
         empty.terminate()
 
         let made = launch("shot-made")
-        XCTAssertTrue(element(made, "feedback-banner").waitForExistence(timeout: 60))
+        // A make takes the shot card's slot; no pill stacks under it.
+        XCTAssertTrue(element(made, "payoff-card").waitForExistence(timeout: 60))
+        XCTAssertFalse(element(made, "shot-card").exists, "the card and the payoff at once")
+        XCTAssertFalse(element(made, "feedback-banner").exists, "a pill under the payoff")
         XCTAssertTrue(element(made, "score-chip").exists)
         made.terminate()
 
         let missed = launch("shot-missed")
-        XCTAssertTrue(element(missed, "feedback-banner").waitForExistence(timeout: 60))
+        XCTAssertTrue(element(missed, "payoff-card").waitForExistence(timeout: 60))
+        XCTAssertFalse(element(missed, "feedback-banner").exists)
     }
 
     // MARK: Called shots
 
     func testCalledShots() {
+        // No pocket called: nothing in the aim slot, no "On line".
         let none = launch("called-no-pocket")
         expectText(none, "Call your pocket")
+        XCTAssertFalse(none.staticTexts.containing(NSPredicate(format: "label == 'On line'")).firstMatch.exists)
+        XCTAssertFalse(none.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'CALLED'")).firstMatch.exists)
         none.terminate()
 
         let on = launch("called-on-line")
         expectText(on, "On line")
+        expectText(on, "CALLED:")
         on.terminate()
 
+        // The called pocket is not the one the aim goes to.
         let off = launch("called-off-line")
         expectText(off, "Pocket called")
+        expectText(off, "Off line")
         XCTAssertFalse(off.staticTexts.containing(NSPredicate(format: "label CONTAINS 'send it'")).firstMatch.exists)
+        XCTAssertFalse(off.staticTexts.containing(NSPredicate(format: "label == 'On line'")).firstMatch.exists)
+        off.terminate()
+
+        // The suggested pocket is called and the aim is a little off: which way.
+        let aimed = launch("called-off-line-aimed")
+        expectText(aimed, "Off line — move your aim")
+    }
+
+    // MARK: Ball names
+
+    func testBallNames() {
+        let numbered = launch("tier-easy")
+        expectText(numbered, "9 YELLOW STRIPE")
+        numbered.terminate()
+        let unknown = launch("ball-unknown")
+        expectText(unknown, "BALL →")
     }
 
     // MARK: Recording and sheets

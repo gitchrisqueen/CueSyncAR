@@ -119,6 +119,9 @@ enum DebugScenes {
             model.seedScene(layout: "pickblock")
             model.pickAnotherBall(preferring: BallID(4))
         },
+        Scene(name: "ball-unknown", about: "Balls with no number and no colour: the card says BALL, invents nothing") { model in
+            model.seedScene(layout: "unknownballs")
+        },
         Scene(name: "no-cue-ball", about: "No cue ball: place the cue ball") { model in
             model.seedScene(layout: "nocue")
         },
@@ -159,20 +162,23 @@ enum DebugScenes {
             model.seedScene(layout: "open")
             model.trackingCondition = .relocalizing
         },
-        Scene(name: "losing-balls", about: "Only seeing 2 of 5 balls") { model in
-            model.seedScene(layout: "open")
-            model.feedDetectionHealth(peak: 5, now: 2, luminance: 0.6, shownBalls: 2)
-        },
-        Scene(name: "losing-balls-dark", about: "Only seeing 2 of 5 balls: more light would help") { model in
-            model.seedScene(layout: "open")
-            model.feedDetectionHealth(peak: 5, now: 2, luminance: 0.15, shownBalls: 2)
-        },
-        Scene(name: "losing-one-of-fifteen", about: "Tracking 1 ball of 15: must not look healthy") { model in
+        Scene(name: "losing-balls", about: "Only seeing 6 of 15 balls: amber capsule, no card") { model in
             model.seedScene(layout: "rack")
-            model.feedDetectionHealth(peak: 15, now: 1, luminance: 0.6, shownBalls: 1)
+            model.feedDetectionHealth(peak: 15, now: 6, luminance: 0.6)
         },
-        Scene(name: "one-ball", about: "A table with one ball: Tracking 1 ball") { model in
+        Scene(name: "losing-balls-dark", about: "Only seeing 6 of 15 balls: more light would help") { model in
+            model.seedScene(layout: "rack")
+            model.feedDetectionHealth(peak: 15, now: 6, luminance: 0.15)
+        },
+        Scene(name: "losing-one-of-fifteen", about: "Only seeing 1 of 15 balls: must not look healthy") { model in
+            model.seedScene(layout: "rack")
+            model.feedDetectionHealth(peak: 15, now: 1, luminance: 0.6)
+        },
+        Scene(name: "cue-ball-only", about: "Only the cue ball on the table: no balls to shoot at") { model in
             model.seedScene(layout: "oneball")
+        },
+        Scene(name: "one-ball", about: "One object ball: Tracking 1 ball") { model in
+            model.seedScene(layout: "oneobject")
         },
     ]
 
@@ -189,7 +195,7 @@ enum DebugScenes {
             model.feedback.bannerHoldOverride = 3600
             for _ in 0..<3 where model.activeShot != nil {
                 model.simulateShot(result: "made")
-                try? await Task.sleep(for: .milliseconds(600))
+                try? await Task.sleep(for: .milliseconds(1700))
             }
         },
         Scene(name: "shot-missed", about: "A missed shot: banner") { model in
@@ -205,23 +211,27 @@ enum DebugScenes {
         Scene(name: "scoreboard", about: "The scoreboard chip after a made and a missed shot") { model in
             await model.seedAndSettle(layout: "open", scoreboard: true)
             model.simulateShot(result: "made")
-            try? await Task.sleep(for: .milliseconds(600))
+            try? await Task.sleep(for: .milliseconds(1700))
             if model.activeShot != nil { model.simulateShot(result: "missed") }
         },
         Scene(name: "sheet-more-scored", about: "The More sheet with a score: shots made and best streak") { model in
             await model.seedAndSettle(layout: "open", scoreboard: true)
             for _ in 0..<2 where model.activeShot != nil {
                 model.simulateShot(result: "made")
-                try? await Task.sleep(for: .milliseconds(600))
+                try? await Task.sleep(for: .milliseconds(1700))
             }
             model.openSheet("more")
         },
         Scene(name: "scoreboard-empty", about: "The scoreboard chip before any shot") { model in
             model.seedScene(layout: "open", group: .any, scoreboard: true)
         },
-        Scene(name: "banner-tracking-lost", about: "Banner: tracking lost") { model in
+        Scene(name: "banner-tracking-lost", about: "Tracking lost: amber capsule, no card, no pill") { model in
             await model.seedAndSettle(layout: "open")
             model.feedback.bannerHoldOverride = 3600
+            // What the app does: ARKit loses the table, the status says so,
+            // and the feedback event fires. The event draws no pill: the
+            // capsule carries the message.
+            model.trackingCondition = .relocalizing
             model.postFeedback(.trackingLost, force: true)
         },
         Scene(name: "banner-tracking-recovered", about: "Banner: tracking recovered") { model in
@@ -247,6 +257,11 @@ enum DebugScenes {
             model.seedScene(layout: "straight", mode: .calledShots)
             model.callPocket(near: Vec2(1.27, 0.635))
             model.aim(at: Vec2(0.5, 0.25))
+        },
+        Scene(name: "called-off-line-aimed", about: "Called shots: the suggested pocket called, aim off: which way") { model in
+            model.seedScene(layout: "straight", mode: .calledShots)
+            model.callPocket(near: Vec2(1.27, 0.635))
+            model.aim(at: Vec2(0.5, 0.31))
         },
         Scene(name: "called-off-line", about: "Called shots: pocket called, not on line") { model in
             model.seedScene(layout: "straight", mode: .calledShots)
@@ -295,12 +310,14 @@ extension SessionModel {
         seedSyntheticTable(named: layout, quiet: true)
     }
 
-    /// `seedScene`, then wait out the sampler's lock tick (4 Hz), which
+    /// `seedScene`, then wait out the sampler's lock tick (4 Hz) and the lock pill, which
     /// resets the score and the shot tracking when it sees a new lock. A
     /// scene that plays shots must start after it, or the score is wiped.
     func seedAndSettle(layout: String, scoreboard: Bool = false) async {
         seedScene(layout: layout, group: .any, scoreboard: scoreboard)
-        try? await Task.sleep(for: .seconds(1))
+        // 3 s: past the lock tick (4 Hz) AND past the "Table locked" pill's
+        // 2.2 s, so the scene starts from a quiet screen.
+        try? await Task.sleep(for: .seconds(3))
     }
 
     /// Re-publish a layout as the pipeline's next output would.
@@ -357,26 +374,30 @@ extension SessionModel {
     }
 
     /// Frames a live pipeline would have reported for a detector that has
-    /// gone quiet: `peak` balls for a while, then `now`. `shownBalls`
-    /// replaces the table state afterwards with that many balls, as the
-    /// tracker's output would.
-    func feedDetectionHealth(peak: Int, now: Int, luminance: Double, shownBalls: Int? = nil) {
+    /// gone quiet: `peak` OBJECT balls for a while, then `now`. The count
+    /// rule is the app's own (`TableState.objectBallCount`): the cue ball is
+    /// never counted. The table state afterwards is the cue ball and `now`
+    /// object balls, as the tracker's output would be.
+    func feedDetectionHealth(peak: Int, now: Int, luminance: Double) {
         guard let state = tableState else { return }
-        func output(_ count: Int, at time: Double) -> PerceptionOutput {
-            PerceptionOutput(state: TableState(table: state.table,
-                                               balls: Array(state.balls.prefix(count)),
-                                               timestamp: time),
-                             luminance: luminance)
+        let cue = state.cueBall
+        let objects = state.balls.filter { $0.id != cue?.id }
+        func table(_ count: Int, at time: Double) -> TableState {
+            TableState(table: state.table,
+                       balls: (cue.map { [$0] } ?? []) + Array(objects.prefix(count)),
+                       timestamp: time)
         }
         var time = state.timestamp
-        for _ in 0..<80 { time += 0.1; noteOutputHealth(output(peak, at: time)) }
-        for _ in 0..<80 { time += 0.1; noteOutputHealth(output(now, at: time)) }
-        if let shownBalls {
-            installDebugState(TableState(table: state.table,
-                                         balls: Array(state.balls.prefix(shownBalls)),
-                                         timestamp: time))
-            recomputeRanking()
+        for _ in 0..<80 {
+            time += 0.1
+            noteOutputHealth(PerceptionOutput(state: table(peak, at: time), luminance: luminance))
         }
+        for _ in 0..<80 {
+            time += 0.1
+            noteOutputHealth(PerceptionOutput(state: table(now, at: time), luminance: luminance))
+        }
+        installDebugState(table(now, at: time))
+        recomputeRanking()
     }
 
     func openSheet(_ name: String) {
